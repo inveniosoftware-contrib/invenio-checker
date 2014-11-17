@@ -22,6 +22,9 @@ from .plugins import Plugins
 from .rules import Rules
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
+from invenio.ext.sqlalchemy import db
+from invenio.ext.sqlalchemy.utils import session_manager
+from invenio.modules.workflows.models import BibWorkflowObject
 
 
 class PluginMissing(Exception):
@@ -61,6 +64,24 @@ def run(plugins, rules, user_ids, queue, tickets, upload, dry_run):
     for rule in rules:
         if rule.checkspec not in plugins:
             raise PluginMissing((rule.checkspec, rule['name']))
+
+    # Run
+    common = {
+        'tickets': tickets,
+        'queue': queue,
+        'upload': upload
+    }
+    json_rulesets = rules.by_json_ruleset(user_ids)
+    for rule_jsons, ids in json_rulesets.items():
+        data = {
+            'rule_jsons': rule_jsons,
+            'ids': ids,
+            'common': common_data
+        }
+        obj = BibWorkflowObject.create_object()
+        obj.set_data(data)
+        obj.save()
+        obj.start_workflow("base_bundle", delayed=True)
 
 
 @plugins_dec

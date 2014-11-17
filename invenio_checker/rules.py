@@ -16,6 +16,7 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+import json
 import yaml
 from argparse import ArgumentTypeError
 from collections import defaultdict, MutableSequence
@@ -24,6 +25,7 @@ from pykwalify.errors import SchemaError
 
 from .registry import config_files, schema_files
 from .common import ALL
+from invenio.legacy.search_engine import perform_request_search
 
 
 class DuplicateRuleError(Exception):
@@ -33,6 +35,7 @@ class DuplicateRuleError(Exception):
 class Rule(dict):
 
     def __init__(self, *args, **kwargs):
+        self._requested_ids = None
         super(Rule, self).__init__(*args, **kwargs)
 
     @property
@@ -41,6 +44,53 @@ class Rule(dict):
         check = self['check']
         return 'invenio.modules.{module}.checkerext.plugins.{plugin}'\
             .format(module=check[0], plugin=check[1])
+
+    def requested_ids(self, user_ids):
+        """Get a user-filtered list of IDs requested by this rule.
+
+        :param user_ids: list of requested IDs
+            * may contain ALL
+        :type  user_ids: list or str
+
+        :returns: seq of IDs found in the database
+        :rtype:   intbitset
+
+        Notes
+        -----
+        Lazy, trusts that we do not modify the filter dict or change IDs.
+        """
+        if self._requested_ids is not None:
+            return self._requested_ids
+        default_args = {
+            'sf': 'id',
+            'so': 'd',
+            'of': 'intbitset'
+        }
+        default_args.update(self._query_dict())
+        ret_ids = perform_request_search(**default_args)
+        if user_ids == ALL:
+            self._requested_ids = ret_ids
+        else:
+            self._requested_ids = ret_ids & user_ids
+        return self._requested_ids
+
+    def _query_dict(self):
+        """Compatibalize config filters with `perform_request_search` args.
+
+        :returns: sets for expansion in `perform_request_search`
+        :rtype:   dict
+
+        """
+        query_translator = {
+            'cc': 'collection',
+            'wl': 'limit',
+            'p': 'pattern',
+            'f': 'field',
+        }
+        if 'filter' in self:
+            for query_arg, filter_name in query_translator.items():
+                if filter_name in self['filter']:
+                    yield (query_arg, self['filter'][filter_name])
 
     def validate(self, schema_files):
         """Validate a single YAML rule.
@@ -105,6 +155,53 @@ class Rules(MutableSequence):
         for user_rule in user_rules:
             rules.load_file(user_rule)
         return rules
+
+    @classmethod
+    def from_jsons(cls, rule_jsons):
+        """Recover Rules from a JSON string.
+
+        Notes
+        -----
+        This is used by workflow workers.
+        """
+        rules = cls()
+        for rule_json in rule_jsons:
+            rule = Rule(json.loads(rule_json))
+            rules.append(rule)
+        return rules
+
+    # def iterbatch(self):
+    #     """Iterate over batch rules."""
+    #     for rule in self:
+    #         if 'pre' in rule['check']:
+    #             yield rule['name'], rule
+
+    # def itersimple(self):
+    #     """Iterate over simple rules."""
+    #     for rule in self:
+    #         if not 'pre' in rule['check']:
+    #             yield rule['name'], rule
+
+    def by_json_ruleset(self, user_ids):
+        """Bundle rules of the specified user IDs into by-rule-set sets.
+
+        :param user_ids: IDs to be bundled
+        :type  user_ids: list
+
+        :returns: seq(json(rule)):relevant_ids
+        :rtype:   dict
+        """
+        # Bundle into ID:json(rule)
+        id_bundles = defaultdict(list)
+        for rule in self:
+            for id_ in rule.requested_ids(user_ids):
+                rule_json = json.dumps(rule)
+                id_bundles[id_].append(rule_json)
+        # Bundle into seq(json(rule)):ids
+        bundles = defaultdict(list)
+        for id_, rule_json in id_bundles.iteritems():
+            bundles[tuple(rule_json)].append(id_)
+        return bundles
 
     def load_file(self, filepath):
         """Load (and validate) a file of YAML documents of rules.
