@@ -39,11 +39,10 @@ class Rule(dict):
         super(Rule, self).__init__(*args, **kwargs)
 
     @property
-    def checkspec(self):
+    def pluginspec(self):
         """Resolve checkspec of the rule's check."""
-        check = self['check']
-        return 'invenio.modules.{module}.checkerext.plugins.{plugin}'\
-            .format(module=check[0], plugin=check[1])
+        return 'invenio.modules.{module}.checkerext.plugins.{file}'\
+            .format(module=self['plugin']['module'], file=self['plugin']['file'])
 
     def requested_ids(self, user_ids):
         """Get a user-filtered list of IDs requested by this rule.

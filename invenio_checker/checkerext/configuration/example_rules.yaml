@@ -19,17 +19,23 @@
 
 ---
 name: check_mandatory_fields
-check: [checker, mandatory]
+plugin:
+    module: checker
+    file: mandatory
 arguments:
     fields: ["001%%_", "005%%_"]
 ---
 name: check_utf8
-check: [checker, utf8]
+plugin:
+    module: checker
+    file: utf8
 options:
     consider_deleted_records: true
 ---
 name: trailing_space
-check: [checker, trailing_space]
+plugin:
+    module: checker
+    file: trailing_space
 arguments:
     strip: true
     normalize_spaces: true

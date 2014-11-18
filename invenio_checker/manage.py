@@ -28,9 +28,9 @@ from invenio.modules.workflows.models import BibWorkflowObject
 
 
 class PluginMissing(Exception):
-    def __init__(self, checkspec, rule_name):
+    def __init__(self, pluginspec, rule_name):
         message = "Could not find plugin `{0}` as defined in `{1}`"\
-            .format(checkspec, rule_name)
+            .format(pluginspec, rule_name)
         super(PluginMissing, self).__init__(message)
 
 manager = Manager()
@@ -62,8 +62,8 @@ def run(plugins, rules, user_ids, queue, tickets, upload, dry_run):
 
     # Ensure defined plugins exist
     for rule in rules:
-        if rule.checkspec not in plugins:
-            raise PluginMissing((rule.checkspec, rule['name']))
+        if rule.pluginspec not in plugins:
+            raise PluginMissing((rule.pluginspec, rule['name']))
 
     # Run
     common = {
@@ -76,7 +76,7 @@ def run(plugins, rules, user_ids, queue, tickets, upload, dry_run):
         data = {
             'rule_jsons': rule_jsons,
             'ids': ids,
-            'common': common_data
+            'common': common
         }
         obj = BibWorkflowObject.create_object()
         obj.set_data(data)

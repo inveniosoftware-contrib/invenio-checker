@@ -22,13 +22,13 @@ mapping:
     name:
         type: str
         required: True
-    check:
-        type: seq
-        range:
-            min: 2
-            max: 2
-        sequence:
-            - type: str
+    plugin:
+        type: map
+        mapping:
+            module:
+                type: str
+            file:
+                type: str
         required: True
     arguments:
         type: map
