@@ -91,6 +91,28 @@ class Rule(dict):
                 if filter_name in self['filter']:
                     yield (query_arg, self['filter'][filter_name])
 
+    @classmethod
+    def from_json(cls, rule_json):
+        """Create a Rule from json
+
+        :param rule_json: a json representation of a Rule's dictionary
+        :type  rule_json: str
+        :returns: a single rule
+        :rtype:   Rule instance
+
+        :raises : ValueError
+
+        """
+        return cls(json.loads(rule_json))
+
+    def to_json(self):
+        """TODO: Docstring for to_json.
+        :returns: a json representation of a Rule's dictionary
+        :rtype:   str
+
+        """
+        return json.dumps(self)
+
     def validate(self, schema_files):
         """Validate a single YAML rule.
 
@@ -159,13 +181,11 @@ class Rules(MutableSequence):
     def from_jsons(cls, rule_jsons):
         """Recover Rules from a JSON string.
 
-        Notes
-        -----
         This is used by workflow workers.
         """
         rules = cls()
         for rule_json in rule_jsons:
-            rule = Rule(json.loads(rule_json))
+            rule = Rule.from_json(rule_json)
             rules.append(rule)
         return rules
 
