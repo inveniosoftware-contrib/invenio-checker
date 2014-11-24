@@ -22,6 +22,7 @@ from argparse import ArgumentTypeError
 from collections import defaultdict, MutableSequence
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
+from importlib import import_module
 
 from .registry import config_files, schema_files
 from .common import ALL
@@ -35,7 +36,14 @@ class DuplicateRuleError(Exception):
 class Rule(dict):
 
     def __init__(self, *args, **kwargs):
+        """Initialize a single rule.
+
+        It is the programmer's responsibility to decide when to do validation,
+        because it is strict about extraneous values which may be useful to have
+        in the dict.
+        """
         self._requested_ids = None
+        self._is_batch = None
         super(Rule, self).__init__(*args, **kwargs)
 
     @property
@@ -54,9 +62,7 @@ class Rule(dict):
         :returns: seq of IDs found in the database
         :rtype:   intbitset
 
-        Notes
-        -----
-        Lazy, trusts that we do not modify the filter dict or change IDs.
+        Lazy, trusts that we do not modify self['filter'] or change IDs.
         """
         if self._requested_ids is not None:
             return self._requested_ids
@@ -78,7 +84,6 @@ class Rule(dict):
 
         :returns: sets for expansion in `perform_request_search`
         :rtype:   dict
-
         """
         query_translator = {
             'cc': 'collection',
@@ -100,8 +105,7 @@ class Rule(dict):
         :returns: a single rule
         :rtype:   Rule instance
 
-        :raises : ValueError
-
+        :raises: ValueError
         """
         return cls(json.loads(rule_json))
 
@@ -109,7 +113,6 @@ class Rule(dict):
         """TODO: Docstring for to_json.
         :returns: a json representation of a Rule's dictionary
         :rtype:   str
-
         """
         return json.dumps(self)
 
@@ -120,6 +123,21 @@ class Rule(dict):
         """
         core = Core(source_data=self, schema_files=schema_files)
         core.validate(raise_exception=True)
+
+    @property
+    def is_batch(self):
+        """Check if a rule uses a batch plugin.
+
+        Lazy, trusts that we do not modify self['plugin'].
+        :returns: whether a rule uses a batch plugin or not
+        :rtype:   bool
+
+        :raises: ImportError
+        """
+        if self._is_batch is not None:
+            return self._is_batch
+        plugin_module = import_module(self.pluginspec)
+        return hasattr(plugin_module, 'pre_check')
 
 
 class Rules(MutableSequence):
@@ -189,17 +207,17 @@ class Rules(MutableSequence):
             rules.append(rule)
         return rules
 
-    # def iterbatch(self):
-    #     """Iterate over batch rules."""
-    #     for rule in self:
-    #         if 'pre' in rule['check']:
-    #             yield rule['name'], rule
+    def iterbatch(self):
+        """Iterate over batch rules."""
+        for rule in self:
+            if rule.is_batch:
+                yield rule
 
-    # def itersimple(self):
-    #     """Iterate over simple rules."""
-    #     for rule in self:
-    #         if not 'pre' in rule['check']:
-    #             yield rule['name'], rule
+    def itersimple(self):
+        """Iterate over simple rules."""
+        for rule in self:
+            if not rule.is_batch:
+                yield rule
 
     def by_json_ruleset(self, user_ids):
         """Bundle rules of the specified user IDs into by-rule-set sets.
@@ -226,7 +244,7 @@ class Rules(MutableSequence):
         """Load (and validate) a file of YAML documents of rules.
 
         :param filepath: file path of the file that needs to be loaded
-        :type  filepath: str:
+        :type  filepath: str
 
         :raises: ArgumentTypeError
         """
