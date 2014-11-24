@@ -16,14 +16,14 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from functools import wraps
+
 from .common import ALL
 from .ids import ids_from_input
 from .plugins import Plugins
 from .rules import Rules
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
-from invenio.ext.sqlalchemy import db
-from invenio.ext.sqlalchemy.utils import session_manager
 from invenio.modules.workflows.models import BibWorkflowObject
 
 
@@ -34,14 +34,22 @@ class PluginMissing(Exception):
         super(PluginMissing, self).__init__(message)
 
 manager = Manager()
-plugins_dec = manager.option('--plugins', '-p', default=ALL, type=Plugins.from_input,
-                             help='Set custom plugin files.')
 rules_dec = manager.option('--rules', '-r', default=ALL, type=Rules.from_input,
                            help='Comma seperated list of rules to run, or ' + ALL)
 
 
-@plugins_dec
-@rules_dec
+def dry_run_dec(func):
+    @wraps(func)
+    def _dry_run(*args, **kwargs):
+        """Resolve `dry_run` to variables understood by `run()`."""
+        if 'dry_run' in kwargs:
+            if kwargs['dry_run']:
+                kwargs['upload'] = False
+                kwargs['tickets'] = False
+            del kwargs['dry_run']
+        return func(*args, **kwargs)
+    return _dry_run
+
 @manager.option('--ids', '-i', dest='user_ids', default=ALL, type=ids_from_input,
                 help='List of record IDs to work on (overrides other filters),'
                 ' or ' + ALL + ' to run on every single record')
@@ -53,14 +61,29 @@ rules_dec = manager.option('--rules', '-r', default=ALL, type=Rules.from_input,
                 help='Disable uploading changes to the database')
 @manager.option('--dry-run', '-d', action='store_true',
                 help='Same as --no-tickets --no-upload')
-def run(plugins, rules, user_ids, queue, tickets, upload, dry_run):
-    """Initiate the execution of all requested rules."""
-    # Preparations
-    if dry_run:
-        upload = False
-        tickets = False
+@rules_dec
+@dry_run_dec  # This must be last as it swallows an argument
+def run(rules, user_ids, queue, tickets, upload):
+    """Initiate the execution of all requested rules.
 
+    :param rules: rules to load
+    :type  rules: list of rule_names or ALL
+    :param user_ids: record IDs to consider
+    :type  user_ids: intbitset
+    :param queue: bibcatalog queue to create tickets in
+    :type  queue: str
+    :param tickets: whether to create tickets
+    :type  tickets: bool
+    :param upload: whether to upload amended records
+    :type  upload: bool
+
+    :returns: TODO
+    :rtype:   TODO
+
+    :raises: PluginMissing
+    """
     # Ensure defined plugins exist
+    plugins = Plugins()
     for rule in rules:
         if rule.pluginspec not in plugins:
             raise PluginMissing((rule.pluginspec, rule['name']))
@@ -83,11 +106,9 @@ def run(plugins, rules, user_ids, queue, tickets, upload, dry_run):
         obj.save()
         obj.start_workflow("base_bundle", delayed=True)
 
-
-@plugins_dec
 @rules_dec
 @change_command_name
-def list_plugins(plugins, rules):
+def list_plugins(rules):
     """List all rules (and any associated plug-ins) and exit."""
     # TODO
     pass
