@@ -23,6 +23,7 @@ from collections import defaultdict, MutableSequence
 from pykwalify.core import Core
 from pykwalify.errors import SchemaError
 from importlib import import_module
+from intbitset import intbitset
 
 from .registry import config_files, schema_files
 from .common import ALL
@@ -73,10 +74,9 @@ class Rule(dict):
         }
         default_args.update(self._query_dict())
         ret_ids = perform_request_search(**default_args)
-        if user_ids == ALL:
-            self._requested_ids = ret_ids
-        else:
-            self._requested_ids = ret_ids & user_ids
+        if ALL in user_ids:
+            user_ids = intbitset(trailing_bits=1)
+        self._requested_ids = ret_ids & user_ids
         return self._requested_ids
 
     def _query_dict(self):
@@ -257,4 +257,3 @@ class Rules(MutableSequence):
         except IOError as err:
             raise ArgumentTypeError("Cannot load rule file '{path}': {err}".
                                     format(path=filepath, err=err))
-
