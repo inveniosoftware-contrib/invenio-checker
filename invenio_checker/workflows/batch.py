@@ -19,10 +19,8 @@
 import json
 from invenio.modules.checker.rules import Rule
 from importlib import import_module
-from invenio.base.factory import with_app_context
 from invenio.modules.workflows.models import BibWorkflowObject
 
-@with_app_context()
 def run_batch(obj, eng):
     """TODO: Docstring for run_batch.
 
@@ -50,4 +48,4 @@ class batch(object):
     workflow = [run_batch]
 
 
-__all__ = ['batch']
+__all__ = ('batch', )

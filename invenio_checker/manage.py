@@ -16,6 +16,9 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Manage checker module."""
+
 from functools import wraps
 
 from .common import ALL
@@ -33,7 +36,7 @@ class PluginMissing(Exception):
             .format(pluginspec, rule_name)
         super(PluginMissing, self).__init__(message)
 
-manager = Manager()
+manager = Manager(usage=__doc__)
 rules_dec = manager.option('--rules', '-r', default=ALL, type=Rules.from_input,
                            help='Comma seperated list of rules to run, or ' + ALL)
 

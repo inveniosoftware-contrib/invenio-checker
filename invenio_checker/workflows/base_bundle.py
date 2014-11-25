@@ -60,4 +60,4 @@ class base_bundle(object):
     workflow = [spawn_queue]
 
 
-__all__ = ['base_bundle']
+__all__ = ('base_bundle', )

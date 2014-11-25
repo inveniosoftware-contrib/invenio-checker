@@ -16,6 +16,9 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Registry for checker module."""
+
 import os
 
 import inspect
@@ -75,15 +78,16 @@ config_files_proxy = RegistryProxy('checkerext.configuration',
                                    PkgResourcesDirDiscoveryRegistry,
                                    'configuration',
                                    registry_namespace=checkerext)
-config_files = config_files_proxy.to_pathdict(lambda basename: basename.endswith('.yaml'))
-
+config_files = config_files_proxy.to_pathdict(lambda basename:
+                                              basename.endswith('.yaml'))
 
 schema_files_proxy = RegistryProxy('checker.schema',
                                    PkgResourcesDirDiscoveryRegistry,
                                    'schema')
-schema_files = schema_files_proxy.to_pathdict(lambda basename: basename.endswith('.yaml'))
+schema_files = schema_files_proxy.to_pathdict(lambda basename:
+                                              basename.endswith('.yaml'))
 
-# Undoes the point of LazyDict for schema_files, but it's best to fail here
-assert len(schema_files.items()) >= 1
-
-plugin_files = RegistryProxy('checkerext.plugins', CheckerPluginRegistry, 'plugins', registry_namespace=checkerext)
+plugin_files = RegistryProxy('checkerext.plugins',
+                             CheckerPluginRegistry,
+                             'plugins',
+                             registry_namespace=checkerext)
