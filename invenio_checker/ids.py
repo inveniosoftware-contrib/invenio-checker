@@ -19,7 +19,7 @@
 
 """Record ID handling for checker."""
 
-from argparse import ArgumentTypeError
+from intbitset import intbitset
 
 from .common import ALL
 
@@ -28,19 +28,16 @@ def ids_from_input(ids_input):
     """Return the list of IDs to check for from user-input.
 
     :param ids_input: Comma-separated list of requested record IDs.
+        May contain, or be ALL.
     :type  ids_input: str
 
-    :returns: list of IDs
+    :returns: intbitset of IDs or ALL
     :rtype:   seq
 
     :raises:  ValueError
     """
-    user_list = set(ids_input.split(','))
+    user_list = ids_input.split(',')
     if ALL in user_list:
         return ALL
-    try:
-        # Do not convert this to a generator or it may fail not at this point
-        # Do not edit the previous comment; the syntax is correct
-        return [int(i) for i in user_list]
-    except ValueError:
-        raise ArgumentTypeError("Cannot parse list of record IDs")
+    # TODO: Remove tuple() on next intbitset release (which supports generators)
+    return intbitset(tuple(int(i) for i in user_list), sanity_checks=True)

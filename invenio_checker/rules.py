@@ -59,8 +59,7 @@ class Rule(dict):
     def requested_ids(self, user_ids):
         """Get a user-filtered list of IDs requested by this rule.
 
-        :param user_ids: list of requested IDs
-            * may contain ALL
+        :param user_ids: intbitset of requested IDs or ALL
         :type  user_ids: list or str
 
         :returns: seq of IDs found in the database
@@ -77,7 +76,9 @@ class Rule(dict):
         }
         default_args.update(self._query_dict())
         ret_ids = perform_request_search(**default_args)
-        if ALL in user_ids:
+        # HACK around https://github.com/inveniosoftware/intbitset/issues/18
+        # if user_ids == ALL:
+        if isinstance(user_ids, type(ALL)) and user_ids == ALL:
             user_ids = intbitset(trailing_bits=1)
         self._requested_ids = ret_ids & user_ids
         return self._requested_ids
