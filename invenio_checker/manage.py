@@ -32,11 +32,11 @@ from invenio.modules.workflows.models import BibWorkflowObject
 
 
 manager = Manager(usage=__doc__)
-rules_dec = manager.option('--rules', '-r', default=ALL, type=Rules.from_input,
+rules_dec = manager.option('--rules', '-r', default=ALL,
                            help='Comma seperated list of rules to run, or ' + ALL)
 
 
-def dry_run_dec(func):
+def interpret_dry_run(func):
     @wraps(func)
     def _dry_run(*args, **kwargs):
         """Resolve `dry_run` to variables understood by `run()`."""
@@ -47,6 +47,14 @@ def dry_run_dec(func):
             del kwargs['dry_run']
         return func(*args, **kwargs)
     return _dry_run
+
+def resolve_rules(func):
+    @wraps(func)
+    def _resolve_rules(*args, **kwargs):
+        """Resolve `rules` to list of Rules."""
+        kwargs['rules'] = Rules.from_input(kwargs['rules'])
+        return func(*args, **kwargs)
+    return _resolve_rules
 
 @manager.option('--ids', '-i', dest='user_ids', default=ALL, type=ids_from_input,
                 help='List of record IDs to work on (overrides other filters),'
@@ -60,7 +68,8 @@ def dry_run_dec(func):
 @manager.option('--dry-run', '-d', action='store_true',
                 help='Same as --no-tickets --no-upload')
 @rules_dec
-@dry_run_dec  # This must be last as it swallows an argument
+@resolve_rules  # Must be anywhere after `rules`
+@interpret_dry_run  # Must be after `dry_run`, `upload`, `tickets`
 def run(rules, user_ids, queue, tickets, upload):
     """Initiate the execution of all requested rules.
 
