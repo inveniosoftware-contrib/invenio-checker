@@ -23,18 +23,13 @@ from functools import wraps
 
 from .common import ALL
 from .ids import ids_from_input
-from .plugins import Plugins
+from .registry import plugin_files
 from .rules import Rules
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
+from invenio.modules.checker.errors import PluginMissing
 from invenio.modules.workflows.models import BibWorkflowObject
 
-
-class PluginMissing(Exception):
-    def __init__(self, pluginspec, rule_name):
-        message = "Could not find plugin `{0}` as defined in `{1}`"\
-            .format(pluginspec, rule_name)
-        super(PluginMissing, self).__init__(message)
 
 manager = Manager(usage=__doc__)
 rules_dec = manager.option('--rules', '-r', default=ALL, type=Rules.from_input,
@@ -83,12 +78,11 @@ def run(rules, user_ids, queue, tickets, upload):
     :returns: TODO
     :rtype:   TODO
 
-    :raises: PluginMissing
+    :raises: invenio.modules.checker.errors:PluginMissing
     """
     # Ensure defined plugins exist
-    plugins = Plugins()
     for rule in rules:
-        if rule.pluginspec not in plugins:
+        if rule.pluginspec not in plugin_files:
             raise PluginMissing((rule.pluginspec, rule['name']))
 
     # Run
@@ -116,12 +110,10 @@ def list_plugins(rules):
     # TODO
     pass
 
-
 def main():
     """Run manager."""
     manager.app = create_app()
     manager.run()
-
 
 if __name__ == '__main__':
     main()
