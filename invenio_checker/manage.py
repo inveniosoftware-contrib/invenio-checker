@@ -22,7 +22,7 @@
 from functools import wraps
 
 from .common import ALL
-from .ids import ids_from_input
+from .recids import ids_from_input
 from .registry import plugin_files
 from .rules import Rules
 from invenio.base.factory import create_app
@@ -56,7 +56,7 @@ def resolve_rules(func):
         return func(*args, **kwargs)
     return _resolve_rules
 
-@manager.option('--ids', '-i', dest='user_ids', default=ALL, type=ids_from_input,
+@manager.option('--ids', '-i', dest='user_recids', default=ALL, type=ids_from_input,
                 help='List of record IDs to work on (overrides other filters),'
                 ' or ' + ALL + ' to run on every single record')
 @manager.option('--queue', '-q', default='Bibcheck',
@@ -70,13 +70,13 @@ def resolve_rules(func):
 @rules_dec
 @resolve_rules  # Must be anywhere after `rules`
 @interpret_dry_run  # Must be after `dry_run`, `upload`, `tickets`
-def run(rules, user_ids, queue, tickets, upload):
+def run(rules, user_recids, queue, tickets, upload):
     """Initiate the execution of all requested rules.
 
     :param rules: rules to load
     :type  rules: list of rule_names or ALL
-    :param user_ids: record IDs to consider
-    :type  user_ids: intbitset
+    :param user_recids: record IDs to consider
+    :type  user_recids: intbitset
     :param queue: bibcatalog queue to create tickets in
     :type  queue: str
     :param tickets: whether to create tickets
@@ -100,11 +100,11 @@ def run(rules, user_ids, queue, tickets, upload):
         'queue': queue,
         'upload': upload
     }
-    json_rulesets = rules.by_json_ruleset(user_ids)
-    for rule_jsons, ids in json_rulesets.items():
+    json_rulesets = rules.by_json_ruleset(user_recids)
+    for rule_jsons, recids in json_rulesets.items():
         data = {
             'rule_jsons': rule_jsons,
-            'ids': ids,
+            'recids': recids,
             'common': common
         }
         obj = BibWorkflowObject.create_object()
