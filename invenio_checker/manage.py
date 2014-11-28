@@ -108,9 +108,12 @@ def run(rules, user_recids, queue, tickets, upload):
             'common': common
         }
         obj = BibWorkflowObject.create_object()
-        obj.set_data(data)
+        extra_data = obj.get_extra_data()
+        extra_data.update(data)
+        obj.set_extra_data(extra_data)
         obj.save()
         obj.start_workflow("base_bundle", delayed=True)
+
 
 @rules_dec
 @change_command_name
