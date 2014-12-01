@@ -23,14 +23,13 @@ import json
 import yaml
 from argparse import ArgumentTypeError
 from collections import defaultdict, MutableSequence
-from pykwalify.core import Core
-from pykwalify.errors import SchemaError
 from importlib import import_module
 from intbitset import intbitset
+from pykwalify.core import Core
 
-from .registry import config_files, schema_files
 from .common import ALL
 from invenio.legacy.search_engine import perform_request_search
+from .registry import config_files, schema_files as schema_files_reg
 
 
 class DuplicateRuleError(Exception):
@@ -108,7 +107,7 @@ class Rule(dict):
 
     @classmethod
     def from_json(cls, rule_json):
-        """Create a Rule from json
+        """Create a Rule from json.
 
         :param rule_json: a json representation of a Rule's dictionary
         :type  rule_json: str
@@ -121,6 +120,7 @@ class Rule(dict):
 
     def to_json(self):
         """TODO: Docstring for to_json.
+
         :returns: a json representation of a Rule's dictionary
         :rtype:   str
         """
@@ -197,7 +197,7 @@ class Rules(MutableSequence):
         user_rules = set(user_choice.split(','))
         rules = cls()
         if ALL in user_rules:
-            for filename, filepath in sorted(config_files.items()):
+            for filepath in sorted(config_files.values()):
                 rules.load_file(filepath)
             while ALL in user_rules:
                 user_rules.remove(ALL)
@@ -260,9 +260,9 @@ class Rules(MutableSequence):
         """
         try:
             with open(filepath) as stream:
-                for idx, document in enumerate(yaml.load_all(stream), 1):
+                for document in yaml.load_all(stream):
                     document = Rule(document)
-                    document.validate(schema_files.values())
+                    document.validate(schema_files_reg.values())
                     self.append(document)
         except IOError as err:
             raise ArgumentTypeError("Cannot load rule file '{path}': {err}".
