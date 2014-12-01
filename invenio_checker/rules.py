@@ -69,16 +69,13 @@ class Rule(dict):
         """
         if self._requested_ids is not None:
             return self._requested_ids
-        default_args = {
-            'sf': 'id',
-            'so': 'd',
-            'of': 'intbitset'
-        }
-        default_args.update(self._query_dict())
-        ret_ids = perform_request_search(**default_args)
-        # HACK around https://github.com/inveniosoftware/intbitset/issues/18
-        # if user_ids == ALL:
-        if isinstance(user_ids, type(ALL)) and user_ids == ALL:
+
+        def ids_eq_all():
+            # HACK around https://github.com/inveniosoftware/intbitset/issues/18
+            return isinstance(user_ids, type(ALL)) and user_ids == ALL
+
+        ret_ids = self._run_query()
+        if ids_eq_all():  # TODO: if user_ids == ALL:
             user_ids = intbitset(trailing_bits=1)
         self._requested_ids = ret_ids & user_ids
         return self._requested_ids
@@ -90,7 +87,7 @@ class Rule(dict):
         :rtype:   dict
         """
         query_translator = {
-            'cc': 'collection',
+            'c': 'collections',
             'wl': 'limit',
             'p': 'pattern',
             'f': 'field',
@@ -99,6 +96,15 @@ class Rule(dict):
             for query_arg, filter_name in query_translator.items():
                 if filter_name in self['filter']:
                     yield (query_arg, self['filter'][filter_name])
+
+    def _run_query(self):
+        """Query database for records based on rule configuration."""
+        args = {'sf': 'id', 'so': 'd', 'of': 'intbitset'}
+        args.update(self._query_dict())
+        result = perform_request_search(
+            **args
+        )
+        return result
 
     @classmethod
     def from_json(cls, rule_json):

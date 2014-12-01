@@ -44,4 +44,4 @@ options:
     holdingpen: true
 filter:
     pattern: "and"
-    #collection: HEP
+    collections: ["HEP"]

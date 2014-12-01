@@ -49,8 +49,10 @@ mapping:
                 type: str
             field:
                 type: str
-            collection:
-                type: str
+            collections:
+                type: seq
+                sequence:
+                    - type: str
             limit:
                 type: int
                 range:
