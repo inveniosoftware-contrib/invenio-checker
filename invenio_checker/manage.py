@@ -59,7 +59,7 @@ def resolve_rules(func):
 @manager.option('--ids', '-i', dest='user_recids', default=ALL, type=ids_from_input,
                 help='List of record IDs to work on (overrides other filters),'
                 ' or ' + ALL + ' to run on every single record')
-@manager.option('--queue', '-q', default='Bibcheck',
+@manager.option('--queue', '-q', default='Checker',
                 help='Specify the RT Queue in which tickets will be created')
 @manager.option('--no-tickets', '-t', dest='tickets', action='store_false',
                 help='Policy to create tickets by')
@@ -119,7 +119,7 @@ def run(rules, user_recids, queue, tickets, upload):
 @change_command_name
 def list_plugins(rules):
     """List all rules (and any associated plug-ins) and exit."""
-    # TODO
+    # TODO (grouped by plugin, because they can be considered supersets)
     pass
 
 def main():
