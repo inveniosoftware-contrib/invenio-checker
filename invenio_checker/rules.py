@@ -25,10 +25,10 @@ from argparse import ArgumentTypeError
 from collections import defaultdict, MutableSequence
 from importlib import import_module
 from intbitset import intbitset
-from pykwalify.core import Core
+from pykwalify.core import Core  # TODO: Remove when cfg is moved to db
 
 from .common import ALL
-from invenio.legacy.search_engine import perform_request_search
+from invenio.legacy.search_engine import search_pattern
 from .registry import config_files, schema_files as schema_files_reg
 
 
@@ -79,30 +79,52 @@ class Rule(dict):
         self._requested_ids = ret_ids & user_ids
         return self._requested_ids
 
-    def _query_dict(self):
-        """Compatibalize config filters with `perform_request_search` args.
+    def _query_filters(self, force_finiteness=False):
+        """Compatibalize config filters with `search_pattern` args.
 
-        :returns: sets for expansion in `perform_request_search`
+        :returns: sets for expansion in `search_pattern`
         :rtype:   dict
         """
-        query_translator = {
-            'c': 'collections',
+        cfg_mapper = {
             'wl': 'limit',
             'p': 'pattern',
             'f': 'field',
         }
         if 'filter' in self:
-            for query_arg, filter_name in query_translator.items():
+            for query_arg, filter_name in cfg_mapper.items():
                 if filter_name in self['filter']:
+                    # Example: ('p', 'Higgs')
                     yield (query_arg, self['filter'][filter_name])
+        # HACK: Trick `search_pattern` into not returning inf
+        try:
+            self['filter']['p']
+        except KeyError:
+            force_finiteness = True
+        if force_finiteness:
+            yield ('p', '* AND *')
+
+    def _query_options(self):
+        try:
+            if self['options']['consider_deleted_records']:
+                return {'ap': -9, 'req': None}
+        except KeyError:
+            return {}
 
     def _run_query(self):
         """Query database for records based on rule configuration."""
-        args = {'sf': 'id', 'so': 'd', 'of': 'intbitset'}
-        args.update(self._query_dict())
-        result = perform_request_search(
-            **args
-        )
+        query_kwargs = {}
+        query_kwargs.update(self._query_filters())
+        query_kwargs.update(self._query_options())
+        result = search_pattern(**query_kwargs)
+        if result.is_infinite():
+            query_kwargs.update(self._query_filters(force_finiteness=True))
+            result = search_pattern(**query_kwargs)
+        assert not result.is_infinite(), '\n'.join((
+            '',
+            '`search_pattern` now works,'
+            'but my workarounds diminish',
+            'your delicate fixes.',
+        ))
         return result
 
     @classmethod
