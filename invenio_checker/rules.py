@@ -210,9 +210,9 @@ class Rules(MutableSequence):
 
     @classmethod
     def from_input(cls, user_choice):
-        """Return the rules that should run from comma-separated user input.
+        """Return the rules that should run from user input.
 
-        :param user_choice: comma-separated list of requested rules
+        :param user_choice: comma-separated list of rule files
         :type  user_choice: str
 
         :returns: Rules

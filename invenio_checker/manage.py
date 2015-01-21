@@ -33,7 +33,8 @@ from invenio.modules.workflows.models import BibWorkflowObject
 
 manager = Manager(usage=__doc__)
 rules_dec = manager.option('--rules', '-r', default=ALL,
-                           help='Comma seperated list of rules to run, or ' + ALL)
+                           help='Comma seperated list of rule files to load,'
+                           ' or `{}` for all rules.'.format(ALL))
 
 
 def interpret_dry_run(func):
@@ -61,7 +62,7 @@ def resolve_rules(func):
 @manager.option('--ids', '-i', dest='user_recids',
                 default=ALL, type=ids_from_input,
                 help='List of record IDs to work on (overrides other filters),'
-                ' or ' + ALL + ' to run on every single record')
+                ' or `{}` to run on all records'.format(ALL))
 @manager.option('--queue', '-q', default='Checker',
                 help='Specify the RT Queue in which tickets will be created')
 @manager.option('--no-tickets', '-t', dest='tickets', action='store_false',
