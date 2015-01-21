@@ -21,8 +21,9 @@ from ..tasks.tasks import ruledicts, run_batch, run_check, wf_recids
 from invenio.modules.workflows.tasks.logic_tasks import foreach, end_for
 
 
-# one rule bundle at a time, eg batch/norm, norm, norm
 class base_bundle(object):
+    """Run a single rule bundle (IDs, rules) through the checks."""
+
     workflow = [
         foreach(ruledicts("batch"), "rule_object"),
         [
