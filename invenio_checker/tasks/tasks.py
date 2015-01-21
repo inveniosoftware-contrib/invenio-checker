@@ -25,6 +25,13 @@ from importlib import import_module
 from invenio.base.utils import partial_argc
 from invenio.modules.checker.rules import Rules, Rule
 from invenio.modules.records.api import get_record, Record
+from invenio.legacy.bibsched.bibtask import task_low_level_submission
+
+from dictdiffer import diff
+import time
+import os
+import tempfile
+from invenio.config import CFG_TMPSHAREDDIR
 
 
 def _ensure_key(key, dict_):
@@ -34,13 +41,13 @@ def _ensure_key(key, dict_):
 
 def _store_extras(obj, extra_data, records):
     """Update `extra_data`, with its new value and the new state of records."""
-    _ensure_key('records', obj.extra_data)
+    _ensure_key('records', extra_data)
     for record in records:
-        obj.extra_data['records'][record['recid']] = record.dumps()
+        extra_data['records'][record['recid']] = record.dumps()
     obj.extra_data = extra_data
 
 
-def _load_record(obj, extra_data, recid):
+def _load_record(extra_data, recid, local_storage_only=False):
     """Load a record by recid.
 
     Revives a record from `extra_data`. If the spell fails, loads it from the
@@ -50,13 +57,55 @@ def _load_record(obj, extra_data, recid):
     :rtype: invenio.modules.records.api.Record
     """
     try:
+        # Get from extra data
         return Record(extra_data['records'][recid])
-    except KeyError:
+    except KeyError as e:
+        if local_storage_only:
+            e.args += ('Non-loaded record {id_} requested. Programming error(?)'
+                       .format(id_=recid),)
+            raise e
+        # Get from the database
         record = get_record(recid)
         if not record:
             raise LookupError('Record {} vanished from the databse!'
                               .format(recid))
         return record
+
+
+def _upload_amendments(extra_data, recids, holdingpen=False):
+    """Upload all modified records."""
+    # FIXME
+    # if task_get_option("no_upload", False) or len(records) == 0:
+    #     return
+
+    records = (_load_record(extra_data, recid, local_storage_only=True)
+               for recid in recids)
+    records_xml = ""
+    for record in records:
+        records_xml += record.legacy_export_as_marc()
+    if not records_xml:
+        return
+    records_xml = (
+        '<collection xmlns="http://www.loc.gov/MARC21/slim">\n{}</collection>'
+        .format(records_xml)
+    )
+
+    # TODO: Create temp of temp and then use mv to make the operation atomic
+    tmp_file_fd, tmp_file = tempfile.mkstemp(
+        suffix='.xml',
+        prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
+        dir=CFG_TMPSHAREDDIR
+    )
+    os.write(tmp_file_fd, records_xml)
+    os.close(tmp_file_fd)
+    os.chmod(tmp_file, 0644)
+    if holdingpen:
+        flag = "-o"
+    else:
+        flag = "-r"
+    task = task_low_level_submission('bibupload', 'bibcheck', flag, tmp_file)
+    # TODO:
+    # write_message("Submitted bibupload task %s" % task)
 
 
 def ruledicts(rule_type):
@@ -96,7 +145,7 @@ def run_batch(obj, eng):
     extra_data = obj.get_extra_data()
     recids = extra_data['recids']
     rule = Rule(obj.data)
-    records = (_load_record(obj, extra_data, recid) for recid in recids)
+    records = (_load_record(extra_data, recid) for recid in recids)
     plugin_module = import_module(rule.pluginspec)
 
     # Execute pre- function and save retval
@@ -111,8 +160,8 @@ def run_check(obj, eng):
     # Load everything
     extra_data = obj.get_extra_data()
     recid = obj.data
-    rule = Rule(extra_data["rule_object"])
-    record = _load_record(obj, extra_data, recid)
+    rule = Rule(extra_data['rule_object'])
+    record = _load_record(extra_data, recid)
     plugin_module = import_module(rule.pluginspec)
 
     # Initialize partial
@@ -145,3 +194,17 @@ def run_check(obj, eng):
             # TODO: Same goes for batch, but with greater impact.
         raise
     _store_extras(obj, extra_data, [record])
+
+
+def save_records(obj, eng):
+    extra_data = obj.get_extra_data()
+
+    def recids_of_modified_records():
+        """List of records that were modified during this run."""
+        for recid in wf_recids()(obj,eng):
+            db_record = get_record(recid).dumps()
+            modified_record = extra_data['records'][recid]
+            if tuple(diff(db_record, modified_record)):
+                yield recid
+
+    _upload_amendments(extra_data, recids_of_modified_records())

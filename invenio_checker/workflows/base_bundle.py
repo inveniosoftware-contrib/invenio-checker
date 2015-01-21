@@ -17,7 +17,13 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from ..tasks.tasks import ruledicts, run_batch, run_check, wf_recids
+from ..tasks.tasks import (
+    ruledicts,
+    run_batch,
+    run_check,
+    wf_recids,
+    save_records
+)
 from invenio.modules.workflows.tasks.logic_tasks import foreach, end_for
 
 
@@ -44,6 +50,7 @@ class base_bundle(object):
             end_for,
         ],
         end_for,
+        save_records
     ]
 
 
