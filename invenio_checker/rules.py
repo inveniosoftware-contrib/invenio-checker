@@ -28,15 +28,13 @@ from intbitset import intbitset
 from pykwalify.core import Core  # TODO: Remove when cfg is moved to db
 
 from .common import ALL
-from invenio.legacy.search_engine import search_pattern
+from .errors import DuplicateRuleError
 from .registry import config_files, schema_files as schema_files_reg
-
-
-class DuplicateRuleError(Exception):
-    pass
+from invenio.legacy.search_engine import search_pattern
 
 
 class Rule(dict):
+    """Interface for a single rule."""
 
     def __init__(self, *args, **kwargs):
         """Initialize a single rule.
@@ -95,7 +93,7 @@ class Rule(dict):
                 if filter_name in self['filter']:
                     # Example: ('p', 'Higgs')
                     yield (query_arg, self['filter'][filter_name])
-        # HACK: Trick `search_pattern` into not returning inf
+        # HACK: Trick `search_pattern` into not returning inf.
         try:
             self['filter']['p']
         except KeyError:
@@ -104,6 +102,8 @@ class Rule(dict):
             yield ('p', '* AND *')
 
     def _query_options(self):
+        """Convert the options section of a rule into query arguments."""
+        # HACK: Force `search_pattern` to return deleted records.
         try:
             if self['options']['consider_deleted_records']:
                 return {'ap': -9, 'req': None}
@@ -141,7 +141,7 @@ class Rule(dict):
         return cls(json.loads(rule_json))
 
     def to_json(self):
-        """TODO: Docstring for to_json.
+        """Save a JSON-friendly representation of the rule.
 
         :returns: a json representation of a Rule's dictionary
         :rtype:   str
@@ -173,6 +173,8 @@ class Rule(dict):
 
 
 class Rules(MutableSequence):
+    """Maintain a set of rules."""
+
     def __init__(self, *args):
         self.list = list()
         self.extend(list(args))

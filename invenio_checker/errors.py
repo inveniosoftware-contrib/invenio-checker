@@ -20,8 +20,15 @@
 """Exceptions for checker module."""
 
 class PluginMissing(Exception):
+    """Requested plugin could not be found."""
+
     def __init__(self, pluginspec, rule_name):
+        """Inform the user where the missing plugin error stemmed from."""
         message = "Could not find plugin `{0}` as defined in `{1}`"\
             .format(pluginspec, rule_name)
         super(PluginMissing, self).__init__(message)
 
+
+class DuplicateRuleError(Exception):
+    """Attempted to load a rule with a name that has been already loaded."""
+    pass

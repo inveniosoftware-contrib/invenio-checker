@@ -48,6 +48,7 @@ def interpret_dry_run(func):
         return func(*args, **kwargs)
     return _dry_run
 
+
 def resolve_rules(func):
     @wraps(func)
     def _resolve_rules(*args, **kwargs):
@@ -56,7 +57,9 @@ def resolve_rules(func):
         return func(*args, **kwargs)
     return _resolve_rules
 
-@manager.option('--ids', '-i', dest='user_recids', default=ALL, type=ids_from_input,
+
+@manager.option('--ids', '-i', dest='user_recids',
+                default=ALL, type=ids_from_input,
                 help='List of record IDs to work on (overrides other filters),'
                 ' or ' + ALL + ' to run on every single record')
 @manager.option('--queue', '-q', default='Checker',
@@ -75,12 +78,16 @@ def run(rules, user_recids, queue, tickets, upload):
 
     :param rules: rules to load
     :type  rules: list of rule_names or ALL
+
     :param user_recids: record IDs to consider
     :type  user_recids: intbitset
+
     :param queue: bibcatalog queue to create tickets in
     :type  queue: str
+
     :param tickets: whether to create tickets
     :type  tickets: bool
+
     :param upload: whether to upload amended records
     :type  upload: bool
 
@@ -95,6 +102,7 @@ def run(rules, user_recids, queue, tickets, upload):
             raise PluginMissing((rule.pluginspec, rule['name']))
 
     # Run
+    # TODO: Add `tickets` and `upload` to data
     common = {
         'tickets': tickets,
         'queue': queue,
