@@ -36,8 +36,22 @@ def ids_from_input(ids_input):
 
     :raises:  ValueError
     """
-    user_list = ids_input.split(',')
-    if ALL in user_list:
+    def parse_range(str_):
+        """Parse string of comma-separated numbers and ranges of numbers."""
+        result = set()
+        for part in str_.split(','):
+            x = part.split('-')
+            result.update(range(int(x[0]), int(x[-1]) + 1))
+        return sorted(result)
+
+    if ALL in ids_input.split(','):
         return ALL
-    # TODO: Remove tuple() on next intbitset release (which supports generators)
-    return intbitset(tuple(int(i) for i in user_list), sanity_checks=True)
+    else:
+        user_list = parse_range(ids_input)
+        # TODO: Remove tuple() on next intbitset release (which supports
+        # generators)
+        try:
+            return intbitset(tuple(int(i) for i in user_list), sanity_checks=True)
+        except ValueError as e:
+            e.args += ('Non-integer value given record IDs.',)
+            raise e
