@@ -39,11 +39,40 @@ def _ensure_key(key, dict_):
         dict_[key] = {}
 
 
+def _record_has_changed(record, extra_data):
+    """Check whether a record is different from its state in the database.
+
+    :param record: record
+    :type  record: invenio.modules.records.api.Record
+
+    :returns: whether the record has changed
+    :rtype:   bool
+    """
+    recid = record['recid']
+    modified_record = record.dumps()
+    # No point in doing this.
+    # # Try against `extra_data`
+    # try:
+    #     extra_data_record = extra_data['modified_records'][recid]
+    #     if tuple(diff(extra_data_record record, modified_record)):
+    #         return True
+    # except KeyError:
+    #     # We have not previously stored this record
+    #     pass
+    # Try against the database
+    db_record = get_record(recid).dumps()
+    if tuple(diff(db_record, modified_record)):
+        return True
+    return False
+
+
 def _store_extras(obj, extra_data, records):
     """Update `extra_data`, with its new value and the new state of records."""
-    _ensure_key('records', extra_data)
     for record in records:
-        extra_data['records'][record['recid']] = record.dumps()
+        if _record_has_changed(record, extra_data):
+            recid = int(record['recid'])
+            _ensure_key('modified_records', extra_data)
+            extra_data['modified_records'][recid] = record.dumps()
     obj.extra_data = extra_data
 
 
@@ -58,7 +87,7 @@ def _load_record(extra_data, recid, local_storage_only=False):
     """
     try:
         # Get from extra data
-        return Record(extra_data['records'][recid])
+        return Record(extra_data['modified_records'][recid])
     except KeyError as e:
         if local_storage_only:
             e.args += ('Non-loaded record {id_} requested. Programming error(?)'
@@ -72,42 +101,6 @@ def _load_record(extra_data, recid, local_storage_only=False):
         return record
 
 
-def _upload_amendments(extra_data, recids, holdingpen=False):
-    """Upload all modified records."""
-    # FIXME
-    # if task_get_option("no_upload", False) or len(records) == 0:
-    #     return
-
-    records = (_load_record(extra_data, recid, local_storage_only=True)
-               for recid in recids)
-    records_xml = ""
-    for record in records:
-        records_xml += record.legacy_export_as_marc()
-    if not records_xml:
-        return
-    records_xml = (
-        '<collection xmlns="http://www.loc.gov/MARC21/slim">\n{}</collection>'
-        .format(records_xml)
-    )
-
-    # TODO: Create temp of temp and then use mv to make the operation atomic
-    tmp_file_fd, tmp_file = tempfile.mkstemp(
-        suffix='.xml',
-        prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
-        dir=CFG_TMPSHAREDDIR
-    )
-    os.write(tmp_file_fd, records_xml)
-    os.close(tmp_file_fd)
-    os.chmod(tmp_file, 0644)
-    if holdingpen:
-        flag = "-o"
-    else:
-        flag = "-r"
-    task = task_low_level_submission('bibupload', 'bibcheck', flag, tmp_file)
-    # TODO:
-    # write_message("Submitted bibupload task %s" % task)
-
-
 def ruledicts(rule_type):
     """Get a list of rules of a specific type.
 
@@ -117,6 +110,7 @@ def ruledicts(rule_type):
     :returns: rules
     :rtype:   list of dict
     """
+    @wraps(ruledicts)
     def _wrapped(obj, eng):
         extra_data = obj.get_extra_data()
         rules = Rules.from_jsons(extra_data['rule_jsons'])
@@ -188,23 +182,54 @@ def run_check(obj, eng):
         if expected_argcount != given_argcount:
             e.args += ('Wrong plugin function signature at {code}'
                        .format(code=plugin_module.check_record.func_code),)
-            # TODO: All future calls to this specific `check_record` are doomed
+            # FIXME: All future calls to this specific `check_record` are doomed
             # to fail. Either set some variable to stop future `run_checks`
             # from running or do this earlier.
-            # TODO: Same goes for batch, but with greater impact.
+            # FIXME: Same goes for batch, but with greater impact.
         raise
     _store_extras(obj, extra_data, [record])
 
 
-def save_records(obj, eng):
-    extra_data = obj.get_extra_data()
+def save_records():
+    """Upload all modified records."""
+    @wraps(save_records)
+    def _upload_amendments(obj, eng, holdingpen=False):
+        # TODO
+        # if task_get_option("no_upload", False) or len(records) == 0:
+        #     return
 
-    def recids_of_modified_records():
-        """List of records that were modified during this run."""
-        for recid in wf_recids()(obj,eng):
-            db_record = get_record(recid).dumps()
-            modified_record = extra_data['records'][recid]
-            if tuple(diff(db_record, modified_record)):
-                yield recid
+        extra_data = obj.get_extra_data()
+        _ensure_key('modified_records', extra_data)
+        records = (Record(r)
+                   for r in extra_data['modified_records'].itervalues())
 
-    _upload_amendments(extra_data, recids_of_modified_records())
+        records_xml = ""
+        for record in records:
+            records_xml += record.legacy_export_as_marc()
+        if not records_xml:
+            return
+        records_xml = (
+            '<collection xmlns="http://www.loc.gov/MARC21/slim">\n'
+            '{}'
+            '</collection>'
+            .format(records_xml)
+        )
+
+        # TODO: Create temp of temp and then use mv to make the operation atomic
+        tmp_file_fd, tmp_file = tempfile.mkstemp(
+            suffix='.xml',
+            prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
+            dir=CFG_TMPSHAREDDIR
+        )
+        os.write(tmp_file_fd, records_xml)
+        os.close(tmp_file_fd)
+        os.chmod(tmp_file, 0644)
+        if holdingpen:
+            flag = "-o"
+        else:
+            flag = "-r"
+        task = task_low_level_submission('bibupload', 'bibcheck', flag, tmp_file)
+        # TODO:
+        # write_message("Submitted bibupload task %s" % task)
+
+    return _upload_amendments

@@ -50,7 +50,7 @@ class base_bundle(object):
             end_for,
         ],
         end_for,
-        save_records
+        save_records()
     ]
 
 
