@@ -34,7 +34,7 @@ class base_bundle(object):
         foreach(ruledicts("batch"), "rule_object"),
         [
             run_batch,
-            foreach(wf_recids(), "record"),
+            foreach(wf_recids(), "record_id"),
             [
                 run_check
             ],
@@ -43,7 +43,7 @@ class base_bundle(object):
         end_for,
         foreach(ruledicts("simple"), "rule_object"),
         [
-            foreach(wf_recids(), "record"),
+            foreach(wf_recids(), "record_id"),
             [
                 run_check
             ],
