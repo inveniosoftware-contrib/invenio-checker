@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ##
 ## This file is part of Invenio.
-## Copyright (C) 2013, 2014 CERN.
+## Copyright (C) 2015 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -19,19 +19,21 @@
 
 """Workflow tasks for checker module."""
 
+import os
+import time
+
+import tempfile
+from dictdiffer import diff
 from functools import wraps, partial
 from importlib import import_module
+from invenio.config import CFG_TMPSHAREDDIR
 
+from invenio.modules.checker.record import AmendableRecord
 from invenio.base.utils import partial_argc
+from invenio.legacy.bibsched.bibtask import task_low_level_submission
 from invenio.modules.checker.rules import Rules, Rule
 from invenio.modules.records.api import get_record, Record
-from invenio.legacy.bibsched.bibtask import task_low_level_submission
-
-from dictdiffer import diff
-import time
-import os
-import tempfile
-from invenio.config import CFG_TMPSHAREDDIR
+from invenio.modules.workflows.definitions import Formatter
 
 
 def _ensure_key(key, dict_):
@@ -39,66 +41,100 @@ def _ensure_key(key, dict_):
         dict_[key] = {}
 
 
-def _record_has_changed(record, extra_data):
+def _record_has_changed(obj, eng, record, extra_data):
     """Check whether a record is different from its state in the database.
 
     :param record: record
-    :type  record: invenio.modules.records.api.Record
+    :type  record: invenio.modules.records.api.Record or AmendableRecord
 
     :returns: whether the record has changed
     :rtype:   bool
     """
     recid = record['recid']
     modified_record = record.dumps()
-    # No point in doing this.
-    # # Try against `extra_data`
-    # try:
-    #     extra_data_record = extra_data['modified_records'][recid]
-    #     if tuple(diff(extra_data_record record, modified_record)):
-    #         return True
-    # except KeyError:
-    #     # We have not previously stored this record
-    #     pass
-    # Try against the database
     db_record = get_record(recid).dumps()
-    if tuple(diff(db_record, modified_record)):
+
+    def log_changes(changes):
+        """Log the changes done to this record by the last check."""
+        try:
+            rule_name = record.check.rule_name
+        except AttributeError:
+            # Not an AmendableRecord, not running a check
+            pass
+        else:
+            obj.log.info(
+                "{rule} made the following changes on record {recid}: {changes}"
+                .format(rule=rule_name, recid=recid, changes=changes))
+
+    # Try against `extra_data`
+    try:
+        extra_data_record = extra_data['modified_records'][recid]
+    except KeyError:
+        # We have not previously stored this record
+        pass
+    else:
+        changes = tuple(diff(extra_data_record, modified_record))
+        if changes:
+            log_changes(changes)
+            return True
+
+    # Try against the database
+    changes = tuple(diff(db_record, modified_record))
+    if changes:
+        log_changes(changes)
         return True
+
     return False
 
 
-def _store_extras(obj, extra_data, records):
+def _store_extras(obj, eng, extra_data, records):
     """Update `extra_data`, with its new value and the new state of records."""
     for record in records:
-        if _record_has_changed(record, extra_data):
+        if _record_has_changed(obj, eng, record, extra_data):
             recid = int(record['recid'])
             _ensure_key('modified_records', extra_data)
             extra_data['modified_records'][recid] = record.dumps()
     obj.extra_data = extra_data
 
 
-def _load_record(extra_data, recid, local_storage_only=False):
+def _load_record(extra_data, recid, local_storage_only=False, rule=None):
     """Load a record by recid.
 
     Revives a record from `extra_data`. If the spell fails, loads it from the
     database.
 
+    :param recid: record ID to load
+    :type recid: int
+
+    :param local_storage_only: only return the record if it was found in the
+        `extra_data` of the workflow
+    :type local_storage_only: bool
+
+    :param rule: name of the running rule. if this is given, AmendableRecord is
+        returned instead of Record for consumption in a check
+    :type rule: str
+
     :returns: record
     :rtype: invenio.modules.records.api.Record
     """
     try:
-        # Get from extra data
-        return Record(extra_data['modified_records'][recid])
+        # Get from extra data.
+        record_data = extra_data['modified_records'][recid]
     except KeyError as e:
+        # Not found. Get from the database.
         if local_storage_only:
             e.args += ('Non-loaded record {id_} requested. Programming error(?)'
                        .format(id_=recid),)
             raise e
-        # Get from the database
-        record = get_record(recid)
-        if not record:
+        record_data = get_record(recid).dumps()
+        if not record_data:
             raise LookupError('Record {} vanished from the databse!'
                               .format(recid))
-        return record
+    if rule:
+        record = AmendableRecord(record_data, rule)
+    else:
+        record = Record(record_data)
+    return record
 
 
 def ruledicts(rule_type):
@@ -138,15 +174,16 @@ def run_batch(obj, eng):
     # Load everything
     extra_data = obj.get_extra_data()
     recids = extra_data['recids']
-    rule = Rule(obj.data)
-    records = (_load_record(extra_data, recid) for recid in recids)
+    rule = Rule(extra_data['rule_object'])
+    records = (_load_record(extra_data, recid, rule=rule['name'])
+               for recid in recids)
     plugin_module = import_module(rule.pluginspec)
 
     # Execute pre- function and save retval
     _ensure_key('result_pre_check', extra_data)
     extra_data['result_pre_check'][rule['name']] = \
         plugin_module.pre_check(records)
-    _store_extras(obj, extra_data, records)
+    _store_extras(obj, eng, extra_data, records)
 
 
 def run_check(obj, eng):
@@ -155,7 +192,7 @@ def run_check(obj, eng):
     extra_data = obj.get_extra_data()
     recid = obj.data
     rule = Rule(extra_data['rule_object'])
-    record = _load_record(extra_data, recid)
+    record = _load_record(extra_data, recid, rule=rule['name'])
     plugin_module = import_module(rule.pluginspec)
 
     # Initialize partial
@@ -187,7 +224,7 @@ def run_check(obj, eng):
             # from running or do this earlier.
             # FIXME: Same goes for batch, but with greater impact.
         raise
-    _store_extras(obj, extra_data, [record])
+    _store_extras(obj, eng, extra_data, [record])
 
 
 def save_records():
