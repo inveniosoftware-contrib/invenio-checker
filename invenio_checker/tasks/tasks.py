@@ -33,7 +33,7 @@ from invenio.base.utils import partial_argc
 from invenio.legacy.bibsched.bibtask import task_low_level_submission
 from invenio.modules.checker.rules import Rules, Rule
 from invenio.modules.records.api import get_record, Record
-from invenio.modules.workflows.definitions import Formatter
+from invenio.modules.workflows.definitions import JsonFormatter
 
 
 def _ensure_key(key, dict_):
@@ -231,42 +231,37 @@ def save_records():
     """Upload all modified records."""
     @wraps(save_records)
     def _upload_amendments(obj, eng, holdingpen=False):
-        # TODO
-        # if task_get_option("no_upload", False) or len(records) == 0:
-        #     return
-
+        # Load everything
         extra_data = obj.get_extra_data()
         _ensure_key('modified_records', extra_data)
-        records = (Record(r)
-                   for r in extra_data['modified_records'].itervalues())
+        modified_records = extra_data['modified_records']
+        upload = extra_data['common']['upload']
+        tickets = extra_data['common']['tickets']
+        queue = extra_data['common']['queue']
 
-        records_xml = ""
-        for record in records:
-            records_xml += record.legacy_export_as_marc()
-        if not records_xml:
+        if not modified_records:
             return
-        records_xml = (
-            '<collection xmlns="http://www.loc.gov/MARC21/slim">\n'
-            '{}'
-            '</collection>'
-            .format(records_xml)
-        )
 
-        # TODO: Create temp of temp and then use mv to make the operation atomic
-        tmp_file_fd, tmp_file = tempfile.mkstemp(
-            suffix='.xml',
-            prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
-            dir=CFG_TMPSHAREDDIR
-        )
-        os.write(tmp_file_fd, records_xml)
-        os.close(tmp_file_fd)
-        os.chmod(tmp_file, 0644)
-        if holdingpen:
-            flag = "-o"
-        else:
-            flag = "-r"
-        task = task_low_level_submission('bibupload', 'bibcheck', flag, tmp_file)
-        # TODO:
-        # write_message("Submitted bibupload task %s" % task)
+        modified_records = (Record(r) for r in modified_records.values())
+        if upload:
+            formatter = JsonFormatter()
+            xml_records = formatter.format(modified_records).encode('utf-8')
+
+            tmp_file_fd, tmp_file = tempfile.mkstemp(
+                suffix='.xml',
+                prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
+                dir=CFG_TMPSHAREDDIR
+            )
+            os.write(tmp_file_fd, xml_records)
+            os.close(tmp_file_fd)
+            os.chmod(tmp_file, 0644)
+            if holdingpen:
+                flag = "-o"
+            else:
+                flag = "-r"
+            task = task_low_level_submission('bibupload', 'bibcheck', flag,
+                                             tmp_file)
+            # TODO:
+            # write_message("Submitted bibupload task %s" % task)
 
     return _upload_amendments
