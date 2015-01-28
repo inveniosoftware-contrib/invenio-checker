@@ -33,7 +33,6 @@ from invenio.base.utils import partial_argc
 from invenio.legacy.bibsched.bibtask import task_low_level_submission
 from invenio.modules.checker.rules import Rules, Rule
 from invenio.modules.records.api import get_record, Record
-from invenio.modules.workflows.definitions import JsonFormatter
 
 
 def _ensure_key(key, dict_):
@@ -239,29 +238,34 @@ def save_records():
         tickets = extra_data['common']['tickets']
         queue = extra_data['common']['queue']
 
-        if not modified_records:
+        if not upload or not modified_records:
             return
 
         modified_records = (Record(r) for r in modified_records.values())
-        if upload:
-            formatter = JsonFormatter()
-            xml_records = formatter.format(modified_records).encode('utf-8')
+        records_xml = ""
+        for record in modified_records:
+            records_xml += record.legacy_export_as_marc()
+        records_xml = (
+            '<collection xmlns="http://www.loc.gov/MARC21/slim">\n'
+            '{}'
+            '</collection>'
+            .format(records_xml)
+        )
 
-            tmp_file_fd, tmp_file = tempfile.mkstemp(
-                suffix='.xml',
-                prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
-                dir=CFG_TMPSHAREDDIR
-            )
-            os.write(tmp_file_fd, xml_records)
-            os.close(tmp_file_fd)
-            os.chmod(tmp_file, 0644)
-            if holdingpen:
-                flag = "-o"
-            else:
-                flag = "-r"
-            task = task_low_level_submission('bibupload', 'bibcheck', flag,
-                                             tmp_file)
-            # TODO:
-            # write_message("Submitted bibupload task %s" % task)
+        tmp_file_fd, tmp_file = tempfile.mkstemp(
+            suffix='.xml',
+            prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
+            dir=CFG_TMPSHAREDDIR
+        )
+        os.write(tmp_file_fd, records_xml)
+        os.close(tmp_file_fd)
+        os.chmod(tmp_file, 0644)
+        if holdingpen:
+            flag = "-o"
+        else:
+            flag = "-r"
+        task = task_low_level_submission('bibupload', 'bibcheck', flag, tmp_file)
+        # TODO:
+        # write_message("Submitted bibupload task %s" % task)
 
     return _upload_amendments
