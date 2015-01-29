@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ##
 ## This file is part of Invenio.
-## Copyright (C) 2013, 2014 CERN.
+## Copyright (C) 2013, 2014, 2015 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -20,38 +20,25 @@
 """Rule handlers for checker module."""
 
 import json
-import yaml
-from argparse import ArgumentTypeError
 from collections import defaultdict, MutableSequence
 from importlib import import_module
 from intbitset import intbitset
-from pykwalify.core import Core  # TODO: Remove when cfg is moved to db
+from werkzeug.utils import cached_property
 
 from .common import ALL
 from .errors import DuplicateRuleError
-from .registry import config_files, schema_files as schema_files_reg
+from invenio.ext.sqlalchemy import db
 from invenio.legacy.search_engine import search_pattern
+from invenio.modules.checker.models import CheckerRule, CheckerRecord
+from invenio.modules.records.models import Record as Bibrec
 
 
-class Rule(dict):
-    """Interface for a single rule."""
+class Query(object):
 
-    def __init__(self, *args, **kwargs):
-        """Initialize a single rule.
-
-        It is the programmer's responsibility to decide when to do validation,
-        because it is strict about extraneous values which may be useful to have
-        in the dict.
-        """
-        self._requested_ids = None
-        self._is_batch = None
-        super(Rule, self).__init__(*args, **kwargs)
-
-    @property
-    def pluginspec(self):
-        """Resolve checkspec of the rule's check."""
-        return 'invenio.modules.{module}.checkerext.plugins.{file}'\
-            .format(module=self['plugin']['module'], file=self['plugin']['file'])
+    def __init__(self, filter, option):
+        self._filter = filter
+        self._option = option
+        self.known_requested_ids = {}
 
     def requested_ids(self, user_ids):
         """Get a user-filtered list of IDs requested by this rule.
@@ -62,10 +49,13 @@ class Rule(dict):
         :returns: seq of IDs found in the database
         :rtype:   intbitset
 
-        Lazy, trusts that we do not modify self['filter'] or change IDs.
+        Trusts that we do not modify self._filter and self._option
         """
-        if self._requested_ids is not None:
-            return self._requested_ids
+        # Have we calculated the hitset for these `user_ids` before?
+        try:
+            return self.known_requested_ids[user_ids]
+        except KeyError:
+            pass
 
         def ids_eq_all():
             # HACK around https://github.com/inveniosoftware/intbitset/issues/18
@@ -74,8 +64,8 @@ class Rule(dict):
         ret_ids = self._run_query()
         if ids_eq_all():  # TODO: if user_ids == ALL:
             user_ids = intbitset(trailing_bits=1)
-        self._requested_ids = ret_ids & user_ids
-        return self._requested_ids
+        self.known_requested_ids[user_ids] = ret_ids & user_ids
+        return self.known_requested_ids[user_ids]
 
     def _query_filters(self, force_finiteness=False):
         """Compatibalize config filters with `search_pattern` args.
@@ -88,14 +78,15 @@ class Rule(dict):
             'p': 'pattern',
             'f': 'field',
         }
-        if 'filter' in self:
-            for query_arg, filter_name in cfg_mapper.items():
-                if filter_name in self['filter']:
-                    # Example: ('p', 'Higgs')
-                    yield (query_arg, self['filter'][filter_name])
+        for query_arg, filter_name in cfg_mapper.items():
+            try:
+                # Example: ('p', 'Higgs')
+                yield (query_arg, self._filter[filter_name])
+            except KeyError:
+                pass
         # HACK: Trick `search_pattern` into not returning inf.
         try:
-            self['filter']['p']
+            self._filter['p']
         except KeyError:
             force_finiteness = True
         if force_finiteness:
@@ -105,10 +96,13 @@ class Rule(dict):
         """Convert the options section of a rule into query arguments."""
         # HACK: Force `search_pattern` to return deleted records.
         try:
-            if self['options']['consider_deleted_records']:
+            if self._option['consider_deleted_records']:
                 return {'ap': -9, 'req': None}
+            else:
+                return {}
         except KeyError:
             return {}
+        # TODO: ['option']['holdingpen']
 
     def _run_query(self):
         """Query database for records based on rule configuration."""
@@ -122,10 +116,90 @@ class Rule(dict):
         assert not result.is_infinite(), '\n'.join((
             '',
             '`search_pattern` now works,'
-            'but my workarounds diminish',
-            'your delicate fixes.',
+            'alas; you must now amend',
+            'my delicate workarounds.',
         ))
         return result
+
+
+class Rule(dict):
+    """Interface for a single rule."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize a single rule.
+
+        It is the programmer's responsibility to decide when to do validation,
+        because it is strict about extraneous values which may be useful to have
+        in the dict.
+        """
+        super(Rule, self).__init__(*args, **kwargs)
+        if 'filter' not in self:
+            self['filter'] = {}
+        self.query = Query(self['filter'], self['option'])
+
+    @classmethod
+    def from_name(cls, name):
+        try:
+            rule = CheckerRule.query.filter(CheckerRule.name==name).all()[0]
+        except IndexError as e:
+            e.args += ("Requested rule {} not found in the database."
+                       .format(name),)
+            raise e
+        else:
+            return cls((rule.todict(composites=True)))
+
+    @property
+    def pluginspec(self):
+        """Resolve checkspec of the rule's check."""
+        return 'invenio.modules.{module}.checkerext.plugins.{file}'\
+            .format(module=self['plugin']['module'], file=self['plugin']['file'])
+
+    # @cached_property
+    def modified_records(self, user_ids):
+        # Get all records that are already associated to this rule
+        try:
+            associated_records = zip(
+                *db.session
+                .query(CheckerRecord.id_bibrec)
+                .filter(
+                    CheckerRecord.name_checker_rule==self['name']
+                ).all()
+            )[0]
+        except IndexError:
+            associated_records = []
+
+        # Store requested records that were until now unknown to this rule
+        requested_ids = self.query.requested_ids(user_ids)
+        for requested_id in requested_ids:
+            if requested_id not in associated_records:
+                new_record = CheckerRecord(id_bibrec=requested_id,
+                                           name_checker_rule=self['name'])
+                db.session.add(new_record)
+        db.session.commit()
+
+        # Figure out which records have been edited since the last time we ran
+        # this rule
+        try:
+            return zip(
+                *db.session
+                .query(CheckerRecord.id_bibrec)
+                .outerjoin(Bibrec)
+                .filter(
+                    db.and_(
+                        CheckerRecord.id_bibrec.in_(requested_ids),
+                        CheckerRecord.name_checker_rule == self['name'],
+                        db.or_(
+                            CheckerRecord.last_run < Bibrec.modification_date,
+                            db.and_(
+                                CheckerRecord.last_run > Bibrec.modification_date,
+                                CheckerRecord.expecting_modification == True
+                            )
+                        )
+                    )
+                )
+            )[0]
+        except IndexError:
+            return []
 
     @classmethod
     def from_json(cls, rule_json):
@@ -148,15 +222,7 @@ class Rule(dict):
         """
         return json.dumps(self)
 
-    def validate(self, schema_files):
-        """Validate a single YAML rule.
-
-        :raises: pykwalify.errors.SchemaError
-        """
-        core = Core(source_data=self, schema_files=schema_files)
-        core.validate(raise_exception=True)
-
-    @property
+    @cached_property
     def is_batch(self):
         """Check if a rule uses a batch plugin.
 
@@ -166,8 +232,6 @@ class Rule(dict):
 
         :raises: ImportError
         """
-        if self._is_batch is not None:
-            return self._is_batch
         plugin_module = import_module(self.pluginspec)
         return hasattr(plugin_module, 'pre_check')
 
@@ -212,7 +276,8 @@ class Rules(MutableSequence):
     def from_input(cls, user_choice):
         """Return the rules that should run from user input.
 
-        :param user_choice: comma-separated list of rule files
+        :param user_choice: comma-separated list of rule specifiers
+            example: 'checker.my_rule,checker.other_rule'
         :type  user_choice: str
 
         :returns: Rules
@@ -221,12 +286,11 @@ class Rules(MutableSequence):
         user_rules = set(user_choice.split(','))
         rules = cls()
         if ALL in user_rules:
-            for filepath in sorted(config_files.values()):
-                rules.load_file(filepath)
-            while ALL in user_rules:
-                user_rules.remove(ALL)
-        for user_rule in user_rules:
-            rules.load_file(user_rule)
+            rules.load_rule(ALL)
+            while ALL in rules:
+                rules.pop(ALL)
+        for rule_name in user_rules:
+            rules.load_rule(rule_name)
         return rules
 
     @classmethod
@@ -265,7 +329,8 @@ class Rules(MutableSequence):
         # Bundle into ID:json(rule)
         id_bundles = defaultdict(list)
         for rule in self:
-            for id_ in rule.requested_ids(user_ids):
+            rule.user_ids = user_ids
+            for id_ in rule.modified_records(user_ids):
                 rule_json = json.dumps(rule)
                 id_bundles[id_].append(rule_json)
         # Bundle into seq(json(rule)):ids
@@ -274,20 +339,15 @@ class Rules(MutableSequence):
             bundles[tuple(rule_json)].append(id_)
         return bundles
 
-    def load_file(self, filepath):
-        """Load (and validate) a file of YAML documents of rules.
+    def load_rule(self, rule_name):
+        """Load rules from the database.
 
-        :param filepath: file path of the file that needs to be loaded
-        :type  filepath: str
+        :param rule_name: rule name or ALL
 
-        :raises: ArgumentTypeError
+        :raises: IndexError
         """
-        try:
-            with open(filepath) as stream:
-                for document in yaml.load_all(stream):
-                    document = Rule(document)
-                    document.validate(schema_files_reg.values())
-                    self.append(document)
-        except IOError as err:
-            raise ArgumentTypeError("Cannot load rule file '{path}': {err}".
-                                    format(path=filepath, err=err))
+        if rule_name == ALL:
+            for db_rule in CheckerRule.query.all():
+                self.append(Rule(db_rule.todict(composites=True)))
+        else:
+            self.append(Rule.from_name(rule_name))

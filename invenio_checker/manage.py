@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ##
 ## This file is part of Invenio.
-## Copyright (C) 2013, 2014 CERN.
+## Copyright (C) 2013, 2014, 2015 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -25,6 +25,7 @@ from .common import ALL
 from .recids import ids_from_input
 from .registry import plugin_files
 from .rules import Rules
+from .models import CheckerRule
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
 from invenio.modules.checker.errors import PluginMissing
@@ -33,7 +34,7 @@ from invenio.modules.workflows.models import BibWorkflowObject
 
 manager = Manager(usage=__doc__)
 rules_dec = manager.option('--rules', '-r', default=ALL,
-                           help='Comma seperated list of rule files to load,'
+                           help='Comma seperated list of rule names to load,'
                            ' or `{}` for all rules.'.format(ALL))
 
 
@@ -59,6 +60,7 @@ def resolve_rules(func):
     return _resolve_rules
 
 
+# TODO: --force check regardless of timestamp
 @manager.option('--ids', '-i', dest='user_recids',
                 default=ALL, type=ids_from_input,
                 help='List of record IDs to work on (overrides other filters),'
@@ -103,7 +105,6 @@ def run(rules, user_recids, queue, tickets, upload):
             raise PluginMissing((rule.pluginspec, rule['name']))
 
     # Run
-    # TODO: Add `tickets` and `upload` to data
     common = {
         'tickets': tickets,
         'queue': queue,
@@ -121,7 +122,7 @@ def run(rules, user_recids, queue, tickets, upload):
         extra_data.update(data)
         obj.set_extra_data(extra_data)
         obj.save()
-        obj.start_workflow("base_bundle", delayed=True)
+        obj.start_workflow("base_bundle", delayed=False)
 
 
 @rules_dec

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ##
 ## This file is part of Invenio.
-## Copyright (C) 2013, 2014 CERN.
+## Copyright (C) 2015 CERN.
 ##
 ## Invenio is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -21,8 +21,9 @@ from ..tasks.tasks import (
     ruledicts,
     run_batch,
     run_check,
+    save_records,
+    set_done,
     wf_recids,
-    save_records
 )
 from invenio.modules.workflows.tasks.logic_tasks import foreach, end_for
 
@@ -36,7 +37,8 @@ class base_bundle(object):
             run_batch,
             foreach(wf_recids(), "record_id"),
             [
-                run_check
+                run_check,
+                set_done,
             ],
             end_for,
         ],
@@ -45,7 +47,8 @@ class base_bundle(object):
         [
             foreach(wf_recids(), "record_id"),
             [
-                run_check
+                run_check,
+                set_done,
             ],
             end_for,
         ],

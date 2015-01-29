@@ -23,16 +23,41 @@ import os
 import time
 
 import tempfile
+from datetime import datetime
 from dictdiffer import diff
 from functools import wraps, partial
 from importlib import import_module
 from invenio.config import CFG_TMPSHAREDDIR
 
-from invenio.modules.checker.record import AmendableRecord
 from invenio.base.utils import partial_argc
+from invenio.ext.sqlalchemy import db
 from invenio.legacy.bibsched.bibtask import task_low_level_submission
+from invenio.modules.checker.models import CheckerRecord
+from invenio.modules.checker.record import AmendableRecord
 from invenio.modules.checker.rules import Rules, Rule
 from invenio.modules.records.api import get_record, Record
+
+
+def _set_done(obj, eng, rule_names, recids):
+    # FIXME: Don't re-get extra data. It was already pulled out before this
+    # funciton call
+    extra_data = obj.get_extra_data()
+    now = datetime.now()
+    for recid in recids:
+        record = _load_record(extra_data, recid)
+        expecting_modification = _record_has_changed(obj, eng, record, extra_data)
+        db.session.query(CheckerRecord).filter(
+            db.and_(
+                CheckerRecord.id_bibrec == recids,
+                CheckerRecord.name_checker_rule.in_((rule_names))
+            )
+        ).update(
+            {
+                "last_run": now,
+                "expecting_modification": expecting_modification
+            },
+            synchronize_session=False)
+        db.session.commit()
 
 
 def _ensure_key(key, dict_):
@@ -134,6 +159,22 @@ def _load_record(extra_data, recid, local_storage_only=False, rule=None):
     else:
         record = Record(record_data)
     return record
+
+
+def set_done(obj, eng):
+    """Get a list of rules of a specific type.
+
+    :param rule_type: 'batch' or 'simple'
+    :type rule_type: str
+
+    :returns: rules
+    :rtype:   list of dict
+    """
+    extra_data = obj.get_extra_data()
+    rule_name = extra_data['rule_object']['name']
+    recid = extra_data['record_id']
+    record = _load_record(extra_data, recid)
+    _set_done(obj, eng, [rule_name], [recid])
 
 
 def ruledicts(rule_type):
@@ -238,19 +279,18 @@ def save_records():
         tickets = extra_data['common']['tickets']
         queue = extra_data['common']['queue']
 
-        if not upload or not modified_records:
-            return
-
         modified_records = (Record(r) for r in modified_records.values())
-        records_xml = ""
-        for record in modified_records:
-            records_xml += record.legacy_export_as_marc()
         records_xml = (
             '<collection xmlns="http://www.loc.gov/MARC21/slim">\n'
             '{}'
             '</collection>'
-            .format(records_xml)
+            .format("".join((record.legacy_export_as_marc()
+                             for record in modified_records)))
         )
+
+        # Upload
+        if not upload or not modified_records:
+            return
 
         tmp_file_fd, tmp_file = tempfile.mkstemp(
             suffix='.xml',
