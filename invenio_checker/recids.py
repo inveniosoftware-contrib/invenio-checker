@@ -24,7 +24,7 @@ from intbitset import intbitset
 from .common import ALL
 
 
-def ids_from_input(ids_input):
+def ids_from_input(ids_input, all_repr=ALL):
     """Return the list of IDs to check for from user-input.
 
     :param ids_input: Comma-separated list of requested record IDs.
@@ -36,22 +36,9 @@ def ids_from_input(ids_input):
 
     :raises:  ValueError
     """
-    def parse_range(str_):
-        """Parse string of comma-separated numbers and ranges of numbers."""
-        result = set()
-        for part in str_.split(','):
-            x = part.split('-')
-            result.update(range(int(x[0]), int(x[-1]) + 1))
-        return sorted(result)
-
     if ALL in ids_input.split(','):
-        return ALL
+        return all_repr
     else:
-        user_list = parse_range(ids_input)
-        # TODO: Remove tuple() on next intbitset release (which supports
-        # generators)
-        try:
-            return intbitset(tuple(int(i) for i in user_list), sanity_checks=True)
-        except ValueError as e:
-            e.args += ('Non-integer value given record IDs.',)
-            raise e
+        from invenio.utils.shell import split_cli_ids_arg
+        return split_cli_ids_arg(ids_input)
+        return parse_range(ids_input)
