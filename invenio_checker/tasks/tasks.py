@@ -29,13 +29,40 @@ from functools import wraps, partial
 from importlib import import_module
 from invenio.config import CFG_TMPSHAREDDIR
 
-from invenio.base.utils import partial_argc
 from invenio.ext.sqlalchemy import db
 from invenio.legacy.bibsched.bibtask import task_low_level_submission
 from invenio.modules.checker.models import CheckerRecord
 from invenio.modules.checker.record import AmendableRecord
 from invenio.modules.checker.rules import Rules, Rule
 from invenio.modules.records.api import get_record, Record
+
+def _partial_argc(func):
+    """Argument count of nested partial functions.
+
+    :param func: partial
+    :type  func: function
+
+    :returns: argument count
+    :rtype:   int
+    """
+    argc = 0  # Until challenged
+    inner_func = None  # So that we don't destruct func
+    while True:
+        try:
+            if inner_func:
+                argc += len(inner_func.args)
+            else:
+                argc += len(func.args)
+        except AttributeError:
+            pass
+        try:
+            if inner_func:
+                inner_func = inner_func.func
+            else:
+                inner_func = func.func
+        except AttributeError:
+            break
+    return argc
 
 
 def _set_done(obj, eng, rule_names, recids):
