@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2013, 2014, 2015 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of Invenio.
+# Copyright (C) 2013, 2014, 2015 CERN.
+#
+# Invenio is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# Invenio is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Invenio; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Manage checker module."""
 
@@ -39,9 +39,9 @@ rules_dec = manager.option('--rules', '-r', default=ALL,
 
 
 def interpret_dry_run(func):
+    """Resolve `dry_run` to variables understood by `run()`."""
     @wraps(func)
     def _dry_run(*args, **kwargs):
-        """Resolve `dry_run` to variables understood by `run()`."""
         if 'dry_run' in kwargs:
             if kwargs['dry_run']:
                 kwargs['upload'] = False
@@ -52,9 +52,9 @@ def interpret_dry_run(func):
 
 
 def resolve_rules(func):
+    """Resolve `rules` to list of Rules."""
     @wraps(func)
     def _resolve_rules(*args, **kwargs):
-        """Resolve `rules` to list of Rules."""
         kwargs['rules'] = Rules.from_input(kwargs['rules'])
         return func(*args, **kwargs)
     return _resolve_rules

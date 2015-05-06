@@ -27,7 +27,7 @@ from datetime import datetime
 from dictdiffer import diff
 from functools import wraps, partial
 from importlib import import_module
-from invenio.config import CFG_TMPSHAREDDIR
+from invenio.base.globals import cfg
 
 from invenio.ext.sqlalchemy import db
 from invenio.legacy.bibsched.bibtask import task_low_level_submission
@@ -237,6 +237,10 @@ def run_batch(obj, eng):
     """Run the batch function of a rule tied to a batch plugin.
 
     Sets `result_pre_check` in extra_data.
+
+    The following function signatures are supported:
+
+    pre_check(records)
     """
     # Load everything
     extra_data = obj.get_extra_data()
@@ -254,7 +258,13 @@ def run_batch(obj, eng):
 
 
 def run_check(obj, eng):
-    """Check a single record against a rule."""
+    """Check a single record against a rule.
+
+    The following function signatures are supported:
+
+    check_record(record, **kwargs)
+    check_record(record, result_pre_check, **kwargs)
+    """
     # Load everything
     extra_data = obj.get_extra_data()
     recid = obj.data
@@ -267,9 +277,10 @@ def run_check(obj, eng):
     # Append result_pre_check if this is part of a batch plugin
     try:
         result_pre_check = extra_data['result_pre_check'][rule['name']]
-        check_record = partial(check_record, result_pre_check)
     except KeyError:
         pass
+    else:
+        check_record = partial(check_record, result_pre_check)
     # Append any arguments
     try:
         check_record = partial(check_record, **rule['arguments'])
@@ -281,7 +292,7 @@ def run_check(obj, eng):
     except TypeError as e:
         # Give more details if the reason TypeError was raised was function
         # signature incompatibility (programming error).
-        expected_argcount = partial_argc(check_record)
+        expected_argcount = _partial_argc(check_record)
         given_argcount = plugin_module.check_record.func_code.co_argcount
         if expected_argcount != given_argcount:
             e.args += ('Wrong plugin function signature at {code}'
@@ -291,7 +302,8 @@ def run_check(obj, eng):
             # from running or do this earlier.
             # FIXME: Same goes for batch, but with greater impact.
         raise
-    _store_extras(obj, eng, extra_data, [record])
+    else:
+        _store_extras(obj, eng, extra_data, [record])
 
 
 def save_records():
@@ -322,7 +334,7 @@ def save_records():
         tmp_file_fd, tmp_file = tempfile.mkstemp(
             suffix='.xml',
             prefix="bibcheckfile_%s" % time.strftime("%Y-%m-%d_%H:%M:%S"),
-            dir=CFG_TMPSHAREDDIR
+            dir=cfg['CFG_TMPSHAREDDIR']
         )
         os.write(tmp_file_fd, records_xml)
         os.close(tmp_file_fd)
