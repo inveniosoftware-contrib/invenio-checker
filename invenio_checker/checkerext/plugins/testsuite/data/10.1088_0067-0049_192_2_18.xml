@@ -1,0 +1,3055 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Search-Engine-Total-Number-Of-Results: 1 -->
+<collection xmlns="http://www.loc.gov/MARC21/slim">
+<record>
+  <controlfield tag="001">843543</controlfield>
+  <controlfield tag="005">20140423000429.0</controlfield>
+  <datafield tag="024" ind1="7" ind2=" ">
+    <subfield code="2">DOI</subfield>
+    <subfield code="a">10.1088/0067-0049/192/2/18</subfield>
+  </datafield>
+  <datafield tag="037" ind1=" " ind2=" ">
+    <subfield code="9">arXiv</subfield>
+    <subfield code="a">arXiv:1001.4538</subfield>
+    <subfield code="c">astro-ph.CO</subfield>
+  </datafield>
+  <datafield tag="035" ind1=" " ind2=" ">
+    <subfield code="9">arXiv</subfield>
+    <subfield code="a">oai:arXiv.org:1001.4538</subfield>
+    <subfield code="z">oai:arXiv.org:1001.4538</subfield>
+  </datafield>
+  <datafield tag="035" ind1=" " ind2=" ">
+    <subfield code="9">SPIRESTeX</subfield>
+    <subfield code="z">Komatsu:2010fb</subfield>
+  </datafield>
+  <datafield tag="035" ind1=" " ind2=" ">
+    <subfield code="9">CDS</subfield>
+    <subfield code="a">1235916</subfield>
+  </datafield>
+  <datafield tag="100" ind1=" " ind2=" ">
+    <subfield code="a">Komatsu, E.</subfield>
+    <subfield code="i">INSPIRE-00045630</subfield>
+    <subfield code="u">Texas U.</subfield>
+  </datafield>
+  <datafield tag="245" ind1=" " ind2=" ">
+    <subfield code="a">Seven-Year Wilkinson Microwave Anisotropy Probe (WMAP) Observations: Cosmological Interpretation</subfield>
+  </datafield>
+  <datafield tag="246" ind1=" " ind2=" ">
+    <subfield code="9">arXiv</subfield>
+    <subfield code="a">Seven-Year Wilkinson Microwave Anisotropy Probe (WMAP) Observations: Cosmological Interpretation</subfield>
+  </datafield>
+  <datafield tag="269" ind1=" " ind2=" ">
+    <subfield code="c">2010-01</subfield>
+  </datafield>
+  <datafield tag="300" ind1=" " ind2=" ">
+    <subfield code="a">48</subfield>
+  </datafield>
+  <datafield tag="500" ind1=" " ind2=" ">
+    <subfield code="9">arXiv</subfield>
+    <subfield code="a">57 pages, 20 figures. Accepted for publication in ApJS. (v2) References added. The SZ section expanded with more analysis. The discrepancy between the KS and X-ray derived profiles has been resolved. (v3) New analysis of the SZ effect on individual clusters added (Section 7.3). The LCDM parameters have been updated using the latest recombination history code (RECFAST version 1.5)</subfield>
+  </datafield>
+  <datafield tag="520" ind1=" " ind2=" ">
+    <subfield code="9">arXiv</subfield>
+    <subfield code="a">(Abridged) The 7-year WMAP data and improved astrophysical data rigorously test the standard cosmological model and its extensions. By combining WMAP with the latest distance measurements from BAO and H0 measurement, we determine the parameters of the simplest LCDM model. The power-law index of the primordial power spectrum is n_s=0.968+-0.012, a measurement that excludes the scale-invariant spectrum by 99.5%CL. The other parameters are also improved from the 5-year results. Notable examples of improved parameters are the total mass of neutrinos, sum(m_nu)&lt;0.58eV, and the effective number of neutrino species, N_eff=4.34+0.86-0.88. We detect the effect of primordial helium on the temperature power spectrum and provide a new test of big bang nucleosynthesis. We detect, and show on the map for the first time, the tangential and radial polarization patterns around hot and cold spots of temperature fluctuations, an important test of physical processes at z=1090 and the dominance of adiabatic scalar fluctuations. With the 7-year TB power spectrum, the limit on a rotation of the polarization plane due to potential parity-violating effects has improved to Delta(alpha)=-1.1+-1.4(stat)+-1.5(syst) degrees. We report significant detections of the SZ effect at the locations of known clusters of galaxies. The measured SZ signal agrees well with the expected signal from the X-ray data. However, it is a factor of 0.5 to 0.7 times the predictions from 'universal profile' of Arnaud et al., analytical models, and hydrodynamical simulations. We find, for the first time in the SZ effect, a significant difference between the cooling-flow and non-cooling-flow clusters (or relaxed and non-relaxed clusters), which can explain some of the discrepancy. This lower amplitude is consistent with the lower-than-theoretically-expected SZ power spectrum recently measured by the South Pole Telescope collaboration.</subfield>
+  </datafield>
+  <datafield tag="650" ind1="1" ind2="7">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">Astrophysics</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">cosmic microwave background</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">cosmology: observations</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">early universe</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">dark matter</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">space vehicles</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">space vehicles: instruments</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">instrumentation: detectors</subfield>
+  </datafield>
+  <datafield tag="653" ind1="1" ind2=" ">
+    <subfield code="9">author</subfield>
+    <subfield code="a">telescopes</subfield>
+  </datafield>
+  <datafield tag="693" ind1=" " ind2=" ">
+    <subfield code="e">WMAP</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">gas: pressure</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">power spectrum: temperature</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">power spectrum: primordial</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">temperature: fluctuation</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">nucleosynthesis: big bang</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">polarization: rotation</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">oscillation: acoustic</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">fluctuation: scalar</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">galaxy: cluster</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">neutrino: mass</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">WMAP</subfield>
+  </datafield>
+  <datafield tag="695" ind1=" " ind2=" ">
+    <subfield code="2">INSPIRE</subfield>
+    <subfield code="a">cosmological model</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Smith, K.M.</subfield>
+    <subfield code="u">Princeton U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Dunkley, J.</subfield>
+    <subfield code="u">Oxford U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Bennett, C.L.</subfield>
+    <subfield code="i">INSPIRE-00066091</subfield>
+    <subfield code="u">Johns Hopkins U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Gold, B.</subfield>
+    <subfield code="u">Johns Hopkins U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Hinshaw, G.</subfield>
+    <subfield code="u">NASA, Goddard</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Jarosik, N.</subfield>
+    <subfield code="u">Princeton U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Larson, D.</subfield>
+    <subfield code="u">Johns Hopkins U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Nolta, M.R.</subfield>
+    <subfield code="i">INSPIRE-00193437</subfield>
+    <subfield code="u">Canadian Inst. Theor. Astrophys.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Page, L.</subfield>
+    <subfield code="i">INSPIRE-00053901</subfield>
+    <subfield code="u">Princeton U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Spergel, D.N.</subfield>
+    <subfield code="i">INSPIRE-00128124</subfield>
+    <subfield code="u">Princeton U., CTP</subfield>
+    <subfield code="u">Princeton U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Halpern, M.</subfield>
+    <subfield code="u">British Columbia U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Hill, R.S.</subfield>
+    <subfield code="u">Adnet Systems, Inc.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Kogut, A.</subfield>
+    <subfield code="u">NASA, Goddard</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Limon, M.</subfield>
+    <subfield code="u">Columbia U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Meyer, S.S.</subfield>
+    <subfield code="i">INSPIRE-00158285</subfield>
+    <subfield code="u">Chicago U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Odegard, N.</subfield>
+    <subfield code="u">Adnet Systems, Inc.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Tucker, G.S.</subfield>
+    <subfield code="i">INSPIRE-00190166</subfield>
+    <subfield code="u">Brown U.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Weiland, J.L.</subfield>
+    <subfield code="u">Adnet Systems, Inc.</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Wollack, E.</subfield>
+    <subfield code="u">NASA, Goddard</subfield>
+  </datafield>
+  <datafield tag="700" ind1=" " ind2=" ">
+    <subfield code="a">Wright, E.L.</subfield>
+    <subfield code="i">INSPIRE-00136748</subfield>
+    <subfield code="u">UCLA</subfield>
+    <subfield code="u">Brown U.</subfield>
+    <subfield code="u">Chicago U.</subfield>
+    <subfield code="u">Columbia U.</subfield>
+    <subfield code="u">Adnet Systems, Inc.</subfield>
+    <subfield code="u">British Columbia U.</subfield>
+    <subfield code="u">Princeton U., CTP</subfield>
+    <subfield code="u">Canadian Inst. Theor. Astrophys.</subfield>
+    <subfield code="u">Princeton U.</subfield>
+    <subfield code="u">NASA, Goddard</subfield>
+    <subfield code="u">Johns Hopkins U.</subfield>
+    <subfield code="u">Oxford U.</subfield>
+    <subfield code="u">Princeton U.</subfield>
+    <subfield code="u">Texas U.</subfield>
+    <subfield code="u">NASA, Goddard</subfield>
+    <subfield code="u">UCLA</subfield>
+  </datafield>
+  <datafield tag="710" ind1=" " ind2=" ">
+    <subfield code="g">WMAP Collaboration</subfield>
+  </datafield>
+  <datafield tag="773" ind1=" " ind2=" ">
+    <subfield code="c">18</subfield>
+    <subfield code="p">Astrophys.J.Suppl.</subfield>
+    <subfield code="v">192</subfield>
+    <subfield code="y">2011</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://www.adsabs.harvard.edu/abs/2011ApJS..192...18K</subfield>
+    <subfield code="w">2011ApJS..192...18K</subfield>
+    <subfield code="y">ADSABS</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/arXiv:1001.4538.pdf</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f01.png</subfield>
+    <subfield code="y">00000 Coordinate system for Stokes $Q$ and $U$. We use Galactic coordinates with north up and east left. In this example, $Q_r$ is always negative, and $U_r$ is always zero. When $Q_r>0$ and $U_r=0$, the polarization pattern is radial.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f02.png</subfield>
+    <subfield code="y">00001 Temperature-polarization cross correlation with various smoothing functions. (Left) The TE power spectrum with no smoothing is shown in the black solid line. For the other curves, the temperature is always smoothed with a $0.5^\circ$ (FWHM) Gaussian, whereas the polarization is smoothed with either the same Gaussian (black dashed), Q-band beam (blue solid), V-band beam (purple solid), or W-band beam (red dashed). (Right) The corresponding spatial temperature-$Q_r$ correlation functions. The vertical dotted lines indicate (from left to right): the acoustic scale, $2\times$the acoustic scale, and $2\times$the horizon size, all evaluated at the decoupling epoch.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f03.png</subfield>
+    <subfield code="y">00002 Predicted temperature peak-polarization cross correlation, as measured by the stacked profile of the transformed Stokes $Q_r$, computed from equation~(\ref{eq:Qr}) for various values of the threshold peak heights. The temperature is always smoothed with a $0.5^\circ$ (FWHM) Gaussian, whereas the polarization is smoothed with either the same Gaussian (black dashed), Q-band beam (blue solid), V-band beam (purple solid), or W-band beam (red dashed). (Top left) All temperature hot spots are stacked. (Top right) Spots greater than 1$\sigma$ are stacked. (Bottom left) Spots greater than 2$\sigma$ are stacked. (Bottom right) Spots greater than 3$\sigma$ are stacked. The light gray lines show the average of the measurements from noiseless simulations with a Gaussian smoothing of $0.5^\circ$ FWHM. The agreement is excellent.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f04.png</subfield>
+    <subfield code="y">00003 Predicted temperature peak-temperature correlation, as measured by the stacked temperature profile, computed from equation~(\ref{eq:T}) for various values of the threshold peak heights. The choices of the smoothing functions and the threshold peak heights are the same as in Figure~\ref{fig:cpk}.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f05.png</subfield>
+    <subfield code="y">00004 Stacked images of temperature and polarization data around temperature {\it cold} spots. Each panel shows a $5^\circ\times 5^\circ$ region with north up and east left. Both the temperature and polarization data have been smoothed to a common resolution of $0.5^\circ$. (Top) Simulated images with no instrumental noise. From left to right: the stacked temperature, Stokes $Q$, Stokes $U$, and transformed Stokes $Q_r$ (see equation~(\ref{eq:Qrdef})) overlaid with the polarization directions. (Middle) \map\ 7-year V$+$W data. In the observed map of $Q_r$, the compression phase at $1.2^\circ$ and the reversal phase at $0.6^\circ$ are clearly visible. (Bottom) Null tests. From left to right: the stacked $Q_r$ from the sum map and from the difference map (V$-$W)/2, the stacked $U_r$ from the sum map and from the difference map. The latter three maps are all consistent with noise. Note that $U_r$, which probes the TB correlation (see equation~(\ref{eq:Ur})), is expected to vanish in a parity-conserving universe.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f06.png</subfield>
+    <subfield code="y">00005 Same as Figure~\ref{fig:minima} but for temperature {\it hot} spots.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f07.png</subfield>
+    <subfield code="y">00006 The \map\ 7-year temperature power spectrum \citep{larson/etal:prep}, along with the temperature power spectra from the ACBAR \citep{reichardt/etal:2009} and QUaD \citep{brown/etal:2009} experiments. We show the ACBAR and QUaD data only at $l\ge 690$, where the errors in the \map\ power spectrum are dominated by noise. We do not use the power spectrum at $l>2000$ because of a potential contribution from the SZ effect and point sources. The solid line shows the best-fitting 6-parameter flat $\Lambda$CDM model to the \map\ data alone (see the 3rd column of Table~\ref{tab:summary} for the maximum likelihood parameters).</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f08.png</subfield>
+    <subfield code="y">00007 Limits on the tensor-to-scalar ratio, $r$, from the polarization data (BB, EE and TE) alone. All the other cosmological parameters, including the optical depth, are fixed at the 5-year best-fit $\Lambda$CDM model \citep{dunkley/etal:2009}. The vertical axis shows $-2\ln(L/L_{\rm max})$, where $L$ is the likelihood and $L_{\rm max}$ is the maximum value. This quantity may be interpreted as the standard $\chi^2$, as the likelihood is approximately a Gaussian near the maximum; thus, $-2\ln(L/L_{\rm max})=4$ corresponds to the 95.4\%~CL limit. The solid, dashed and dot-dashed lines show the likelihood as a function of $r$ from the BB-only, BB$+$EE, and BB$+$EE$+$TE data. (Left) The 7-year polarization data. We find $r&lt;2.1$, 1.6, and 0.93 (95.4\%~CL) from the BB-only, BB$+$EE, and BB$+$EE$+$TE data, respectively. (Right) The 5-year polarization data. We find $r&lt;4.7$, 2.7, and 1.6 (95.4\%~CL) from the BB-only, BB$+$EE, and BB$+$EE$+$TE data, respectively.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f09.png</subfield>
+    <subfield code="y">00008 Constraint on the effective number of neutrino species, $N_{\rm eff}$. (Left) Joint two-dimensional marginalized distribution (68\% and 95\% CL), showing how a better determination of $H_0$ improves a limit on $\Omega_mh^2$. (Middle) A correlation between $N_{\rm eff}$ and $\Omega_mh^2$. The dashed line shows the line of correlation given by equation~(\ref{eq:neffformula}). A better determination of $H_0$ improves a limit on $\Omega_mh^2$ which, in turn, improves a limit on $N_{\rm eff}$. (Right) One-dimensional marginalized distribution of $N_{\rm eff}$ from \map-only and \map+BAO+$H_0$. The 68\% interval from \map+BAO+$H_0$, \ensuremath{N_{\rm eff} = 4.34^{+ 0.86}_{- 0.88}}, is consistent with the standard value, 3.04, which is shown by the vertical line.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f10.png</subfield>
+    <subfield code="y">00009 Primordial helium abundance and the temperature power spectrum. The data points are the same as those in Figure~\ref{fig:cl}. The lower (pink) solid line (which is the same as the solid line in Figure~\ref{fig:cl}) shows the power spectrum with the nominal helium abundance, $Y_p=0.24$, while the upper (blue) solid line shows that with a tiny helium abundance, $Y_p=0.01$. The larger the helium abundance is, the smaller the number density of electrons during recombination becomes, which enhances the Silk damping of the power spectrum on small angular scales, $l\gtrsim 500$.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f11.png</subfield>
+    <subfield code="y">00010 Constraint on the primordial helium abundance, $Y_p$. (Left) Joint two-dimensional marginalized distribution (68\% and 95\% CL), showing that $Y_p$ and $\Omega_bh^2$ are essentially uncorrelated. (Middle) A slight correlation exists between $Y_p$ and $n_s$: an enhanced Silk damping produced by a larger $Y_p$ can be partially canceled by a larger $n_s$. (Right) One-dimensional marginalized distribution of $Y_p$ from \map-only and \map+ACBAR+QUaD. The 68\% interval from \map+ACBAR+QUaD, $Y_p=0.326\pm 0.075$ is consistent with the nominal value, 0.24, which is shown by the vertical line.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f12.png</subfield>
+    <subfield code="y">00011 Joint two-dimensional marginalized constraint on the time-independent (constant) dark energy equation of state, $w$, and the curvature parameter, $\Omega_{k}$. The contours show the 68\% and 95\% CL from \map+BAO+$H_0$ (red), \map+BAO+$H_0$+$D_{\Delta t}$ (black), and \map+BAO+SN (purple).</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f13.png</subfield>
+    <subfield code="y">00013 Angular radial profile of the SZ effect toward the Coma cluster, in units of the Rayleigh-Jeans (RJ) temperature ($\mu$K). While the V- (green) and W-band (blue) measurements are contaminated by the CMB fluctuations around Coma, our optimal estimator can separate the SZ effect and CMB when the V- and W-band measurements are combined (red). The solid line shows the best-fitting spherical $\beta$ model with the core radius of $\theta_c=10.5$~arcmin and $\beta=0.75$. The best-fitting central temperature decrement (fit to a $\beta$ model) is $T_{\rm SZ,RJ}(0)=-0.377\pm 105~\mu$K. Note that 10~arcmin corresponds to the physical distance of 0.195~$h^{-1}$~Mpc at the location of Coma. The radius within which the mean overdensity is 500 times the critical density of the universe, $r_{500}$, corresponds to about 50~arcmin.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f14.png</subfield>
+    <subfield code="y">00012 Joint two-dimensional marginalized constraint on the linear evolution model of dark energy equation of state, $w(a)=w_0+w_a(1-a)$. The contours show the 68\% and 95\% CL from \map+$H_0$+SN (red), \map+BAO+$H_0$+SN (blue), and \map+BAO+$H_0$+$D_{\Delta t}$+SN (black), for a flat universe.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f15.png</subfield>
+    <subfield code="y">00014 Average temperature profile of the SZ effect from the stacking analysis, in units of the Rayleigh-Jeans (RJ) temperature ($\mu$K), at $\theta=7$, 35, 63, and 91~arcmin. The V- and W-band data are combined using the optimal estimator. (Top) The SZ effect measured from the locations of clusters of galaxies. The results with three different maximum redshifts, $z_{\rm max}=0.1$ (blue; left), 0.2 (green; middle), and 0.45 (red; right), are shown. The error bars include noise due to the CMB fluctuation, and thus are correlated (see equation~(\ref{eq:corr}) for the correlation matrix). (Middle) A null test showing profiles measured from random locations on the sky (for $z_{\rm max}=0.2$; the number of random locations is the same as the number of clusters used in the top panel). Three random realizations are shown. Our method does not produce biased results. (Bottom) The measured profile ($z_{\rm max}=0.2$) is compared with the model profiles derived from X-ray observations \citep{arnaud/etal:prep} and theoretically calculated from hydrostatic equilibrium \citep{komatsu/seljak:2001} with two different concentration parameters. Note that the model profiles are calculated also for $z_{\rm max}=0.2$ but have not been multiplied by the best-fitting normalization factors given in Table~\ref{tab:szamplitude}.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f16.png</subfield>
+    <subfield code="y">00015 Gas pressure profiles of clusters of galaxies, $P_{\rm gas}(r)$, at $z=0.1$, and the projected profiles of the SZ effect, $\Delta T_{\rm SZ}(\theta)$ (Rayleigh-Jeans temperature in $\mu$K). (Top Left) The gas pressure profiles. The upper and bottom set of curves show $M_{500}=3\times 10^{14}$ and $3\times 10^{13}~h^{-1}~M_\sun$, respectively. The horizontal axis shows radii scaled by the corresponding $r_{500}=0.78$ and $0.36~h^{-1}~{\rm Mpc}$, respectively. The solid lines show $P_{\rm gas}(r)=P_e(r)/0.518$ derived from X-ray observations \citep{arnaud/etal:prep}, while the dotted and dashed lines show $P_{\rm gas}(r)$ predicted from hydrostatic equilibrium \citep{komatsu/seljak:2001} with NFW concentration parameters of \citet{seljak:2000} and \citet{duffy/etal:2008}, respectively. (Top Right) The projected SZ profiles computed from the corresponding curves in the top left panel and equation~(\ref{eq:tszfit}). The horizontal axis shows angular radii scaled by $\theta_{500}=r_{500}/D_A$, which is 10 and 4.7 arcmin for $M_{500}=3\times 10^{14}$ and $3\times 10^{13}~h^{-1}~M_\sun$, respectively. (Bottom Left) Same as the top left panel, but the dotted and dashed lines show $P_{\rm gas}(r)$ predicted from ``Cooling+Star Formation'' and ``Non-radiative'' simulation runs by \citet{nagai/kravtsov/vikhlinin:2007}. (Bottom Right) Same as the top right panel, but the dotted and dashed lines are computed from the corresponding curves in the bottom left panel and equation~(\ref{eq:tszfit}).</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f17.png</subfield>
+    <subfield code="y">00016 Gas mass fraction as a function of $M_{500}$. The thick horizontal line shows the cosmic mean baryon fraction, $\Omega_b/\Omega_m=0.167$. The solid line shows the gas mass fraction, $f_{\rm gas}=M_{\rm gas,500}/M_{500}$, derived from X-ray observations \citep{vikhlinin/etal:2009b}, while the dotted and dashed lines show $f_{\rm gas}$ predicted from hydrostatic equilibrium \citep{komatsu/seljak:2001} with NFW concentration parameters of \citet{seljak:2000} and \citet{duffy/etal:2008}, respectively.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f18.png</subfield>
+    <subfield code="y">00017 Distribution of $M_{500}$ estimated from clusters in the catalog using the measured X-ray luminosities in 0.1-2.4~keV band, $L_X$, and equations~(\ref{eq:r500}) and (\ref{eq:m500}). The light blue, dark blue, and pink histograms show $z_{\rm max}=0.45$, 0.2, and 0.1, respectively.</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2=" ">
+    <subfield code="u">http://inspirehep.net/record/843543/files/f19.png</subfield>
+    <subfield code="y">00018 Two-dimensional joint marginalized constraint (68\% and 95\% CL) on the primordial tilt, $n_s$, and the tensor-to-scalar ratio, $r$, derived from the data combination of \map+BAO+$H_0$. The symbols show the predictions from ``chaotic'' inflation models whose potential is given by $V(\phi)\propto \phi^\alpha$ \citep{linde:1983}, with $\alpha=4$ (solid) and $\alpha=2$ (dashed) for single-field models, and $\alpha=2$ for multi-axion field models with $\beta=1/2$ \citep[dotted;][]{easther/mcallister:2006}.</subfield>
+  </datafield>
+  <datafield tag="909" ind1="C" ind2="O">
+    <subfield code="o">oai:inspirehep.net:843543</subfield>
+    <subfield code="p">INSPIRE:HEP</subfield>
+    <subfield code="p">CDS</subfield>
+  </datafield>
+  <datafield tag="961" ind1=" " ind2=" ">
+    <subfield code="x">2010-01-26</subfield>
+  </datafield>
+  <datafield tag="961" ind1=" " ind2=" ">
+    <subfield code="c">2012-02-06</subfield>
+  </datafield>
+  <datafield tag="970" ind1=" " ind2=" ">
+    <subfield code="a">SPIRES-8537542</subfield>
+  </datafield>
+  <datafield tag="980" ind1=" " ind2=" ">
+    <subfield code="a">Published</subfield>
+  </datafield>
+  <datafield tag="980" ind1=" " ind2=" ">
+    <subfield code="a">arXiv</subfield>
+  </datafield>
+  <datafield tag="980" ind1=" " ind2=" ">
+    <subfield code="a">Citeable</subfield>
+  </datafield>
+  <datafield tag="980" ind1=" " ind2=" ">
+    <subfield code="a">noncore</subfield>
+  </datafield>
+  <datafield tag="980" ind1=" " ind2=" ">
+    <subfield code="a">HEP</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="6">
+    <subfield code="a">0-0-1-2-0-0-0</subfield>
+    <subfield code="t">2014-04-22 23:42:01</subfield>
+    <subfield code="v">Invenio/1.1.2.719-da082b refextract/1.5.44</subfield>
+    <subfield code="v">tmp67Rig1.pdf</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">835588</subfield>
+    <subfield code="h">Abbott, B. P., et al.</subfield>
+    <subfield code="s">Nature,460,990</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Abdalla, F. B., &amp; Rawlings, S.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,381,1313</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">742242</subfield>
+    <subfield code="h">Ackerman, L., Carroll, S. M., &amp; Wise, M. B.</subfield>
+    <subfield code="s">Phys.Rev.,D75,083502</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">594564</subfield>
+    <subfield code="h">Acquaviva, V., Bartolo, N., Matarrese, S., &amp; Riotto, A.</subfield>
+    <subfield code="s">Nucl.Phys.,B667,119</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">735545</subfield>
+    <subfield code="h">Afshordi, N., Lin, Y.-T., Nagai, D., &amp; Sanderson, A. J. R.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,378,293</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">657884</subfield>
+    <subfield code="h">Afshordi, N., Lin, Y.-T., &amp; Sanderson, A. J. R.</subfield>
+    <subfield code="s">Astrophys.J.,629,1</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Aguirre, A. N.</subfield>
+    <subfield code="s">Astrophys.J.,533,1</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">176612</subfield>
+    <subfield code="h">Albrecht, A., &amp; Steinhardt, P. J.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,48,1220</subfield>
+    <subfield code="y">1982</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">648032</subfield>
+    <subfield code="h">Alishahiha, M., Silverstein, E., &amp; Tong, D.</subfield>
+    <subfield code="s">Phys.Rev.,D70,123505</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">752064</subfield>
+    <subfield code="h">Allen, S. W., Rapetti, D. A., Schmidt, R. W., Ebeling, H., Morris, R. G., &amp; Fabian, A. C.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,383,879</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">695346</subfield>
+    <subfield code="h">Amarzguioui, M., Elgarøy, Ø., Mota, D. F., &amp; Multamäki, T.</subfield>
+    <subfield code="s">Astron.Astrophys.,454,707</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">758245</subfield>
+    <subfield code="h">Amin, M. A., Wagoner, R. V., &amp; Blandford, R. D.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,390,131</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Arkani-Hamed, N., Creminelli, P., Mukohyama, S., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">J</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Cosmol. Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0404,001</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">676521</subfield>
+    <subfield code="h">Arnaud, M., Pointecouteau, E., &amp; Pratt, G. W.</subfield>
+    <subfield code="s">Astron.Astrophys.,441,893</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Arnaud, M., Pointecouteau, E., &amp; Pratt, G. W.</subfield>
+    <subfield code="s">Astron.Astrophys.,474,L37</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Arnaud, M., Pratt, G. W., Piffaretti, R., Böhringer, H., Croston, J. H., &amp; Pointecouteau, E.</subfield>
+    <subfield code="s">Astron.Astrophys.,517,A92</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">821575</subfield>
+    <subfield code="h">Arvanitaki, A., Dimopoulos, S., Dubovsky, S., Kaloper, N., &amp; March-Russell, J.</subfield>
+    <subfield code="s">Phys.Rev.,D81,123530</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">830392</subfield>
+    <subfield code="h">Asplund, M., Grevesse, N., Sauval, A. J., &amp; Scott, P.</subfield>
+    <subfield code="s">Ann.Rev.Astron.Astrophys.,47,481</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Atrio-Barandela, F., Kashlinsky, A., Kocevski, D., &amp; Ebeling, H.</subfield>
+    <subfield code="s">Astrophys.J.,675,L57</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Atrio-Barandela, F., &amp; Mücket, J. P.</subfield>
+    <subfield code="s">Astrophys.J.,515,465</subfield>
+    <subfield code="y">1999</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">678584</subfield>
+    <subfield code="h">Babich, D.</subfield>
+    <subfield code="s">Phys.Rev.,D72,043003</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Babich, D., Creminelli, P., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0408,009</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">159548</subfield>
+    <subfield code="h">Bardeen, J. M.</subfield>
+    <subfield code="s">Phys.Rev.,D22,1882</subfield>
+    <subfield code="y">1980</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">17182</subfield>
+    <subfield code="h">Bardeen, J. M., Bond, J. R., Kaiser, N., &amp; Szalay, A. S.</subfield>
+    <subfield code="s">Astrophys.J.,304,15</subfield>
+    <subfield code="y">1986</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">13328</subfield>
+    <subfield code="h">Bardeen, J. M., Steinhardt, P. J., &amp; Turner, M. S.</subfield>
+    <subfield code="s">Phys.Rev.,D28,679</subfield>
+    <subfield code="y">1983</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">652575</subfield>
+    <subfield code="h">Bartolo, N., Komatsu, E., Matarrese, S., &amp; Riotto, A.</subfield>
+    <subfield code="s">Phys.Rept.,402,103</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">583747</subfield>
+    <subfield code="h">Bartolo, N., &amp; Liddle, A. R.</subfield>
+    <subfield code="s">Phys.Rev.,D65,121301</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Bartolo, N., Matarrese, S., &amp; Riotto, A.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0606,024</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Bartolo, N., Matarrese, S., &amp; Riotto, A.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0701,019</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Basko, M. M., &amp; Polnarev, A. G.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,191,207</subfield>
+    <subfield code="y">1980</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">688317</subfield>
+    <subfield code="h">Bassett, B. A., Tsujikawa, S., &amp; Wands, D.</subfield>
+    <subfield code="s">Rev.Mod.Phys.,78,537</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">615792</subfield>
+    <subfield code="h">Battistelli, E. S., et al.</subfield>
+    <subfield code="s">Astrophys.J.,598,L75</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Bean, R., Bernat, D., Pogosian, L., Silvestri, A., &amp; Trodden, M.</subfield>
+    <subfield code="m">Phys</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Rev. D</subfield>
+    <subfield code="m">75, 064020</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">720322</subfield>
+    <subfield code="h">Bean, R., Dunkley, J., &amp; Pierpaoli, E.</subfield>
+    <subfield code="s">Phys.Rev.,D74,063503</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">718899</subfield>
+    <subfield code="h">Beltran, M., Garcia-Bellido, J., &amp; Lesgourgues, J.</subfield>
+    <subfield code="s">Phys.Rev.,D75,103507</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">415293</subfield>
+    <subfield code="h">Bennett, C. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.,464,L1</subfield>
+    <subfield code="y">1996</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">611381</subfield>
+    <subfield code="h">Bennett, C. L., et al.</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Astrophys.J.,583,1</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">613133</subfield>
+    <subfield code="h">Bennett, C. L., et al.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,148,1</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">613134</subfield>
+    <subfield code="h">Bennett, C. L., et al.</subfield>
+    <subfield code="m">c</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,148,97</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">843447</subfield>
+    <subfield code="h">Bennett, C. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,192,17</subfield>
+    <subfield code="y">2011</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">777534</subfield>
+    <subfield code="h">Bertschinger, E., &amp; Zukin, P.</subfield>
+    <subfield code="s">Phys.Rev.,D78,024015</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">746699</subfield>
+    <subfield code="h">Bielby, R. M., &amp; Shanks, T.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,382,1196</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">477013</subfield>
+    <subfield code="h">Birkinshaw, M.</subfield>
+    <subfield code="s">Phys.Rept.,310,97</subfield>
+    <subfield code="y">1999</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">821084</subfield>
+    <subfield code="h">Bode, P., Ostriker, J. P., &amp; Vikhlinin, A.</subfield>
+    <subfield code="s">Astrophys.J.,700,989</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">651138</subfield>
+    <subfield code="h">Böhringer, H., et al.</subfield>
+    <subfield code="s">Astron.Astrophys.,425,367</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">746896</subfield>
+    <subfield code="h">Böhringer, H., et al.</subfield>
+    <subfield code="s">Astron.Astrophys.,469,363</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">700604</subfield>
+    <subfield code="h">Bonamente, M., Joy, M. K., LaRoque, S. J., Carlstrom, J. E., Reese, E. D., &amp; Dawson, K. S.</subfield>
+    <subfield code="s">Astrophys.J.,647,25</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Bonamente, M., Lieu, R., Joy, M. K., &amp; Nevalainen, J. H.</subfield>
+    <subfield code="s">Astrophys.J.,576,688</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">199231</subfield>
+    <subfield code="h">Bond, J. R., &amp; Efstathiou, G.</subfield>
+    <subfield code="s">Astrophys.J.,285,L45</subfield>
+    <subfield code="y">1984</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">244576</subfield>
+    <subfield code="h">Bond, J. R., &amp; Efstathiou, G.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,226,655</subfield>
+    <subfield code="y">1987</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">440398</subfield>
+    <subfield code="h">Bond, J. R., Efstathiou, G., &amp; Tegmark, M.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,291,L33</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">815872</subfield>
+    <subfield code="h">Bond, J. R., Frolov, A. V., Huang, Z., &amp; Kofman, L.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,103,071301</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">597914</subfield>
+    <subfield code="h">Bond, J. R., et al.</subfield>
+    <subfield code="s">Astrophys.J.,626,12</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Boubekeur, L., Creminelli, P., D’Amico, G., Noreña, J., &amp; Vernizzi, F.</subfield>
+    <subfield code="m">J</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Cosmol. Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0908,029</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Brandbyge, J., &amp; Hannestad, S.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0905,002</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Brandbyge, J., Hannestad, S., Haugbølle, T., &amp; Thomsen, B.</subfield>
+    <subfield code="m">J. Cosmol</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0808,020</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">349797</subfield>
+    <subfield code="h">Briel, U. G., Henry, J. P., &amp; Boehringer, H.</subfield>
+    <subfield code="s">Astron.Astrophys.,259,L31</subfield>
+    <subfield code="y">1992</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">822310</subfield>
+    <subfield code="h">Brown, M. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.,705,978</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">462315</subfield>
+    <subfield code="h">Bryan, G. L., &amp; Norman, M. L.</subfield>
+    <subfield code="s">Astrophys.J.,495,80</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">749987</subfield>
+    <subfield code="h">Cabella, P., Natoli, P., &amp; Silk, J.</subfield>
+    <subfield code="s">Phys.Rev.,D76,123014</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Cabella, P., Pietrobon, D., Veneziani, M., Balbi, A., Crittenden, R., de Gasperis, G., Quercellini, C., &amp; Vittorio, N.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,405,961</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">830836</subfield>
+    <subfield code="h">Calabrese, E., Smidt, J., Amblard, A., Cooray, A., Melchiorri, A., Serra, P., Heavens, A., &amp; Munshi, D.</subfield>
+    <subfield code="s">Phys.Rev.,D81,043529</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">592313</subfield>
+    <subfield code="h">Carlstrom, J. E., Holder, G. P., &amp; Reese, E. D.</subfield>
+    <subfield code="s">Ann.Rev.Astron.Astrophys.,40,643</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">472059</subfield>
+    <subfield code="h">Carroll, S. M.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,81,3067</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">117898</subfield>
+    <subfield code="h">Cavaliere, A., &amp; Fusco-Femiano, R.</subfield>
+    <subfield code="s">Astron.Astrophys.,49,137</subfield>
+    <subfield code="y">1976</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">765112</subfield>
+    <subfield code="h">Chambers, A., &amp; Rajantie, A.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,100,041302</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Chen, X., Huang, M.-X., Kachru, S., &amp; Shiu, G.</subfield>
+    <subfield code="m">J. Cosmol Astropart</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Phys.,</subfield>
+    <subfield code="s">JCAP,0701,002</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">830209</subfield>
+    <subfield code="h">Chen, X., &amp; Wang, Y.</subfield>
+    <subfield code="s">Phys.Rev.,D81,063511</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Chen, X., &amp; Wang, Y.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,1004,027</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Cheung, C., Creminelli, P., Fitzpatrick, A. L., Kaplan, J., &amp; Senatore, L.</subfield>
+    <subfield code="m">J</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">High Energy Phys.,</subfield>
+    <subfield code="s">JHEP,0803,014</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">532836</subfield>
+    <subfield code="h">Chevallier, M., &amp; Polarski, D.</subfield>
+    <subfield code="s">Int.J.Mod.Phys.,D10,213</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">822375</subfield>
+    <subfield code="h">Chiang, H. C., et al.</subfield>
+    <subfield code="s">Astrophys.J.,711,1123</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">576421</subfield>
+    <subfield code="h">Chiba, T., &amp; Takahashi, R.</subfield>
+    <subfield code="s">Prog.Theor.Phys.,107,625</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">746434</subfield>
+    <subfield code="h">Chiba, T., &amp; Takahashi, R.</subfield>
+    <subfield code="s">Phys.Rev.,D75,101301</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">665430</subfield>
+    <subfield code="h">Chu, M., Eriksen, H. K., Knox, L., Górski, K. M., Jewell, J. B., Larson, D. L., O’Dwyer, I. J., &amp; Wandelt, B. D.</subfield>
+    <subfield code="s">Phys.Rev.,D71,103002</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">823835</subfield>
+    <subfield code="h">Coe, D., &amp; Moustakas, L. A.</subfield>
+    <subfield code="s">Astrophys.J.,706,45</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">830876</subfield>
+    <subfield code="h">Copeland, E. J., &amp; Kibble, T. W. B.</subfield>
+    <subfield code="s">Phys.Rev.,D80,123523</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">768623</subfield>
+    <subfield code="h">Corasaniti, P. S., &amp; Melchiorri, A.</subfield>
+    <subfield code="s">Phys.Rev.,D77,103507</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">374820</subfield>
+    <subfield code="h">Coulson, D., Crittenden, R. G., &amp; Turok, N. G.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,73,2390</subfield>
+    <subfield code="y">1994</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Creminelli, P., Nicolis, A., Senatore, L., Tegmark, M., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">J</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Cosmol. Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0605,004</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Creminelli, P., Senatore, L., Zaldarriaga, M., &amp; Tegmark, M.</subfield>
+    <subfield code="m">J. Cosmol</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0703,005</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Creminelli, P., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0410,006</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">380388</subfield>
+    <subfield code="h">Crittenden, R. G., Coulson, D., &amp; Turok, N. G.</subfield>
+    <subfield code="s">Phys.Rev.,D52,5402</subfield>
+    <subfield code="y">1995</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">655650</subfield>
+    <subfield code="h">Cyburt, R. H., Fields, B. D., Olive, K. A., &amp; Skillman, E.</subfield>
+    <subfield code="s">Astropart.Phys.,23,313</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">526594</subfield>
+    <subfield code="h">Damour, T., &amp; Vilenkin, A.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,85,3761</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">555278</subfield>
+    <subfield code="h">Damour, T., &amp; Vilenkin, A.</subfield>
+    <subfield code="s">Phys.Rev.,D64,064008</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">779036</subfield>
+    <subfield code="h">Daniel, S. F., Caldwell, R. R., Cooray, A., &amp; Melchiorri, A.</subfield>
+    <subfield code="s">Phys.Rev.,D77,103513</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">742618</subfield>
+    <subfield code="h">Davis, T. M., et al.</subfield>
+    <subfield code="s">Astrophys.J.,666,716</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">588917</subfield>
+    <subfield code="h">De Petris, M., et al.</subfield>
+    <subfield code="s">Astrophys.J.,574,L119</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">787003</subfield>
+    <subfield code="h">Desjacques, V.</subfield>
+    <subfield code="s">Phys.Rev.,D78,103503</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Diego, J. M., &amp; Partridge, B.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,402,1179</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Dobke, B. M., King, L. J., Fassnacht, C. D., &amp; Auger, M. W.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,397,311</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">770139</subfield>
+    <subfield code="h">Doré, O., et al.</subfield>
+    <subfield code="r">arXiv:0712.1599</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">783522</subfield>
+    <subfield code="h">Duffy, A. R., Schaye, J., Kay, S. T.</subfield>
+    <subfield code="m">&amp; Dalla Vecchia, C</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,390,L64</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">780715</subfield>
+    <subfield code="h">Dunkley, J., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,180,306</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">619791</subfield>
+    <subfield code="h">Dvali, G., Gruzinov, A., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Phys.Rev.,D69,083505</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">615796</subfield>
+    <subfield code="h">Dvali, G., Gruzinov, A., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Phys.Rev.,D69,023505</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Easther, R., &amp; McAllister, L.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0605,018</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">545001</subfield>
+    <subfield code="h">Ebeling, H., Edge, A. C., Allen, S. W., Crawford, C. S., Fabian, A. C., &amp; Huchra, J. P.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,318,333</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">491583</subfield>
+    <subfield code="h">Ebeling, H., Edge, A. C., Bohringer, H., Allen, S. W., Crawford, C. S., Fabian, A. C., Voges, W., &amp; Huchra, J. P.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,301,881</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Ebeling, H., Voges, W., Bohringer, H., Edge, A. C., Huchra, J. P., &amp; Briel, U</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">435823</subfield>
+    <subfield code="m">G</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,281,799</subfield>
+    <subfield code="y">1996</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">448365</subfield>
+    <subfield code="h">Eisenstein, D. J.</subfield>
+    <subfield code="m">&amp; Hu, W</subfield>
+    <subfield code="s">Astrophys.J.,496,605</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">674643</subfield>
+    <subfield code="h">Eisenstein, D. J., et al.</subfield>
+    <subfield code="s">Astrophys.J.,633,560</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">744438</subfield>
+    <subfield code="h">Elgarøy, O., &amp; Multamäki, T.</subfield>
+    <subfield code="s">Astron.Astrophys.,471,65</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Enqvist, K., Jokinen, A., Mazumdar, A., Multamäki, T., &amp; Väihkönen, A</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">664457</subfield>
+    <subfield code="s">Phys.Rev.Lett.,94,161301</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Eriksen, H. K., Banday, A. J., Górski, K. M., Hansen, F. K., &amp; Lilje, P. B</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">741670</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Astrophys.J.,660,L81</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Eriksen, H. K., Hansen, F. K., Banday, A. J., Górski, K. M., &amp; Lilje, P. B</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">624497</subfield>
+    <subfield code="s">Astrophys.J.,605,14</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">751458</subfield>
+    <subfield code="h">Eriksen, H. K., Huey, G., Banday, A. J., Górski, K. M., Jewell, J. B., O’Dwyer, I. J., &amp; Wandelt, B. D.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Astrophys.J.,665,L1</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">390964</subfield>
+    <subfield code="h">Fabian, A. C.</subfield>
+    <subfield code="s">Ann.Rev.Astron.Astrophys.,32,277</subfield>
+    <subfield code="y">1994</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">830824</subfield>
+    <subfield code="h">Fadely, R., Keeton, C. R., Nakajima, R., &amp; Bernstein, G. M.</subfield>
+    <subfield code="s">Astrophys.J.,711,246</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">337489</subfield>
+    <subfield code="h">Falk, T., Rangarajan, R., &amp; Srednicki, M.</subfield>
+    <subfield code="s">Astrophys.J.,403,L1</subfield>
+    <subfield code="y">1993</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">793646</subfield>
+    <subfield code="h">Fang, W.</subfield>
+    <subfield code="m">Hu, W., &amp; Lewis, A</subfield>
+    <subfield code="s">Phys.Rev.,D78,087303</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Fassnacht, C. D., Womble, D. S., Neugebauer, G., Browne, I. W. A., Readhead, A. C. S., Matthews, K., &amp; Pearson, T. J.</subfield>
+    <subfield code="s">Astrophys.J.,460,L103</subfield>
+    <subfield code="y">1996</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">653082</subfield>
+    <subfield code="h">Feng, B.</subfield>
+    <subfield code="m">Li, H., Li, M.-Z., &amp; Zhang, X.-M</subfield>
+    <subfield code="s">Phys.Lett.,B620,27</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">708037</subfield>
+    <subfield code="h">Feng, B.</subfield>
+    <subfield code="m">Li, M., Xia, J.-Q., Chen, X., &amp; Zhang, X</subfield>
+    <subfield code="s">Phys.Rev.Lett.,96,221302</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Finelli, F., Hamann, J., Leach, S. M., &amp; Lesgourgues, J.</subfield>
+    <subfield code="m">J. Cosmol</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,1004,011</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Finoguenov, A., Böhringer, H., Osmond, J. P. F., Ponman, T. J., Sanderson, A</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Zhang, Y., &amp; Zimer, M.</subfield>
+    <subfield code="m">J. R a</subfield>
+    <subfield code="s">Adv.Space Res.,36,622</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Finoguenov, A., Böhringer, H., &amp; Zhang, Y.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Astron.Astrophys.,442,827</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Finoguenov, A., Ponman, T. J., Osmond, J. P. F., &amp; Zimer, M.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,374,737</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">623261</subfield>
+    <subfield code="h">Fosalba, P., Gaztañaga, E., &amp; Castander, F. J.</subfield>
+    <subfield code="s">Astrophys.J.,597,L89</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">843015</subfield>
+    <subfield code="h">Fowler, J. W., et al.</subfield>
+    <subfield code="s">Astrophys.J.,722,1148</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">822051</subfield>
+    <subfield code="h">Frederiksen, T. F., Hansen, S. H., Host, O., &amp; Roncadelli, M.</subfield>
+    <subfield code="s">Astrophys.J.,700,1603</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">549209</subfield>
+    <subfield code="h">Freedman, W. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.,553,47</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">780868</subfield>
+    <subfield code="h">Frieman, J. A., Turner, M. S., &amp; Huterer, D.</subfield>
+    <subfield code="s">Ann.Rev.Astron.Astrophys.,46,385</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">769733</subfield>
+    <subfield code="m">Fu, L., et al</subfield>
+    <subfield code="s">Astron.Astrophys.,479,9</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Fukugita, M., Futamase, T., &amp; Kasai, M.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,246,24</subfield>
+    <subfield code="y">1990</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">712372</subfield>
+    <subfield code="h">Fukugita, M., &amp; Kawasaki, M.</subfield>
+    <subfield code="s">Astrophys.J.,646,691</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">561043</subfield>
+    <subfield code="h">Futamase, T., &amp; Yoshida, S.</subfield>
+    <subfield code="s">Prog.Theor.Phys.,105,887</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">361128</subfield>
+    <subfield code="h">Gangui, A., Lucchin, F., Matarrese, S., &amp; Mollerach, S.</subfield>
+    <subfield code="s">Astrophys.J.,430,447</subfield>
+    <subfield code="y">1994</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">780771</subfield>
+    <subfield code="h">Gold, B., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,180,265</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">843533</subfield>
+    <subfield code="h">Gold, B., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,192,15</subfield>
+    <subfield code="y">2011</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">498921</subfield>
+    <subfield code="h">Goldberg, D. M., &amp; Spergel, D. N.</subfield>
+    <subfield code="s">Phys.Rev.,D59,103002</subfield>
+    <subfield code="y">1999</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">659804</subfield>
+    <subfield code="h">Gorski, K. M., Hivon, E., Banday, A. J., Wandelt, B. D., Hansen, F. K., Reinecke, M., &amp; Bartlemann, M.</subfield>
+    <subfield code="s">Astrophys.J.,622,759</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Groeneboom, N. E., Ackerman, L.</subfield>
+    <subfield code="m">Kathrine Wehus, I., &amp; Eriksen, H. K</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">835711</subfield>
+    <subfield code="s">Astrophys.J.,722,452</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Gruenwald, R., Steigman, G., &amp; Viegas, S. M.</subfield>
+    <subfield code="s">Astrophys.J.,567,931</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Gubitosi, G., Pagano, L., Amelino-Camelia, G., Melchiorri, A., &amp; Cooray, A</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">J. Cosmol</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0908,021</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">154280</subfield>
+    <subfield code="h">Guth, A. H.</subfield>
+    <subfield code="s">Phys.Rev.,D23,347</subfield>
+    <subfield code="y">1981</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">182708</subfield>
+    <subfield code="h">Guth, A. H.</subfield>
+    <subfield code="m">&amp; Pi, S. Y</subfield>
+    <subfield code="s">Phys.Rev.Lett.,49,1110</subfield>
+    <subfield code="y">1982</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">743317</subfield>
+    <subfield code="h">Guy, J., et al.</subfield>
+    <subfield code="s">Astron.Astrophys.,466,11</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">524058</subfield>
+    <subfield code="h">Haiman, Z., Mohr, J. J., &amp; Holder, G. P.</subfield>
+    <subfield code="s">Astrophys.J.,553,545</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Hamann, J., Shafieloo, A., &amp; Souradeep, T.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,1004,010</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">683475</subfield>
+    <subfield code="h">Hannestad, S.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,95,221301</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Hannestad, S., &amp; Wong, Y. Y. Y.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0707,004</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">828064</subfield>
+    <subfield code="h">Hanson, D., &amp; Lewis, A.</subfield>
+    <subfield code="s">Phys.Rev.,D80,063004</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">821633</subfield>
+    <subfield code="h">Hanson, D., Smith, K. M., Challinor, A., &amp; Liguori, M.</subfield>
+    <subfield code="s">Phys.Rev.,D80,083004</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">36443</subfield>
+    <subfield code="h">Harari, D. D., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="s">Phys.Lett.,B319,96</subfield>
+    <subfield code="y">1993</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">181921</subfield>
+    <subfield code="h">Hawking, S. W.</subfield>
+    <subfield code="s">Phys.Lett.,B115,295</subfield>
+    <subfield code="y">1982</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Herbig, T., Lawrence, C. R., Readhead, A. C. S., &amp; Gulkis, S.</subfield>
+    <subfield code="s">Astrophys.J.,449,L5</subfield>
+    <subfield code="y">1995</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">619954</subfield>
+    <subfield code="h">Hernández-Monteagudo, C., &amp; Rubino-Martín, J. A.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,347,403</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Hernández-Monteagudo, C., Genova-Santos, R., &amp; Atrio-Barandela, F</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">652675</subfield>
+    <subfield code="s">Astrophys.J.,613,L89</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">597163</subfield>
+    <subfield code="h">Herranz, D., Sanz, J. L., Hobson, M. P., Barreiro, R. B., Diego, J. M., MartínezGonzález, E., &amp; Lasenby, A. N.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,336,1057</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">790510</subfield>
+    <subfield code="h">Hertzberg, M. P., Tegmark, M., &amp; Wilczek, F.</subfield>
+    <subfield code="s">Phys.Rev.,D78,083507</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">812160</subfield>
+    <subfield code="h">Hicken, M., Wood-Vasey, W. M., Blondin, S., Challis, P., Jha, S., Kelly, P. L., Rest, A., &amp; Kirshner, R. P.</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Astrophys.J.,700,1097</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">812155</subfield>
+    <subfield code="h">Hicken, M., et al.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Astrophys.J.,700,331</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">824804</subfield>
+    <subfield code="h">Hincks, A. D., et al.</subfield>
+    <subfield code="r">arXiv:0907.0461</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">712599</subfield>
+    <subfield code="h">Hinshaw, G., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,170,288</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">780773</subfield>
+    <subfield code="h">Hinshaw, G., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,180,225</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Hirabayashi, H., et al.</subfield>
+    <subfield code="s">Publ.Astron.Soc.Jap.,52,997</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Holman, R., &amp; Tolley, A. J.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0805,001</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Hu, W., in ASP Conf. Ser. 339, Observing Dark Energy, ed. S. C. Wolff</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">T. R. Lauer</subfield>
+    <subfield code="m">&amp; (San Francisco, CA: ASP), 215</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">777536</subfield>
+    <subfield code="m">Hu, W</subfield>
+    <subfield code="s">Phys.Rev.,D77,103524</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">452092</subfield>
+    <subfield code="h">Eisenstein, D. J., &amp; Tegmark, M.</subfield>
+    <subfield code="m">Hu, W</subfield>
+    <subfield code="s">Phys.Rev.Lett.,80,5255</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">757864</subfield>
+    <subfield code="h">Sawicki, I.</subfield>
+    <subfield code="m">Hu, W., &amp;</subfield>
+    <subfield code="s">Phys.Rev.,D76,104043</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">394926</subfield>
+    <subfield code="h">Scott, D., Sugiyama, N., &amp; White, M.</subfield>
+    <subfield code="m">Hu, W</subfield>
+    <subfield code="s">Phys.Rev.,D52,5498</subfield>
+    <subfield code="y">1995</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">401312</subfield>
+    <subfield code="h">Sugiyama, N.</subfield>
+    <subfield code="m">Hu, W., &amp;</subfield>
+    <subfield code="s">Astrophys.J.,471,542</subfield>
+    <subfield code="y">1996</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">440583</subfield>
+    <subfield code="h">White, M.</subfield>
+    <subfield code="m">Hu, W., &amp;</subfield>
+    <subfield code="s">Phys.Rev.,D56,596</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">622764</subfield>
+    <subfield code="h">Huey, G., Cyburt, R. H., &amp; Wandelt, B. D.</subfield>
+    <subfield code="s">Phys.Rev.,D69,103503</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">660745</subfield>
+    <subfield code="h">Ichikawa, K., Fukugita, M., &amp; Kawasaki, M.</subfield>
+    <subfield code="s">Phys.Rev.,D71,043001</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">771565</subfield>
+    <subfield code="h">Ichikawa, K., Sekiguchi, T., &amp; Takahashi, T.</subfield>
+    <subfield code="s">Phys.Rev.,D78,043509</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">708041</subfield>
+    <subfield code="h">Ichikawa, K., &amp; Takahashi, T.</subfield>
+    <subfield code="s">Phys.Rev.,D73,063528</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">838210</subfield>
+    <subfield code="h">Ichiki, K., Nagata, R., &amp; Yokoyama, J.</subfield>
+    <subfield code="s">Phys.Rev.,D81,083010</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Ikebe, Y., Reiprich, T. H., Böhringer, H., Tanaka, Y., &amp; Kitayama, T.</subfield>
+    <subfield code="s">Astron.Astrophys.,383,773</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">686947</subfield>
+    <subfield code="h">Ishak, M., Upadhye, A., &amp; Spergel, D. N.</subfield>
+    <subfield code="s">Phys.Rev.,D74,043513</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">630611</subfield>
+    <subfield code="h">Izotov, Y. I., &amp; Thuan, T. X.</subfield>
+    <subfield code="s">Astrophys.J.,602,200</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">760901</subfield>
+    <subfield code="h">Jain, B., &amp; Zhang, P.</subfield>
+    <subfield code="s">Phys.Rev.,D78,063503</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">843454</subfield>
+    <subfield code="h">Jarosik, N., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,192,14</subfield>
+    <subfield code="y">2011</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">725147</subfield>
+    <subfield code="h">Jenet, F. A., et al.</subfield>
+    <subfield code="s">Astrophys.J.,653,1571</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">833401</subfield>
+    <subfield code="h">Jeong, D., Komatsu, E., &amp; Jain, B.</subfield>
+    <subfield code="s">Phys.Rev.,D80,123527</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">597016</subfield>
+    <subfield code="h">Jewell, J., Levin, S., &amp; Anderson, C. H.</subfield>
+    <subfield code="s">Astrophys.J.,609,1</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">735390</subfield>
+    <subfield code="h">Jha, S., Riess, A. G., &amp; Kirshner, R. P.</subfield>
+    <subfield code="s">Astrophys.J.,659,122</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Jokinen, A., &amp; Mazumdar, A.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0604,003</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">687914</subfield>
+    <subfield code="h">Jones, W. C., et al.</subfield>
+    <subfield code="s">Astrophys.J.,647,823</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">700680</subfield>
+    <subfield code="h">Kain, B.</subfield>
+    <subfield code="s">Phys.Rev.,D73,123521</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Kaiser, N.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,202,1169</subfield>
+    <subfield code="y">1983</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">199201</subfield>
+    <subfield code="h">Kaiser, N.</subfield>
+    <subfield code="s">Astrophys.J.,284,L9</subfield>
+    <subfield code="y">1984</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">423673</subfield>
+    <subfield code="h">Kamionkowski, M., Kosowsky, A., &amp; Stebbins, A.</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Phys.Rev.Lett.,78,2058</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">426082</subfield>
+    <subfield code="h">Kamionkowski, M., Kosowsky, A., &amp; Stebbins, A.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Phys.Rev.,D55,7368</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">797215</subfield>
+    <subfield code="h">Kashlinsky, A., Atrio-Barandela, F., Kocevski, D., &amp; Ebeling, H.</subfield>
+    <subfield code="s">Astrophys.J.,686,L49</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">401644</subfield>
+    <subfield code="h">Kawasaki, M., Moroi, T., &amp; Yanagida, T.</subfield>
+    <subfield code="s">Phys.Lett.,B383,313</subfield>
+    <subfield code="y">1996</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">750984</subfield>
+    <subfield code="h">Kawasaki, M., &amp; Sekiguchi, T.</subfield>
+    <subfield code="s">Prog.Theor.Phys.,120,995</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">661687</subfield>
+    <subfield code="h">Kawasaki, M., &amp; Takahashi, F.</subfield>
+    <subfield code="s">Phys.Lett.,B618,1</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">828986</subfield>
+    <subfield code="h">Kazin, E. A., et al.</subfield>
+    <subfield code="s">Astrophys.J.,710,1444</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">829771</subfield>
+    <subfield code="h">Kessler, R., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,185,32</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">800497</subfield>
+    <subfield code="h">Khatri, R., &amp; Wandelt, B. D.</subfield>
+    <subfield code="s">Phys.Rev.,D79,023501</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">814763</subfield>
+    <subfield code="h">Khatri, R., &amp; Wandelt, B. D.</subfield>
+    <subfield code="s">Phys.Rev.,D81,103518</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">786232</subfield>
+    <subfield code="h">Kinney, W. H., Kolb, E. W., Melchiorri, A., &amp; Riotto, A.</subfield>
+    <subfield code="s">Phys.Rev.,D78,087302</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Kitching, T. D., Heavens, A. F., Verde, L., Serra, P., &amp; Melchiorri, A.</subfield>
+    <subfield code="m">Phys</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Rev. D</subfield>
+    <subfield code="m">77, 103008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">216359</subfield>
+    <subfield code="h">Kodama, H., &amp; Sasaki, M.</subfield>
+    <subfield code="s">Prog.Theor.Phys.Suppl.,78,1</subfield>
+    <subfield code="y">1984</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">742058</subfield>
+    <subfield code="h">Koester, B. P., et al.</subfield>
+    <subfield code="s">Astrophys.J.,660,239</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">613185</subfield>
+    <subfield code="h">Kogut, A., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,148,161</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Komatsu, E.</subfield>
+    <subfield code="m">PhD thesis, Tohoku Univ</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">518895</subfield>
+    <subfield code="h">Komatsu, E., &amp; Kitayama, T.</subfield>
+    <subfield code="s">Astrophys.J.,526,L1</subfield>
+    <subfield code="y">1999</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">575293</subfield>
+    <subfield code="h">Komatsu, E., &amp; Seljak, U.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,327,1353</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">597974</subfield>
+    <subfield code="h">Komatsu, E., &amp; Seljak, U.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,336,1256</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">552978</subfield>
+    <subfield code="h">Komatsu, E., &amp; Spergel, D. N.</subfield>
+    <subfield code="s">Phys.Rev.,D63,063002</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">618565</subfield>
+    <subfield code="h">Komatsu, E., Spergel, D. N., &amp; Wandelt, B. D.</subfield>
+    <subfield code="s">Astrophys.J.,634,14</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Komatsu, E., Wandelt, B. D., Spergel, D. N., Banday, A. J., &amp; Górski, K. M</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">571387</subfield>
+    <subfield code="s">Astrophys.J.,566,19</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">613195</subfield>
+    <subfield code="h">Komatsu, E., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,148,119</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">780697</subfield>
+    <subfield code="h">Komatsu, E., et al.</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,180,330</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Komatsu, E., et al.</subfield>
+    <subfield code="m">b, Astro2010: The Astronomy and Astrophysics Decadal</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">814335</subfield>
+    <subfield code="m">Survey, Science White Papers, No. 158</subfield>
+    <subfield code="r">arXiv:0902.4759</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Koopmans, L. V. E., Treu, T., Fassnacht, C. D., Blandford, R. D., &amp; Surpi, G</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">620870</subfield>
+    <subfield code="s">Astrophys.J.,599,70</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">395988</subfield>
+    <subfield code="h">Kosowsky, A., &amp; Turner, M. S.</subfield>
+    <subfield code="s">Phys.Rev.,D52,1739</subfield>
+    <subfield code="y">1995</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">744532</subfield>
+    <subfield code="h">Kostelecký, V. A., &amp; Mewes, M.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,99,011601</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">796823</subfield>
+    <subfield code="h">Kostelecký, V. A., &amp; Mewes, M.</subfield>
+    <subfield code="s">Astrophys.J.,689,L1</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">595917</subfield>
+    <subfield code="h">Kovac, J. M., Leitch, E. M., Pryke, C., Carlstrom, J. E., Halverson, N. W., &amp; Holzapfel, W. L.</subfield>
+    <subfield code="s">Nature,420,772</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">784402</subfield>
+    <subfield code="h">Kowalski, M., et al.</subfield>
+    <subfield code="s">Astrophys.J.,686,749</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Koyama, K., &amp; Maartens, R.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0601,016</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">369950</subfield>
+    <subfield code="h">Lacey, C., &amp; Cole, S.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,262,627</subfield>
+    <subfield code="y">1993</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">543847</subfield>
+    <subfield code="h">Landt, H., Padovani, P., Perlman, E. S., Giommi, P., Bignall, H., &amp; Tzioumis, A.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,323,757</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">722780</subfield>
+    <subfield code="h">Larson, D. L., Eriksen, H. K., Wandelt, B. D., Górski, K. M., Huey, G., Jewell, J. B., &amp; O’Dwyer, I. J.</subfield>
+    <subfield code="s">Astrophys.J.,656,653</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">843504</subfield>
+    <subfield code="h">Larson, D. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,192,16</subfield>
+    <subfield code="y">2011</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">835363</subfield>
+    <subfield code="h">Leauthaud, A., et al.</subfield>
+    <subfield code="s">Astrophys.J.,709,97</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">787617</subfield>
+    <subfield code="h">Lehners, J.</subfield>
+    <subfield code="s">Phys.Rept.,465,223</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Lesgourgues, J., Matarrese, S., Pietroni, M., &amp; Riotto, A.</subfield>
+    <subfield code="m">J. Cosmol</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0906,017</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">712677</subfield>
+    <subfield code="h">Lesgourgues, J., &amp; Pastor, S.</subfield>
+    <subfield code="s">Phys.Rept.,429,307</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">784212</subfield>
+    <subfield code="h">Lewis, A.</subfield>
+    <subfield code="s">Phys.Rev.,D78,023002</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">517329</subfield>
+    <subfield code="h">Lewis, A., Challinor, A., &amp; Lasenby, A.</subfield>
+    <subfield code="s">Astrophys.J.,538,473</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">785286</subfield>
+    <subfield code="h">Xia, J., Zhao, G., Fan, Z., &amp; Zhang, X.</subfield>
+    <subfield code="m">Li, H</subfield>
+    <subfield code="s">Astrophys.J.,683,L1</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Wang, T., &amp; Wang, Y.</subfield>
+    <subfield code="m">Li, M J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0803,028</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Liddle, A. R., &amp; Lyth, D. H.</subfield>
+    <subfield code="m">Cosmological Inflation and Large-scale</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Structure (Cambridge: Cambridge Univ. Press)</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Liddle, A. R., &amp; Lyth, D. H.</subfield>
+    <subfield code="m">The Primordial Density Perturbation:</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Cosmology, Inflation and the Origin of Structure (Cambridge: Cambridge</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Univ. Press)</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">694333</subfield>
+    <subfield code="h">Lieu, R., Mittaz, J. P. D., &amp; Zhang, S.</subfield>
+    <subfield code="s">Astrophys.J.,648,176</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">785594</subfield>
+    <subfield code="h">Lin, Y., Partridge, B., Pober, J. C., Bouchefry, K. E., Burke, S., Klein, J. N., Coish, J. W., &amp; Huffenberger, K. M.</subfield>
+    <subfield code="s">Astrophys.J.,694,992</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Linde, A.</subfield>
+    <subfield code="m">Inflationary (Lect. Notes Phys., Vol. 738</subfield>
+    <subfield code="t">Cosmology</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Berlin:</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">1</subfield>
+    <subfield code="p">Springer</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">425200</subfield>
+    <subfield code="h">Linde, A., &amp; Mukhanov, V.</subfield>
+    <subfield code="s">Phys.Rev.,D56,535</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">168781</subfield>
+    <subfield code="h">Linde, A. D.</subfield>
+    <subfield code="s">Phys.Lett.,B108,389</subfield>
+    <subfield code="y">1982</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">196244</subfield>
+    <subfield code="h">Linde, A. D.</subfield>
+    <subfield code="s">Phys.Lett.,B129,177</subfield>
+    <subfield code="y">1983</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">215880</subfield>
+    <subfield code="h">Linde, A. D.</subfield>
+    <subfield code="s">Phys.Lett.,B158,375</subfield>
+    <subfield code="y">1985</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Linde, A. D.</subfield>
+    <subfield code="m">Particle Physics and Inflationary Cosmology (Chur, Switzerland: Harwood)</subfield>
+    <subfield code="y">1990</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">313991</subfield>
+    <subfield code="h">Linde, A. D.</subfield>
+    <subfield code="s">Phys.Lett.,B259,38</subfield>
+    <subfield code="y">1991</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">593871</subfield>
+    <subfield code="h">Linder, E. V.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,90,091301</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">742169</subfield>
+    <subfield code="h">Linder, E. V., &amp; Cahn, R. N.</subfield>
+    <subfield code="s">Astropart.Phys.,28,481</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">618898</subfield>
+    <subfield code="h">Linder, E. V., &amp; Jenkins, A.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,346,573</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">718933</subfield>
+    <subfield code="h">Liu, G.-C., Lee, S.</subfield>
+    <subfield code="m">&amp; Ng, K.-W</subfield>
+    <subfield code="s">Phys.Rev.Lett.,97,161303</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Loeb, A.</subfield>
+    <subfield code="s">New Astron.,7,279</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Loeb, A.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0703,001</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">481735</subfield>
+    <subfield code="h">Lue, A., Wang, L., &amp; Kamionkowski, M.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,83,1506</subfield>
+    <subfield code="y">1999</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">840955</subfield>
+    <subfield code="h">Lueker, M., et al.</subfield>
+    <subfield code="s">Astrophys.J.,719,1045</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">679555</subfield>
+    <subfield code="h">Lyth, D. H., &amp; Rodriguez, Y.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,95,121302</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">333220</subfield>
+    <subfield code="h">Lyth, D. H., &amp; Stewart, E. D.</subfield>
+    <subfield code="s">Phys.Lett.,B283,189</subfield>
+    <subfield code="y">1992</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Lyth, D. H., Ungarelli, C., &amp; Wands, D.</subfield>
+    <subfield code="s">Phys.Rev.,D67,23503</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">621950</subfield>
+    <subfield code="h">Lyth, D. H., &amp; Wands, D.</subfield>
+    <subfield code="s">Phys.Rev.,D68,103516</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">835835</subfield>
+    <subfield code="h">Mack, K. J.</subfield>
+    <subfield code="r">arXiv:0911.0421</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">835832</subfield>
+    <subfield code="h">Mack, K. J., &amp; Steinhardt, P. J.</subfield>
+    <subfield code="r">arXiv:0911.0418</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Makino, N., Sasaki, S., &amp; Suto, Y.</subfield>
+    <subfield code="s">Astrophys.J.,497,555</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Maldacena, J. M.</subfield>
+    <subfield code="m">J. High Energy Phys.,</subfield>
+    <subfield code="s">JHEP,0305,013</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">685276</subfield>
+    <subfield code="h">Mangano, G., et al.</subfield>
+    <subfield code="s">Nucl.Phys.,B729,221</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">823014</subfield>
+    <subfield code="h">Mangilli, A., &amp; Verde, L.</subfield>
+    <subfield code="s">Phys.Rev.,D80,123007</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Mantz, A., Allen, S. W., Ebeling, H., Rapetti, D., &amp; Drlica-Wagner, A</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">831479</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,406,1773</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">836508</subfield>
+    <subfield code="h">Mantz, A., Allen, S. W., &amp; Rapetti, D.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,406,1805</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">831478</subfield>
+    <subfield code="h">Mantz, A., Allen, S. W., Rapetti, D., &amp; Ebeling, H.</subfield>
+    <subfield code="m">c</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,406,1759</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Masi, S., et al.</subfield>
+    <subfield code="s">Astron.Astrophys.,458,687</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">742528</subfield>
+    <subfield code="h">Massey, R., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,172,239</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Melin, J., Bartlett, J. G., Delabrouille, J., Arnaud, M., Piffaretti, R., &amp; Pratt, G</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">841906</subfield>
+    <subfield code="m">W</subfield>
+    <subfield code="r">arXiv:1001.0871</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">440865</subfield>
+    <subfield code="h">Mollerach, S., &amp; Matarrese, S.</subfield>
+    <subfield code="s">Phys.Rev.,D56,4494</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">687934</subfield>
+    <subfield code="h">Montroy, T. E., et al.</subfield>
+    <subfield code="s">Astrophys.J.,647,813</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">563915</subfield>
+    <subfield code="h">Moroi, T., &amp; Takahashi, T.</subfield>
+    <subfield code="s">Phys.Lett.,B522,215</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">587856</subfield>
+    <subfield code="h">Moroi, T., &amp; Takahashi, T.</subfield>
+    <subfield code="s">Phys.Rev.,D66,063501</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Moss, I. G., &amp; Graham, C. M.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0711,004</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Moss, I. G., &amp; Xiong, C.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0704,007</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">170051</subfield>
+    <subfield code="h">Mukhanov, V. F., &amp; Chibisov, G. V.</subfield>
+    <subfield code="s">JETP Lett.,33,532</subfield>
+    <subfield code="y">1981</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">303063</subfield>
+    <subfield code="h">Mukhanov, V. F., Feldman, H. A., &amp; Brandenberger, R. H.</subfield>
+    <subfield code="s">Phys.Rept.,215,203</subfield>
+    <subfield code="y">1992</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">818963</subfield>
+    <subfield code="h">Munshi, D., &amp; Heavens, A.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,401,2406</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">826072</subfield>
+    <subfield code="h">Munshi, D., Valageas, P., Cooray, A., &amp; Heavens, A.</subfield>
+    <subfield code="r">arXiv:0907.3229</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Myers, A. D., Shanks, T., Outram, P. J., Frith, W. J., &amp; Wolfendale, A. W</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,347,L67</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Myers, S. T., et al.</subfield>
+    <subfield code="s">Astrophys.J.,447,L5</subfield>
+    <subfield code="y">1995</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">747222</subfield>
+    <subfield code="h">Nagai, D., Kravtsov, A. V., &amp; Vikhlinin, A.</subfield>
+    <subfield code="s">Astrophys.J.,668,1</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">427115</subfield>
+    <subfield code="h">Nakamura, T. T., &amp; Suto, Y.</subfield>
+    <subfield code="s">Prog.Theor.Phys.,97,49</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">436917</subfield>
+    <subfield code="h">Navarro, J. F., Frenk, C. S., &amp; White, S. D. M.</subfield>
+    <subfield code="s">Astrophys.J.,490,493</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Nitta, D., Komatsu, E., Bartolo, N., Matarrese, S., &amp; Riotto, A.</subfield>
+    <subfield code="m">J. Cosmol</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0905,014</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">780718</subfield>
+    <subfield code="h">Nolta, M. R., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,180,296</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">653585</subfield>
+    <subfield code="h">O’Dwyer, I. J., et al.</subfield>
+    <subfield code="s">Astrophys.J.,617,L99</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">727024</subfield>
+    <subfield code="h">Oguri, M.</subfield>
+    <subfield code="s">Astrophys.J.,660,1</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Ohyama, Y., et al.</subfield>
+    <subfield code="s">Astron.J.,123,2903</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">651267</subfield>
+    <subfield code="h">Olive, K. A., &amp; Skillman, E. D.</subfield>
+    <subfield code="s">Astrophys.J.,617,29</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">819974</subfield>
+    <subfield code="h">Pagano, L., et al.</subfield>
+    <subfield code="s">Phys.Rev.,D80,043522</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">611383</subfield>
+    <subfield code="h">Page, L., et al.</subfield>
+    <subfield code="s">Astrophys.J.,585,566</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">712598</subfield>
+    <subfield code="h">Page, L., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,170,335</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Paraficz, D., &amp; Hjorth, J.</subfield>
+    <subfield code="s">Astron.Astrophys.,507,L49</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">742785</subfield>
+    <subfield code="h">Peimbert, M., Luridiana, V., &amp; Peimbert, A.</subfield>
+    <subfield code="s">Astrophys.J.,666,636</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Peiris, H. V., &amp; Easther, R.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0807,024</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">838724</subfield>
+    <subfield code="h">Peiris, H. V., &amp; Verde, L.</subfield>
+    <subfield code="s">Phys.Rev.,D81,021302</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">613197</subfield>
+    <subfield code="h">Peiris, H. V., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,148,213</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">751238</subfield>
+    <subfield code="h">Percival, W. J., Cole, S., Eisenstein, D. J., Nichol, R. C., Peacock, J. A., Pope, A. C., &amp; Szalay, A. S.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,381,1053</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">825356</subfield>
+    <subfield code="h">Percival, W. J., et al.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,401,2148</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">488169</subfield>
+    <subfield code="h">Perlman, E. S., Padovani, P., Giommi, P., Sambruna, R., Jones, L. R., Tzioumis, A., &amp; Reynolds, J.</subfield>
+    <subfield code="s">Astron.J.,115,1253</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">484837</subfield>
+    <subfield code="h">Perlmutter, S., et al.</subfield>
+    <subfield code="s">Astrophys.J.,517,565</subfield>
+    <subfield code="y">1999</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">687927</subfield>
+    <subfield code="h">Piacentini, F., et al.</subfield>
+    <subfield code="s">Astrophys.J.,647,833</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">796912</subfield>
+    <subfield code="h">Pitrou, C.</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Class.Quant.Grav.,26,065006</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">797028</subfield>
+    <subfield code="h">Pitrou, C.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Gen.Rel.Grav.,41,2587</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">789759</subfield>
+    <subfield code="h">Pitrou, C., Uzan, J., &amp; Bernardeau, F.</subfield>
+    <subfield code="s">Phys.Rev.,D78,063526</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">836788</subfield>
+    <subfield code="h">Plagge, T., et al.</subfield>
+    <subfield code="s">Astrophys.J.,716,1118</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Polnarev, A. G.</subfield>
+    <subfield code="s">Astron.Zh.,62,1041</subfield>
+    <subfield code="y">1985</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Pratt, G. W., Croston, J. H., Arnaud, M., &amp; Böhringer, H.</subfield>
+    <subfield code="s">Astron.Astrophys.,498,361</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">400449</subfield>
+    <subfield code="h">Pyne, T., &amp; Carroll, S. M.</subfield>
+    <subfield code="s">Phys.Rev.,D53,2920</subfield>
+    <subfield code="y">1996</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Rees, M. J.</subfield>
+    <subfield code="s">Astrophys.J.,153,L1</subfield>
+    <subfield code="y">1968</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">42958</subfield>
+    <subfield code="h">Refsdal, S.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,128,307</subfield>
+    <subfield code="y">1964</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">777137</subfield>
+    <subfield code="h">Reichardt, C. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.,694,1200</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Reid, B. A., Verde, L., Jimenez, R., &amp; Mena, O.</subfield>
+    <subfield code="m">a, J. Cosmol Astropart</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Phys.,</subfield>
+    <subfield code="s">JCAP,1001,003</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">825355</subfield>
+    <subfield code="h">Reid, B. A., et al.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,404,60</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">413652</subfield>
+    <subfield code="h">Rephaeli, Y.</subfield>
+    <subfield code="s">Ann.Rev.Astron.Astrophys.,33,541</subfield>
+    <subfield code="y">1995</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">470671</subfield>
+    <subfield code="h">Riess, A. G., et al.</subfield>
+    <subfield code="s">Astron.J.,116,1009</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">819510</subfield>
+    <subfield code="h">Riess, A. G., et al.</subfield>
+    <subfield code="s">Astrophys.J.,699,539</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">813907</subfield>
+    <subfield code="h">Rozo, E., et al.</subfield>
+    <subfield code="s">Astrophys.J.,708,645</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Rubiño-Martín, J. A., Chluba, J., Fendt, W. A., &amp; Wandelt, B. D.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,403,439</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">825150</subfield>
+    <subfield code="h">Rudd, D. H., &amp; Nagai, D.</subfield>
+    <subfield code="s">Astrophys.J.,701,L16</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">51351</subfield>
+    <subfield code="h">Sachs, R. K., &amp; Wolfe, A. M.</subfield>
+    <subfield code="s">Astrophys.J.,147,73</subfield>
+    <subfield code="y">1967</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">776780</subfield>
+    <subfield code="h">Saito, S., Takada, M., &amp; Taruya, A.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,100,191301</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">825945</subfield>
+    <subfield code="h">Saito, S., Takada, M., &amp; Taruya, A.</subfield>
+    <subfield code="s">Phys.Rev.,D80,083528</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">298022</subfield>
+    <subfield code="h">Salopek, D. S., &amp; Bond, J. R.</subfield>
+    <subfield code="s">Phys.Rev.,D42,3936</subfield>
+    <subfield code="y">1990</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">154871</subfield>
+    <subfield code="h">Sato, K.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,195,467</subfield>
+    <subfield code="y">1981</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Schneider, P., Kochanek, C. S., &amp; Wambsganss, J.</subfield>
+    <subfield code="m">Gravitational Lensing:</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Strong, Weak and Micro (Berlin:</subfield>
+    <subfield code="p">Springer</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">835686</subfield>
+    <subfield code="h">Schrabback, T., et al.</subfield>
+    <subfield code="s">Astron.Astrophys.,516,A63</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Scott, D., &amp; Moss, A.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,397,445</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">519370</subfield>
+    <subfield code="h">Seager, S., Sasselov, D. D., &amp; Scott, D.</subfield>
+    <subfield code="s">Astrophys.J.,523,L1</subfield>
+    <subfield code="y">1999</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">520726</subfield>
+    <subfield code="h">Seager, S., Sasselov, D. D., &amp; Scott, D.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,128,407</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">215794</subfield>
+    <subfield code="h">Seckel, D., &amp; Turner, M. S.</subfield>
+    <subfield code="s">Phys.Rev.,D32,3178</subfield>
+    <subfield code="y">1985</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Seery, D., &amp; Lidsey, J. E.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0506,003</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">827861</subfield>
+    <subfield code="h">Sehgal, N., Bode, P., Das, S., Hernandez-Monteagudo, C., Huffenberger, K., Lin, Y., Ostriker, J. P., &amp; Trac, H.</subfield>
+    <subfield code="s">Astrophys.J.,709,920</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Sekiguchi, T., Ichikawa, K., Takahashi, T., &amp; Greenhill, L.</subfield>
+    <subfield code="m">J. Cosmol</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,1003,015</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">544340</subfield>
+    <subfield code="h">Seljak, U.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,318,203</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">442473</subfield>
+    <subfield code="h">Seljak, U., Pen, U.-L., &amp; Turok, N.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,79,1615</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">416626</subfield>
+    <subfield code="h">Seljak, U., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="s">Astrophys.J.,469,437</subfield>
+    <subfield code="y">1996</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">423823</subfield>
+    <subfield code="h">Seljak, U., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,78,2054</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Senatore, L., Smith, K. M., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,1001,028</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Senatore, L., Tassev, S., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">a, J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0908,031</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Senatore, L., Tassev, S., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">b, J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0909,038</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">777864</subfield>
+    <subfield code="h">Serra, P., &amp; Cooray, A.</subfield>
+    <subfield code="s">Phys.Rev.,D77,107305</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">816757</subfield>
+    <subfield code="h">Shaw, L. D., Zahn, O., Holder, G. P., &amp; Doré, O.</subfield>
+    <subfield code="s">Astrophys.J.,702,368</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">815552</subfield>
+    <subfield code="h">Shoji, M., &amp; Komatsu, E.</subfield>
+    <subfield code="s">Astrophys.J.,700,705</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Siemens, X., Creighton, J., Maor, I., Majumder, S. R., Cannon, K., &amp; Read, J</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">713337</subfield>
+    <subfield code="s">Phys.Rev.,D73,105001</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">730410</subfield>
+    <subfield code="h">Siemens, X., Mandic, V., &amp; Creighton, J.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,98,111101</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">691619</subfield>
+    <subfield code="h">Sievers, J. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.,660,976</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Sikivie, P.</subfield>
+    <subfield code="m">Axions (Lect. Notes Phys., Vol. 741</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Berlin: 19</subfield>
+    <subfield code="p">Springer</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">631382</subfield>
+    <subfield code="h">Silverstein, E., &amp; Tong, D.</subfield>
+    <subfield code="s">Phys.Rev.,D70,103505</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Simha, V., &amp; Steigman, G.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0806,016</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">709857</subfield>
+    <subfield code="h">Slosar, A.</subfield>
+    <subfield code="s">Phys.Rev.,D73,123501</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Slosar, A., Hirata, C., Seljak, U.</subfield>
+    <subfield code="m">Ho, S., &amp; Padmanabhan, N J. Cosmol</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="m">Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0808,031</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">826641</subfield>
+    <subfield code="h">Smidt, J., Amblard, A., Serra, P., &amp; Cooray, A.</subfield>
+    <subfield code="s">Phys.Rev.,D80,123005</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Smith, K. M., Senatore, L., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">J. Cosmol Astropart. Phys.,</subfield>
+    <subfield code="s">JCAP,0909,006</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">751579</subfield>
+    <subfield code="h">Smith, K. M., Zahn, O., &amp; Doré, O.</subfield>
+    <subfield code="s">Phys.Rev.,D76,043510</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">735123</subfield>
+    <subfield code="h">Smith, K. M., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="m">arXiv:</subfield>
+    <subfield code="r">astro-ph/0612571</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">591642</subfield>
+    <subfield code="h">Smith, R. E., et al.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,341,1311</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">711808</subfield>
+    <subfield code="h">Smith, T. L., Pierpaoli, E., &amp; Kamionkowski, M.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,97,021301</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">729345</subfield>
+    <subfield code="h">Song, Y.-S.</subfield>
+    <subfield code="m">Hu, W., &amp; Sawicki, I</subfield>
+    <subfield code="s">Phys.Rev.,D75,044004</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">443515</subfield>
+    <subfield code="h">Spergel, D. N., &amp; Zaldarriaga, M.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,79,2180</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">613135</subfield>
+    <subfield code="h">Spergel, D. N., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,148,175</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">712597</subfield>
+    <subfield code="h">Spergel, D. N., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,170,377</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">798957</subfield>
+    <subfield code="h">Staniszewski, Z., et al.</subfield>
+    <subfield code="s">Astrophys.J.,701,32</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">147727</subfield>
+    <subfield code="h">Starobinskiˇı, A. A.</subfield>
+    <subfield code="m">Sov</subfield>
+    <subfield code="s">JETP Lett.,30,682</subfield>
+    <subfield code="y">1979</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">183959</subfield>
+    <subfield code="h">Starobinsky, A. A.</subfield>
+    <subfield code="s">Phys.Lett.,B117,175</subfield>
+    <subfield code="y">1982</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">753098</subfield>
+    <subfield code="h">Starobinsky, A. A.</subfield>
+    <subfield code="m">Sov</subfield>
+    <subfield code="s">JETP Lett.,86,157</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">769889</subfield>
+    <subfield code="h">Steigman, G.</subfield>
+    <subfield code="s">Ann.Rev.Nucl.Part.Sci.,57,463</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">791070</subfield>
+    <subfield code="h">Steigman, G.</subfield>
+    <subfield code="r">arXiv:0807.3004</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Stickel, M., Meisenheimer, K., &amp; Kühr, H.</subfield>
+    <subfield code="s">Astron.Astrophys.Suppl.Ser.,105,211</subfield>
+    <subfield code="y">1994</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">76585</subfield>
+    <subfield code="h">Sunyaev, R. A., &amp; Zel’dovich, Y. B.</subfield>
+    <subfield code="s">Comments Astrophys.Space Phys.,4,173</subfield>
+    <subfield code="y">1972</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">475289</subfield>
+    <subfield code="h">Suto, Y., Sasaki, S., &amp; Makino, N.</subfield>
+    <subfield code="s">Astrophys.J.,509,544</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">834065</subfield>
+    <subfield code="h">Suyu, S. H., Marshall, P. J., Auger, M. W., Hilbert, S., Blandford, R. D., Koopmans, L. V. E., Fassnacht, C. D., &amp; Treu, T.</subfield>
+    <subfield code="s">Astrophys.J.,711,201</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Suyu, S. H., Marshall, P. J., Blandford, R. D., Fassnacht, C. D., Koopmans, L</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">783675</subfield>
+    <subfield code="h">McKean, J. P., &amp; Treu, T.</subfield>
+    <subfield code="m">V. E</subfield>
+    <subfield code="s">Astrophys.J.,691,277</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">743949</subfield>
+    <subfield code="h">Switzer, E. R., &amp; Hirata, C. M.</subfield>
+    <subfield code="s">Phys.Rev.,D77,083006</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">700503</subfield>
+    <subfield code="h">Takada, M., Komatsu, E., &amp; Futamase, T.</subfield>
+    <subfield code="s">Phys.Rev.,D73,083520</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">823807</subfield>
+    <subfield code="h">Takahashi, Y. D., et al.</subfield>
+    <subfield code="s">Astrophys.J.,711,1141</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Teräsranta, H., Urpo, S., Wiren, S., &amp; Valtonen, M.</subfield>
+    <subfield code="s">Astron.Astrophys.,368,431</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">838270</subfield>
+    <subfield code="h">Thomas, S. A., Abdalla, F. B., &amp; Lahav, O.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,105,031301</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">622213</subfield>
+    <subfield code="h">Trotta, R., &amp; Hansen, S. H.</subfield>
+    <subfield code="s">Phys.Rev.,D69,023509</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">300168</subfield>
+    <subfield code="h">Turner, M. S., &amp; Wilczek, F.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,66,5</subfield>
+    <subfield code="y">1991</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">773826</subfield>
+    <subfield code="h">Upadhye, A.</subfield>
+    <subfield code="s">Nucl.Phys.Proc.Suppl.,173,11</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">582784</subfield>
+    <subfield code="h">Verde, L., &amp; Spergel, D. N.</subfield>
+    <subfield code="s">Phys.Rev.,D65,043007</subfield>
+    <subfield code="y">2002</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Verde, L., Wang, L., Heavens, A. F., &amp; Kamionkowski, M.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,313,141</subfield>
+    <subfield code="y">2000</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Vikhlinin, A., Burenin, R., Forman, W. R., Jones, C., Hornstrup, A., Murray, S. S., &amp; Quintana, H.</subfield>
+    <subfield code="m">in ESO Astrophysics Symposia, Heating versus</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">(H. Böhringer et al. (eds.))</subfield>
+    <subfield code="m">Cooling in Galaxies and Clusters of Galaxies (Berlin:</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">48</subfield>
+    <subfield code="p">Springer</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Vikhlinin, A., Kravtsov, A., Forman, W., Jones, C., Markevitch, M., Murray, S</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">686685</subfield>
+    <subfield code="h">Van Speybroeck, L.</subfield>
+    <subfield code="m">S., &amp;</subfield>
+    <subfield code="s">Astrophys.J.,640,691</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">785793</subfield>
+    <subfield code="h">Vikhlinin, A., et al.</subfield>
+    <subfield code="m">a</subfield>
+    <subfield code="s">Astrophys.J.,692,1033</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">805279</subfield>
+    <subfield code="h">Vikhlinin, A., et al.</subfield>
+    <subfield code="m">b</subfield>
+    <subfield code="s">Astrophys.J.,692,1060</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Wandelt, B. D.</subfield>
+    <subfield code="m">in Statistical Problems in Particle Physics, Astrophysics, and Cosmology, L. Lyons, R. Mount, &amp; R. Reitmeyer (eds.) (Menlo Park, CA:</subfield>
+    <subfield code="y">2003</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">229</subfield>
+    <subfield code="p">SLAC</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">629716</subfield>
+    <subfield code="h">Wandelt, B. D., Larson, D. L., &amp; Lakshminarayanan, A.</subfield>
+    <subfield code="s">Phys.Rev.,D70,083511</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">466955</subfield>
+    <subfield code="h">Wang, L., &amp; Steinhardt, P. J.</subfield>
+    <subfield code="s">Astrophys.J.,508,483</subfield>
+    <subfield code="y">1998</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">682890</subfield>
+    <subfield code="h">Wang, S., Haiman, Z.</subfield>
+    <subfield code="m">Hu, W., Khoury, J., &amp; May, M</subfield>
+    <subfield code="s">Phys.Rev.Lett.,95,011302</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">782355</subfield>
+    <subfield code="h">Wang, Y.</subfield>
+    <subfield code="s">Phys.Rev.,D77,123525</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">833860</subfield>
+    <subfield code="h">Wang, Y.</subfield>
+    <subfield code="s">Phys.Rev.,D80,123525</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">747616</subfield>
+    <subfield code="h">Wang, Y., &amp; Mukherjee, P.</subfield>
+    <subfield code="s">Phys.Rev.,D76,103533</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">843463</subfield>
+    <subfield code="h">Weiland, J. L., et al.</subfield>
+    <subfield code="s">Astrophys.J.Suppl.,192,19</subfield>
+    <subfield code="y">2011</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Weinberg, S.</subfield>
+    <subfield code="m">(Oxford: Oxford Univ. Press)</subfield>
+    <subfield code="t">Cosmology</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">813881</subfield>
+    <subfield code="h">Wik, D. R., Sarazin, C. L., Finoguenov, A., Matsushita, K., Nakazawa, K., &amp; Clarke, T. E.</subfield>
+    <subfield code="s">Astrophys.J.,696,1700</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">835370</subfield>
+    <subfield code="h">Wong, K., &amp; Sarazin, C. L.</subfield>
+    <subfield code="s">Astrophys.J.,707,1141</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">767172</subfield>
+    <subfield code="h">Wong, W. Y., Moss, A., &amp; Scott, D.</subfield>
+    <subfield code="s">Mon.Not.Roy.Astron.Soc.,386,1023</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="9">CURATOR</subfield>
+    <subfield code="h">Wong, Y. Y. Y.</subfield>
+    <subfield code="m">J. Cosmol AstroPart. Phys.,</subfield>
+    <subfield code="s">JCAP,0810,035</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">726656</subfield>
+    <subfield code="h">Wright, E. L.</subfield>
+    <subfield code="s">Publ.Astron.Soc.Pac.,118,1711</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">742789</subfield>
+    <subfield code="h">Wright, E. L.</subfield>
+    <subfield code="s">Astrophys.J.,664,633</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">801614</subfield>
+    <subfield code="m">Wu, E. Y. S., et al</subfield>
+    <subfield code="s">Phys.Rev.Lett.,102,161302</subfield>
+    <subfield code="y">2009</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">764546</subfield>
+    <subfield code="h">Xia, J.-Q.</subfield>
+    <subfield code="m">Li, H., Wang, X., &amp; Zhang, X a</subfield>
+    <subfield code="s">Astron.Astrophys.,483,715</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">828446</subfield>
+    <subfield code="h">Xia, J.-Q.</subfield>
+    <subfield code="m">Li, H., &amp; Zhang, X</subfield>
+    <subfield code="s">Phys.Lett.,B687,129</subfield>
+    <subfield code="y">2010</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">791428</subfield>
+    <subfield code="h">Xia, J.-Q.</subfield>
+    <subfield code="m">Li, H., Zhao, G.-B., &amp; Zhang, X b</subfield>
+    <subfield code="s">Phys.Rev.,D78,083524</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">781477</subfield>
+    <subfield code="h">Xia, J.-Q.</subfield>
+    <subfield code="m">Li, H., Zhao, G.-B., &amp; Zhang, X c</subfield>
+    <subfield code="s">Astrophys.J.,679,L61</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">698456</subfield>
+    <subfield code="h">Xia, J.-Q., Zhao, G.-B., Feng, B.</subfield>
+    <subfield code="m">Li, H., &amp; Zhang, X</subfield>
+    <subfield code="s">Phys.Rev.,D73,063521</subfield>
+    <subfield code="y">2006</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">769131</subfield>
+    <subfield code="h">Yadav, A. P. S., Komatsu, E., Wandelt, B. D., Liguori, M., Hansen, F. K., &amp; Matarrese, S.</subfield>
+    <subfield code="s">Astrophys.J.,678,578</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">769918</subfield>
+    <subfield code="h">Yadav, A. P. S., &amp; Wandelt, B. D.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,100,181301</subfield>
+    <subfield code="y">2008</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Yamamoto, K., &amp; Futamase, T.</subfield>
+    <subfield code="s">Prog.Theor.Phys.,105,707</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Yamamoto, K., Kadoya, Y., Murata, T., &amp; Futamase, T.</subfield>
+    <subfield code="m">Prog. Theor</subfield>
+    <subfield code="y">2001</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="m">Phys., 106, 917</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Yamamoto, K., Parkinson, D., Hamana, T., Nichol, R. C., &amp; Suto, Y.</subfield>
+    <subfield code="m">Phys</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="h">Rev. D</subfield>
+    <subfield code="m">76, 023504</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">421885</subfield>
+    <subfield code="h">Zaldarriaga, M.</subfield>
+    <subfield code="s">Phys.Rev.,D55,1822</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">620021</subfield>
+    <subfield code="h">Zaldarriaga, M.</subfield>
+    <subfield code="s">Phys.Rev.,D69,043508</subfield>
+    <subfield code="y">2004</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">428039</subfield>
+    <subfield code="h">Zaldarriaga, M., &amp; Seljak, U.</subfield>
+    <subfield code="s">Phys.Rev.,D55,1830</subfield>
+    <subfield code="y">1997</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">57087</subfield>
+    <subfield code="h">Zel’dovich, Y. B., &amp; Sunyaev, R. A.</subfield>
+    <subfield code="s">Astrophys.Space Sci.,4,301</subfield>
+    <subfield code="y">1969</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">748637</subfield>
+    <subfield code="h">Zhang, P., Liguori, M., Bean, R., &amp; Dodelson, S.</subfield>
+    <subfield code="s">Phys.Rev.Lett.,99,141302</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">712959</subfield>
+    <subfield code="h">Zhao, G.-B., Xia, J.-Q., Feng, B., &amp; Zhang, X.</subfield>
+    <subfield code="s">Int.J.Mod.Phys.,D16,1229</subfield>
+    <subfield code="y">2007</subfield>
+  </datafield>
+  <datafield tag="999" ind1="C" ind2="5">
+    <subfield code="0">687863</subfield>
+    <subfield code="h">Zhao, G.-B., Xia, J.-Q.</subfield>
+    <subfield code="m">Li, M., Feng, B., &amp; Zhang, X</subfield>
+    <subfield code="s">Phys.Rev.,D72,123515</subfield>
+    <subfield code="y">2005</subfield>
+  </datafield>
+</record>
+</collection>

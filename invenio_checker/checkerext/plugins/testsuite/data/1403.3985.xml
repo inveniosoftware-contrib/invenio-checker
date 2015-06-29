@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <link href="http://arxiv.org/api/query?search_query%3Did%3A1403.3985%26id_list%3D%26start%3D0%26max_results%3D10" rel="self" type="application/atom+xml"/>
+  <title type="html">ArXiv Query: search_query=id:1403.3985&amp;id_list=&amp;start=0&amp;max_results=10</title>
+  <id>http://arxiv.org/api/pmmshAlWx3VBcIuQbgG7dbNnWbk</id>
+  <updated>2015-02-09T00:00:00-05:00</updated>
+  <opensearch:totalResults xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">1</opensearch:totalResults>
+  <opensearch:startIndex xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">0</opensearch:startIndex>
+  <opensearch:itemsPerPage xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">10</opensearch:itemsPerPage>
+  <entry>
+    <id>http://arxiv.org/abs/1403.3985v3</id>
+    <updated>2014-06-23T17:39:37Z</updated>
+    <published>2014-03-17T02:14:52Z</published>
+    <title>BICEP2 I: Detection Of B-mode Polarization at Degree Angular Scales</title>
+    <summary>  (abridged for arXiv) We report results from the BICEP2 experiment, a cosmic
+microwave background (CMB) polarimeter specifically designed to search for the
+signal of inflationary gravitational waves in the B-mode power spectrum around
+$\ell\sim80$. The telescope comprised a 26 cm aperture all-cold refracting
+optical system equipped with a focal plane of 512 antenna coupled transition
+edge sensor 150 GHz bolometers each with temperature sensitivity of
+$\approx300\mu\mathrm{K}_\mathrm{CMB}\sqrt{s}$. BICEP2 observed from the South
+Pole for three seasons from 2010 to 2012. A low-foreground region of sky with
+an effective area of 380 square deg was observed to a depth of 87 nK deg in
+Stokes $Q$ and $U$. We find an excess of $B$-mode power over the base
+lensed-LCDM expectation in the range $30&lt; \ell&lt; 150$, inconsistent with the
+null hypothesis at a significance of $&gt; 5\sigma$. Through jackknife tests and
+simulations we show that systematic contamination is much smaller than the
+observed excess. We also examine a number of available models of polarized dust
+emission and find that at their default parameter values they predict power
+$\sim(5-10)\times$ smaller than the observed excess signal. However, these
+models are not sufficiently constrained to exclude the possibility of dust
+emission bright enough to explain the entire excess signal. Cross correlating
+BICEP2 against 100 GHz maps from the BICEP1 experiment, the excess signal is
+confirmed and its spectral index is found to be consistent with that of the
+CMB, disfavoring dust at $1.7\sigma$. The observed $B$-mode power spectrum is
+well fit by a lensed-LCDM + tensor theoretical model with tensor-to-scalar
+ratio $r=0.20^{+0.07}_{-0.05}$, with $r=0$ disfavored at $7.0\sigma$.
+Accounting for the contribution of foreground dust will shift this value
+downward by an amount which will be better constrained with upcoming data sets.
+</summary>
+    <author>
+      <name>P. A. R Ade</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Cardiff University</arxiv:affiliation>
+    </author>
+    <author>
+      <name>R. W. Aikin</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>D. Barkats</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">ALMA</arxiv:affiliation>
+    </author>
+    <author>
+      <name>S. J. Benton</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Toronto</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. A. Bischoff</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Harvard/CfA</arxiv:affiliation>
+    </author>
+    <author>
+      <name>J. J. Bock</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NASA JPL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>J. A. Brevik</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>I. Buder</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Harvard/CfA</arxiv:affiliation>
+    </author>
+    <author>
+      <name>E. Bullock</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Minnesota Institute for Astrophysics</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. D. Dowell</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NASA JPL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>L. Duband</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">SBT Grenoble</arxiv:affiliation>
+    </author>
+    <author>
+      <name>J. P. Filippini</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>S. Fliescher</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Minnesota</arxiv:affiliation>
+    </author>
+    <author>
+      <name>S. R. Golwala</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>M. Halpern</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of British Columbia</arxiv:affiliation>
+    </author>
+    <author>
+      <name>M. Hasselfield</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of British Columbia</arxiv:affiliation>
+    </author>
+    <author>
+      <name>S. R. Hildebrandt</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NASA JPL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>G. C. Hilton</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NIST</arxiv:affiliation>
+    </author>
+    <author>
+      <name>V. V. Hristov</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>K. D. Irwin</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Stanford University</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">KIPAC/SLAC</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NIST</arxiv:affiliation>
+    </author>
+    <author>
+      <name>K. S. Karkare</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Harvard/CfA</arxiv:affiliation>
+    </author>
+    <author>
+      <name>J. P. Kaufman</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">UCSD</arxiv:affiliation>
+    </author>
+    <author>
+      <name>B. G. Keating</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">UCSD</arxiv:affiliation>
+    </author>
+    <author>
+      <name>S. A. Kernasovskiy</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Stanford University</arxiv:affiliation>
+    </author>
+    <author>
+      <name>J. M. Kovac</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Harvard/CfA</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. L. Kuo</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Stanford University</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">KIPAC/SLAC</arxiv:affiliation>
+    </author>
+    <author>
+      <name>E. M. Leitch</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Chicago</arxiv:affiliation>
+    </author>
+    <author>
+      <name>M. Lueker</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>P. Mason</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. B. Netterfield</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Toronto</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Canadian Institute for Advanced Research</arxiv:affiliation>
+    </author>
+    <author>
+      <name>H. T. Nguyen</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NASA JPL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>R. O'Brient</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NASA JPL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>R. W. Ogburn IV</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Stanford University</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">KIPAC/SLAC</arxiv:affiliation>
+    </author>
+    <author>
+      <name>A. Orlando</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">UCSD</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. Pryke</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Minnesota</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Minnesota Institute for Astrophysics</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. D. Reintsema</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NIST</arxiv:affiliation>
+    </author>
+    <author>
+      <name>S. Richter</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Harvard/CfA</arxiv:affiliation>
+    </author>
+    <author>
+      <name>R. Schwarz</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Minnesota</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. D. Sheehy</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Minnesota</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Chicago</arxiv:affiliation>
+    </author>
+    <author>
+      <name>Z. K. Staniszewski</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NASA JPL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>R. V. Sudiwala</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Cardiff University</arxiv:affiliation>
+    </author>
+    <author>
+      <name>G. P. Teply</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Caltech</arxiv:affiliation>
+    </author>
+    <author>
+      <name>J. E. Tolan</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Stanford University</arxiv:affiliation>
+    </author>
+    <author>
+      <name>A. D. Turner</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">NASA JPL</arxiv:affiliation>
+    </author>
+    <author>
+      <name>A. G. Vieregg</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Harvard/CfA</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">University of Chicago</arxiv:affiliation>
+    </author>
+    <author>
+      <name>C. L. Wong</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Harvard/CfA</arxiv:affiliation>
+    </author>
+    <author>
+      <name>K. W. Yoon</name>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">Stanford University</arxiv:affiliation>
+      <arxiv:affiliation xmlns:arxiv="http://arxiv.org/schemas/atom">KIPAC/SLAC</arxiv:affiliation>
+    </author>
+    <arxiv:doi xmlns:arxiv="http://arxiv.org/schemas/atom">10.1103/PhysRevLett.112.241101</arxiv:doi>
+    <link title="doi" href="http://dx.doi.org/10.1103/PhysRevLett.112.241101" rel="related"/>
+    <arxiv:comment xmlns:arxiv="http://arxiv.org/schemas/atom">26 pages, 14 figures</arxiv:comment>
+    <arxiv:journal_ref xmlns:arxiv="http://arxiv.org/schemas/atom">Phys. Rev. Lett. 112, 241101 (2014)</arxiv:journal_ref>
+    <link href="http://arxiv.org/abs/1403.3985v3" rel="alternate" type="text/html"/>
+    <link title="pdf" href="http://arxiv.org/pdf/1403.3985v3" rel="related" type="application/pdf"/>
+    <arxiv:primary_category xmlns:arxiv="http://arxiv.org/schemas/atom" term="astro-ph.CO" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="astro-ph.CO" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="gr-qc" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="hep-ph" scheme="http://arxiv.org/schemas/atom"/>
+    <category term="hep-th" scheme="http://arxiv.org/schemas/atom"/>
+  </entry>
+</feed>
