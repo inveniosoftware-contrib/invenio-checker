@@ -102,18 +102,18 @@ def find_affiliations(xml_doc):
 
 
 def author_dic_from_xml(author):
-    return {key: val in (
-        'surname', get_value_in_tag(author, "ce:surname"),
-        'given_name', get_value_in_tag(author, "ce:given-name"),
-        'initials', get_value_in_tag(author, "ce:initials"),
-        'orcid', unicode(author.getAttribute('orcid')),
-        'email', next(xml_to_text(email)
-                      if unicode(email.getAttribute("type")) in ('email', '')
-                      for email in author.getElementsByTagName("ce:e-address"),
+    return {key: val for key, val in {
+        'surname': get_value_in_tag(author, "ce:surname"),
+        'given_name': get_value_in_tag(author, "ce:given-name"),
+        'initials': get_value_in_tag(author, "ce:initials"),
+        'orcid': unicode(author.getAttribute('orcid')),
+        'email': next((xml_to_text(email)
+                       for email in author.getElementsByTagName("ce:e-address")
+                       if unicode(email.getAttribute("type")) in ('email', '')),
                       None),
-        'cross_ref', [unicode(cross_ref.getAttribute("refid")) for cross_ref
+        'cross_ref': [unicode(cross_ref.getAttribute("refid")) for cross_ref
                       in author.getElementsByTagName("ce:cross-ref")]
-    ).items() if val is not None}
+    }.items() if val is not None}
 
 
 def get_authors(xml_doc):
@@ -148,7 +148,7 @@ def check_record(record):
             author['full_name'] = author_name
 
             # orcid, affiliation, email
-            for key in ('orcid', 'affiliation', 'email')
+            for key in ('orcid', 'affiliation', 'email'):
                 try:
                     author[key] = author_d[key]
                 except KeyError:

@@ -24,9 +24,9 @@ import re
 from xml.dom.minidom import parseString
 from xml.parsers.expat import ExpatError
 
-from invenio.legacy.bibauthorid.general_utils import is_arxiv_id
-from invenio.modules.jsonalchemy.reader import split_blob
-from invenio.modules.records.api import Record
+# from invenio.legacy.bibauthorid.general_utils import is_arxiv_id
+# from invenio.modules.jsonalchemy.reader import split_blob
+# from invenio.modules.records.api import Record
 
 
 def get_inspire_id(record):

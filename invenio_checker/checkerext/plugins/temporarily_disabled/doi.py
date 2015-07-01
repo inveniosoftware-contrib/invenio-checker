@@ -21,7 +21,7 @@
 
 from invenio.legacy.bibrecord import record_add_field
 from invenio.utils.crossref import get_doi_for_records
-from invenio.bibupload import find_record_from_doi
+from invenio.legacy.bibupload.engine import find_record_from_doi
 
 
 def check_records(records, doi_field="0247_a", extra_subfields=(("2", "DOI"), ("9", "bibcheck"))):
