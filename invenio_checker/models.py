@@ -39,6 +39,10 @@ class CompositeItems(MutableComposite):
     def __composite_orig_keys__(self):
         raise NotImplementedError
 
+    def __composite_mapper__(self):
+        raise NotImplementedError
+
+
 class CompositeChecker(CompositeItems):
 
     def __init__(self):
