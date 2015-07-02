@@ -19,13 +19,23 @@
 
 """ Bibcheck plugin to check fields have one of a defined set of values """
 
-def check_record(record, allowed_values):
-    """
-    Checks record to allow only certain values to a field.
-    @param allowed_values: A dict {field: [values]}
-    """
-    for field, values in allowed_values.items():
-        for position, value in record.iterfield(field):
-            if value not in values:
-                record.set_invalid("Field %s: value not allowed" % position[0])
 
+class CheckWhatever(object):
+
+    # @staticmethod
+    # def allowed_paths(cfg_args):
+    #     # Must return list of strings
+    #     return ''.join(cfg_args)
+
+    # @staticmethod
+    # def allowed_recids(cfg_args, requested_recids, all_recids, perform_request_search):
+    #     # Must return: set of recids
+    #     return requested_recids
+
+    # def setup_method(self, log):
+    #     raise KeyError
+
+    def check_fail(self,log,record):
+        log('record ' + str(record))
+        # import os
+        # os.path.join(tuple(), 1)
