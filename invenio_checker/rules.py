@@ -151,7 +151,7 @@ class Rule(dict):
     @property
     def pluginspec(self):
         """Resolve checkspec of the rule's check."""
-        return 'invenio.modules.{module}.checkerext.plugins.{file}'\
+        return '{module}.checkerext.plugins.{file}'\
             .format(module=self['plugin']['module'], file=self['plugin']['file'])
 
     # @cached_property
@@ -200,40 +200,6 @@ class Rule(dict):
             )[0]
         except IndexError:
             return []
-
-    @classmethod
-    def from_json(cls, rule_json):
-        """Create a Rule from json.
-
-        :param rule_json: a json representation of a Rule's dictionary
-        :type  rule_json: str
-        :returns: a single rule
-        :rtype:   Rule instance
-
-        :raises: ValueError
-        """
-        return cls(json.loads(rule_json))
-
-    def to_json(self):
-        """Save a JSON-friendly representation of the rule.
-
-        :returns: a json representation of a Rule's dictionary
-        :rtype:   str
-        """
-        return json.dumps(self)
-
-    @cached_property
-    def is_batch(self):
-        """Check if a rule uses a batch plugin.
-
-        Lazy, trusts that we do not modify self['plugin'].
-        :returns: whether a rule uses a batch plugin or not
-        :rtype:   bool
-
-        :raises: ImportError
-        """
-        plugin_module = import_module(self.pluginspec)
-        return hasattr(plugin_module, 'pre_check')
 
 
 class Rules(MutableSequence):
@@ -292,52 +258,6 @@ class Rules(MutableSequence):
         for rule_name in user_rules:
             rules.load_rule(rule_name)
         return rules
-
-    @classmethod
-    def from_jsons(cls, rule_jsons):
-        """Recover Rules from a JSON string.
-
-        This is used by workflow workers.
-        """
-        rules = cls()
-        for rule_json in rule_jsons:
-            rule = Rule.from_json(rule_json)
-            rules.append(rule)
-        return rules
-
-    def iterbatch(self):
-        """Iterate over batch rules."""
-        for rule in self:
-            if rule.is_batch:
-                yield rule
-
-    def itersimple(self):
-        """Iterate over simple rules."""
-        for rule in self:
-            if not rule.is_batch:
-                yield rule
-
-    def by_json_ruleset(self, user_ids):
-        """Bundle rules of the specified user IDs into by-rule-set sets.
-
-        :param user_ids: IDs to be bundled
-        :type  user_ids: list
-
-        :returns: seq(json(rule)):relevant_ids
-        :rtype:   dict
-        """
-        # Bundle into ID:json(rule)
-        id_bundles = defaultdict(list)
-        for rule in self:
-            rule.user_ids = user_ids
-            for id_ in rule.modified_records(user_ids):
-                rule_json = json.dumps(rule)
-                id_bundles[id_].append(rule_json)
-        # Bundle into seq(json(rule)):ids
-        bundles = defaultdict(list)
-        for id_, rule_json in id_bundles.iteritems():
-            bundles[tuple(rule_json)].append(id_)
-        return bundles
 
     def load_rule(self, rule_name):
         """Load rules from the database.
