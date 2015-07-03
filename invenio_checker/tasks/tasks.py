@@ -36,36 +36,26 @@ from invenio.modules.checker.record import AmendableRecord
 from invenio.modules.checker.rules import Rules, Rule
 from invenio.modules.records.api import get_record, Record
 
-def _partial_argc(func):
-    """Argument count of nested partial functions.
+from invenio.celery import celery
+from invenio.base.helpers import with_app_context
 
-    :param func: partial
-    :type  func: function
-
-    :returns: argument count
-    :rtype:   int
-    """
-    argc = 0  # Until challenged
-    inner_func = None  # So that we don't destruct func
-    while True:
-        try:
-            if inner_func:
-                argc += len(inner_func.args)
-            else:
-                argc += len(func.args)
-        except AttributeError:
-            pass
-        try:
-            if inner_func:
-                inner_func = inner_func.func
-            else:
-                inner_func = func.func
-        except AttributeError:
-            break
-    return argc
+@celery.task
+@with_app_context()
+def run_test(filepath, a=None):
+    # We set `-c` so that our environment does not affect the test run.
+    import pytest
+    import os
+    this_file_dir = os.path.dirname(os.path.realpath(__file__))
+    pytest.cmdline.main(args=['-s', '-v',
+                              '-p', 'invenio_checker.conftest2',
+                              '-c', os.path.join(this_file_dir, 'conftest2.ini'),
+                              '--invenio-records', ','.join(str(i) for i in range(100)),
+                              '--invenio-reporters', 'a,b',
+                              filepath])
 
 
 def _set_done(obj, eng, rule_names, recids):
+    """Update the database that a rule run has completed."""
     # FIXME: Don't re-get extra data. It was already pulled out before this
     # funciton call
     extra_data = obj.get_extra_data()
@@ -231,80 +221,6 @@ def wf_recids():
     def _wrapped(obj, eng):
         return obj.get_extra_data()['recids']
     return _wrapped
-
-
-def run_batch(obj, eng):
-    """Run the batch function of a rule tied to a batch plugin.
-
-    Sets `result_pre_check` in extra_data.
-
-    The following function signatures are supported:
-
-    pre_check(records)
-    """
-    # Load everything
-    extra_data = obj.get_extra_data()
-    recids = extra_data['recids']
-    rule = Rule(extra_data['rule_object'])
-    records = (_load_record(extra_data, recid, rule=rule['name'])
-               for recid in recids)
-    plugin_module = import_module(rule.pluginspec)
-
-    # Execute pre- function and save retval
-    _ensure_key('result_pre_check', extra_data)
-    extra_data['result_pre_check'][rule['name']] = \
-        plugin_module.pre_check(records)
-    _store_extras(obj, eng, extra_data, records)
-
-
-def run_check(obj, eng):
-    """Check a single record against a rule.
-
-    The following function signatures are supported:
-
-    check_record(record, **kwargs)
-    check_record(record, result_pre_check, **kwargs)
-    """
-    # Load everything
-    extra_data = obj.get_extra_data()
-    recid = obj.data
-    rule = Rule(extra_data['rule_object'])
-    record = _load_record(extra_data, recid, rule=rule['name'])
-    plugin_module = import_module(rule.pluginspec)
-
-    # Initialize partial
-    check_record = partial(plugin_module.check_record, record)
-    # Append result_pre_check if this is part of a batch plugin
-    try:
-        result_pre_check = extra_data['result_pre_check'][rule['name']]
-    except KeyError:
-        pass
-    else:
-        check_record = partial(check_record, result_pre_check)
-    # Append any arguments
-    try:
-        check_record = partial(check_record, **rule['arguments'])
-    except KeyError:
-        pass
-    # Run the check
-    try:
-        check_record()
-    except TypeError as e:
-        # Give more details if the reason TypeError was raised was function
-        # signature incompatibility (programming error).
-        expected_argcount = _partial_argc(check_record)
-        given_argcount = plugin_module.check_record.func_code.co_argcount
-        if expected_argcount != given_argcount:
-            e.args += ('Wrong plugin function signature at {code}'
-                       .format(code=plugin_module.check_record.func_code),)
-            # FIXME: All future calls to this specific `check_record` are doomed
-            # to fail. Either set some variable to stop future `run_checks`
-            # from running or do this earlier.
-            # FIXME: Same goes for batch, but with greater impact.
-        raise
-    else:
-        _store_extras(obj, eng, extra_data, [record])
-
 
 def save_records():
     """Upload all modified records."""

@@ -25,10 +25,12 @@
 """Periodic record checker for Invenio."""
 
 import os
+import platform
 import sys
 
 from setuptools import setup
 from setuptools.command.test import test as TestCommand
+
 
 readme = open('README.rst').read()
 history = open('CHANGES.rst').read()
@@ -37,7 +39,11 @@ requirements = [
     'Flask>=0.10.1',
     'six>=1.7.2',
     'Invenio>=2.0.3',
+    'pytest==2.7.2',
 ]
+
+if platform.python_version_tuple() < ('3', '2'):
+    requirements.append('backports.functools_lru_cache>=1.0.1')
 
 test_requirements = [
     'pytest>=2.7.0',
