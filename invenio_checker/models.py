@@ -146,7 +146,7 @@ class CheckerRule(db.Model):
     filter = composite(Filter, filter_pattern, filter_field, filter_limit)
 
     records = db.relationship('CheckerRecord', backref='checker_rule',
-                              cascade='all, delete, delete-orphan')
+                              cascade='all, delete-orphan')
 
 
 class CheckerRecord(db.Model):
@@ -169,4 +169,4 @@ class CheckerRecord(db.Model):
     last_run = db.Column(db.DateTime, nullable=False,
                          server_default='1900-01-01 00:00:00', index=True)
 
-__all__ = ('CheckerRule', )
+__all__ = ('CheckerRule', 'CheckerRecord', )
