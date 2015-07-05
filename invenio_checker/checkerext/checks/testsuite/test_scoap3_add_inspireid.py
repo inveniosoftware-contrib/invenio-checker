@@ -78,7 +78,7 @@ class TestChanges(InvenioTestCase):
         param('no_control_number'  , {'system_control_number': []}                                                    ),
     ))
     def test_getting_of_system_control_number_struct_of_inspire(self, _, record, expected_idx=None, expected_exception=None):
-        from invenio.modules.checker.checkerext.plugins.scoap3_add_inspire_id import get_inspire_id
+        from invenio.modules.checker.checkerext.checks.scoap3_add_inspire_id import get_inspire_id
         run_check = lambda: get_inspire_id(record)
 
         if expected_exception:
@@ -101,7 +101,7 @@ class TestChanges(InvenioTestCase):
         ('bad_call'      , None                            , None),
     ))
     def test_getting_inspireid_from_database(self, _, doi, expected_recid):
-        from invenio.modules.checker.checkerext.plugins.scoap3_add_inspire_id import get_inspireid_from_database
+        from invenio.modules.checker.checkerext.checks.scoap3_add_inspire_id import get_inspireid_from_database
         with patch('invenio.ext.sqlalchemy.db', mock_db([expected_recid])) as mocked_db:
             if is_exception_of(expected_recid, Exception):  # TODO: Split expected_exception
                 self.assertRaises(expected_recid,
@@ -124,7 +124,7 @@ class TestChanges(InvenioTestCase):
         param('network_fail' , {'doi': '10.1088/1475-7516/2014/10/069'} , None , 'http://inspirehep.net/search?doi=10.1088%2F1475-7516%2F2014%2F10%2F069'  , IOError         ) ,
     ))
     def test_getting_inspireid_from_inspire_net(self, _, kwargs, expected_recid, expected_url, expected_exception=None, bad_response=False):
-        from invenio.modules.checker.checkerext.plugins.scoap3_add_inspire_id import get_inspireid_from_inspire_net
+        from invenio.modules.checker.checkerext.checks.scoap3_add_inspire_id import get_inspireid_from_inspire_net
 
         with patch('urllib2.urlopen', mock_urlopen(expected_recid, expected_exception, bad_response)) as mocked_urlopen:
             # See if we got the correct `recid` or desired exception

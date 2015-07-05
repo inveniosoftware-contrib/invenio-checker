@@ -87,7 +87,7 @@ schema_files_proxy = RegistryProxy('checker.schema',
 schema_files = schema_files_proxy.to_pathdict(lambda basename:
                                               basename.endswith('.yaml'))
 
-plugin_files = RegistryProxy('checkerext.plugins',
+plugin_files = RegistryProxy('checkerext.checks',
                              CheckerPluginRegistry,
-                             'plugins',
+                             'checks',
                              registry_namespace=checkerext)

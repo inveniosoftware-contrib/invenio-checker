@@ -30,7 +30,7 @@ from invenio.base.wrappers import lazy_import
 from invenio.testsuite import make_test_suite, run_test_suite, InvenioTestCase
 
 
-add_publisher = lazy_import('invenio.modules.checker.checkerext.plugins.scoap3_add_publisher')
+add_publisher = lazy_import('invenio.modules.checker.checkerext.checks.scoap3_add_publisher')
 
 
 class TestChanges(InvenioTestCase):

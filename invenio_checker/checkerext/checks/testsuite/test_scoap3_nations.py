@@ -24,7 +24,7 @@ from invenio.testsuite import InvenioTestCase
 
 from common import is_exception_of
 
-nations = lazy_import('invenio.modules.checker.checkerext.plugins.scoap3_nations')
+nations = lazy_import('invenio.modules.checker.checkerext.checks.scoap3_nations')
 
 
 

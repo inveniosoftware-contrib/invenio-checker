@@ -151,7 +151,7 @@ class Rule(dict):
     @property
     def pluginspec(self):
         """Resolve checkspec of the rule's check."""
-        return '{module}.checkerext.plugins.{file}'\
+        return '{module}.checkerext.checks.{file}'\
             .format(module=self['plugin']['module'], file=self['plugin']['file'])
 
     # @cached_property

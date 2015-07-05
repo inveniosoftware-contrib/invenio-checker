@@ -24,7 +24,7 @@ from nose_parameterized import parameterized, param
 from invenio.base.wrappers import lazy_import
 from invenio.testsuite import make_test_suite, run_test_suite, InvenioTestCase
 
-find_erratum = lazy_import('invenio.modules.checker.checkerext.plugins.scoap3_find_erratum')
+find_erratum = lazy_import('invenio.modules.checker.checkerext.checks.scoap3_find_erratum')
 
 
 class TestChanges(InvenioTestCase):

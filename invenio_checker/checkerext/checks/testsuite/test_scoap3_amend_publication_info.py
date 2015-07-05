@@ -23,9 +23,9 @@ from nose_parameterized import parameterized, param
 
 from invenio.base.wrappers import lazy_import
 from invenio.testsuite import make_test_suite, run_test_suite, InvenioTestCase
-from nose.tools import nottest
+from datetime import datetime
 
-fix_bad_elsevier_affiliations = lazy_import('invenio.modules.checker.checkerext.plugins.scoap3_fix_bad_elsevier_affiliations')
+amend_publication_info = lazy_import('invenio.modules.checker.checkerext.checks.scoap3_amend_publication_info')
 
 
 class TestChanges(InvenioTestCase):
@@ -33,11 +33,22 @@ class TestChanges(InvenioTestCase):
 
     @parameterized.expand((
         # record, expected_year
-        ('TODO'),
+        ('no_creation_date',  {},                                      None),
+        ('yes_creation_date', {'creation_date': datetime(1995, 1, 4)}, 1995),
     ))
-    @nottest
-    def test_(self, _):
-        raise Exception
+    def test_resolution_of_year_from_creation_date(self, _, record, expected_year):
+        _resolve_year_from_creation_date = amend_publication_info._resolve_year_from_creation_date
+        resolved_year = _resolve_year_from_creation_date(record)
+        self.assertEquals(resolved_year, expected_year)
+
+    @parameterized.expand((
+        # publication_info             , expected_publication_info
+        ('', {'a': '', 'b':'-', 'c': 'foo'}, {'c': 'foo'}),
+    ))
+    def test_cleanup_of_publication_info(self, _, publication_info, expected_publication_info):
+        _cleanup_publication_info = amend_publication_info._cleanup_publication_info
+        resulting_publication_info = _cleanup_publication_info(publication_info)
+        self.assertEquals(resulting_publication_info, expected_publication_info)
 
 
 TEST_SUITE = make_test_suite(TestChanges)

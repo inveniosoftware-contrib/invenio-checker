@@ -29,7 +29,7 @@ from invenio.testsuite import make_test_suite, run_test_suite, InvenioTestCase
 from common import mock_open
 
 
-arxiv_category = lazy_import('invenio.modules.checker.checkerext.plugins.scoap3_arxiv_category')
+arxiv_category = lazy_import('invenio.modules.checker.checkerext.checks.scoap3_arxiv_category')
 
 
 class TestChanges(InvenioTestCase):
@@ -78,7 +78,7 @@ class TestChanges(InvenioTestCase):
     ))
     def test_getting_arxiv_id_from_inspire(self, _, doi, arxiv_id, expected_exception):
         _get_arxiv_id_from_inspire = arxiv_category._get_arxiv_id_from_inspire
-        with patch('invenio.modules.checker.checkerext.plugins.scoap3_arxiv_category.urllib.urlopen') as mock_urlopen:
+        with patch('invenio.modules.checker.checkerext.checks.scoap3_arxiv_category.urllib.urlopen') as mock_urlopen:
             if expected_exception:
                 mock_urlopen.side_effect = expected_exception
                 self.assertRaises(expected_exception,
@@ -108,7 +108,7 @@ class TestChanges(InvenioTestCase):
     ))
     def test_finding_arxiv_categories_from_arxiv_org(self, _, arxiv_id, expected_categories, expected_exception):
         _get_arxiv_categories_from_arxiv_org = arxiv_category._get_arxiv_categories_from_arxiv_org
-        with patch('invenio.modules.checker.checkerext.plugins.scoap3_arxiv_category.urllib.urlopen') as mock_urlopen:
+        with patch('invenio.modules.checker.checkerext.checks.scoap3_arxiv_category.urllib.urlopen') as mock_urlopen:
             if expected_exception:
                 mock_urlopen.side_effect = expected_exception()
                 self.assertRaises(expected_exception,

@@ -34,7 +34,7 @@ import random
 from invenio.testsuite import make_test_suite, run_test_suite, InvenioTestCase
 
 
-common = lazy_import('invenio.modules.checker.checkerext.plugins.common')
+common = lazy_import('invenio.modules.checker.checkerext.checks.common')
 
 bibdoc_ids = {
     1: (11, 12, 13),

@@ -30,7 +30,7 @@ from invenio.base.wrappers import lazy_import
 from invenio.testsuite import InvenioTestCase
 
 
-add_orcid = lazy_import('invenio.modules.checker.checkerext.plugins.scoap3_add_orcid')
+add_orcid = lazy_import('invenio.modules.checker.checkerext.checks.scoap3_add_orcid')
 
 
 class TestChanges(InvenioTestCase):

@@ -25,7 +25,7 @@ from invenio.base.wrappers import lazy_import
 from invenio.testsuite import make_test_suite, run_test_suite, InvenioTestCase
 
 
-arxiv_prefix = lazy_import('invenio.modules.checker.checkerext.plugins.scoap3_arxiv_prefix')
+arxiv_prefix = lazy_import('invenio.modules.checker.checkerext.checks.scoap3_arxiv_prefix')
 
 
 class TestChanges(InvenioTestCase):
