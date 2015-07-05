@@ -49,8 +49,8 @@ def run_test(filepath, a=None):
     pytest.cmdline.main(args=['-s', '-v',
                               '-p', 'invenio_checker.conftest2',
                               '-c', os.path.join(this_file_dir, 'conftest2.ini'),
-                              '--invenio-records', ','.join(str(i) for i in range(100)),
-                              '--invenio-reporters', 'a,b',
+                              '--invenio-records', ','.join(str(i) for i in range(1)),
+                              '--invenio-rule', 'enum',
                               filepath])
 
 

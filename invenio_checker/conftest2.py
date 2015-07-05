@@ -22,18 +22,260 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-import pytest
-from _pytest.terminal import TerminalReporter
+import inspect
+import os
+import sys
+import re
 import traceback
-from _pytest.runner import TestReport
-import py
-from invenio.modules.records.api import get_record
-from six import StringIO
-from py._io.terminalwriter import TerminalWriter
 from contextlib import contextmanager
-from .recids import ids_from_input
-from .reporter import get_by_name
 
+import pytest
+from _pytest.runner import pytest_runtest_makereport as orig_pytest_runtest_makereport
+from _pytest.terminal import TerminalReporter
+from six import StringIO
+from py._io.terminalwriter import write_out
+
+from invenio.modules.records.api import get_record as get_record_orig
+from invenio.legacy.search_engine import perform_request_search as perform_request_search_orig
+from .models import CheckerRule
+from .recids import ids_from_input
+
+
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
+
+
+ansi_escape = re.compile(r'\x1b[^m]*m')
+
+
+# TODO
+# Helpers
+# @lru_cache(maxsize=2)
+def get_reporters(invenio_rule):
+    # TODO
+    # return [reporter_from_spec(reporter.module, reporter.file)
+    #         for reporter in checker_rule.reporters]
+    from reporter import get_by_name
+    return [get_by_name(1)]
+
+
+@lru_cache(maxsize=2)
+def _load_rule_from_db(rule_name):
+    return CheckerRule.query.get(rule_name)
+
+
+class LocationTuple(object):
+
+    @staticmethod
+    def from_report_location(report_location):
+        fspath, lineno, domain = report_location
+        return os.path.abspath(fspath), lineno, domain
+
+    @staticmethod
+    def from_stack(stack):
+        frame, filename, line_number, function_name, lines, index = stack
+        function_name = frame.f_code.co_name  # 'check_fail'
+        try:
+            argvalues = inspect.getargvalues(frame)
+            first_argument = argvalues.locals[argvalues.args[0]]
+            class_name = first_argument.__class__.__name__  # CheckWhatever
+        except IndexError:
+            domain = function_name
+        else:
+            domain = '{0}.{1}'.format(class_name, function_name)
+        return filename, line_number, domain
+
+
+# Bare fixtures
+@pytest.fixture(scope="session")
+def db():
+    return db
+
+
+@pytest.fixture(scope="session")
+def requested_records(request):
+    return request.config.option.invenio_records
+
+
+# FIXME: How do we become aware of modifications? FIXME
+
+
+@pytest.fixture(scope="session")
+def perform_request_search(request):
+    return perform_request_search_orig
+
+
+@pytest.fixture(scope="session")
+def get_record(request):
+    return get_record_orig
+
+
+@pytest.fixture(scope="session")
+def all_record_ids(request):
+    from invenio.modules.records.models import Record
+    return Record.allids()
+
+
+@pytest.fixture(scope="function")
+def log(request):
+    def _log(user_readable_msg):
+        # current_function = request.node  #<class '_pytest.python.Function'>
+        location_tuple = LocationTuple.from_stack(inspect.stack()[1])
+        for reporter in request.config.option.invenio_reporters:
+            reporter.report(user_readable_msg, location_tuple)
+    return _log
+
+
+@pytest.fixture(scope="function")
+def cfg_args(request):
+    return request.config.option.invenio_rule.arguments
+
+
+# Parametrization
+def pytest_generate_tests(metafunc):
+    # Unfortunately this runs before `pytest_runtest_setup`, so we have to
+    # extract the records again
+    if 'record' in metafunc.fixturenames:
+        metafunc.parametrize("record",
+                             [a for a in metafunc.config.option.invenio_records],
+                             indirect=True)
+
+
+@pytest.fixture(scope="function")
+def record(request):
+    return  # TODO: Remove for release
+    record_id = request.param
+    return get_record_orig(record_id)
+
+
+# Options
+def pytest_addoption(parser):
+    # Add env variable. Use `-E whatever` to set
+    parser.addoption("--invenio-records", action="store", type=ids_from_input,
+                     help="set records", dest='invenio_records')
+    parser.addoption("--invenio-rule", action="store", type=_load_rule_from_db,
+                     help="get rule", dest='invenio_rule')
+
+
+# Configure
+class InvenioReporter(TerminalReporter):
+    def __init__(self, reporter):
+        TerminalReporter.__init__(self, reporter.config)
+
+    @contextmanager
+    def new_tw(self):
+        """Scoped terminal writer to get output of designated functions.
+
+        ..note:: Will catch any exceptions raised while in the scope and append
+        them to the stream. This way one can call deprecated functions and
+        actually get a report about it.
+        """
+
+        class StrippedStringIO(StringIO):
+            def write(self, message):
+                message = ansi_escape.sub('', message)
+                StringIO.write(self, message)  # StringIO is old-style
+
+        tmp_stream = StrippedStringIO()
+
+        old_file = self._tw._file  # pylint: disable=no-member
+        self._tw._file = tmp_stream  # pylint: disable=no-member
+
+        def getvalue():
+            tmp_stream.seek(0)
+            return tmp_stream.getvalue()
+
+        exc_info = None
+        try:
+            yield getvalue
+        except Exception:
+            exc_info = sys.exc_info()
+        finally:
+            if exc_info:
+                formatted_exception = ''.join(traceback.format_exception(*exc_info))
+                tmp_stream.write('\nException raised while collecting description:\n')
+                tmp_stream.write(formatted_exception)
+            self._tw._file = old_file  # pylint: disable=no-member
+
+
+    def pytest_collectreport(self, report):
+        TerminalReporter.pytest_collectreport(self, report)
+
+        if report.failed:
+            self.report_failure(report, when='collect')
+
+    def pytest_runtest_logreport(self, report):
+        if hasattr(report, 'wasxfail'):
+            return
+        if report.failed:
+            self.report_failure(report)
+        else:
+            pass
+            # TODO: record checked records to DB
+
+    def pytest_runtest_logstart(self, nodeid, location):
+        pass
+
+    def summary_failures(self):
+        pass
+
+    def summary_errors(self):
+        pass
+
+    def report_failure(self, report, when=None):
+        when = when or report.when
+        assert when in ('collect', 'setup', 'call', 'teardown')
+
+        # import ipdb; ipdb.set_trace()
+        # report_toterminal(report)
+        with self.new_tw() as getvalue:
+            self._outrep_summary(report)  # pylint: disable=no-member
+        outrep_summary = getvalue()
+
+        # Output, should use celery?
+        location_tuple = LocationTuple.from_report_location(report.location)
+        exc_info = (
+            report.excinfo.type,
+            report.excinfo.value,
+            report.excinfo.traceback[0]._rawentry
+        )
+        formatted_exception = ''.join(traceback.format_exception(*exc_info))
+
+        # Inform all enabled reporters
+        for reporter in pytest.config.option.invenio_reporters:
+            reporter.report_exception(outrep_summary, location_tuple, exc_info, formatted_exception)
+
+
+@pytest.mark.trylast
+def pytest_configure(config):
+    """Register our report handlers' handler."""
+
+    config.option.invenio_reporters = get_reporters(config.option.invenio_rule)
+
+    if hasattr(config, 'slaveinput'):
+        return  # xdist slave, we are already active on the master
+
+    # Get the current terminal reporter
+    standard_reporter = config.pluginmanager.getplugin('terminalreporter')
+
+    # Unregister it
+    config.pluginmanager.unregister(standard_reporter)
+
+    # Add our own to act as a gateway
+    invenioreporter = InvenioReporter(standard_reporter)
+    config.pluginmanager.register(invenioreporter, 'invenioreporter')
+
+
+def pytest_runtest_makereport(item, call):
+    """Override in order to inject `excinfo`."""
+    excinfo = call.excinfo
+    try:
+        result = orig_pytest_runtest_makereport(item, call)
+    finally:
+        result.excinfo = excinfo
+    return result
 
 # Namespace manipulation
 # class InvenioStorage(object):
@@ -45,62 +287,12 @@ from .reporter import get_by_name
 #     def records(self):
 #         return pytest.config.
 
-# Helpers
 # def pytest_namespace():
 #     pass
 #     # pytest has special handling for dicts, so we use a custom class instead
 #     # invenio_storage = InvenioStorage()
 #     # return {'invenio_storage': invenio_storage}
 
-
-def user_reporters_to_list(reporters):
-    # TODO
-    # get_reporter(..)
-    pass
-
-# Bare fixtures
-@pytest.fixture(scope="session")
-def db():
-    return db
-
-@pytest.fixture(scope="session")
-def records():
-    return pytest.invenio_storage.records
-
-@pytest.fixture(scope="function")
-def log(request):
-    def _log(user_readable_msg):
-        current_function = request.node  #<class '_pytest.python.Function'>
-        import inspect
-        frame,filename,line_number,function_name,lines,index = inspect.stack()[1]
-        import ipdb; ipdb.set_trace()
-        # for reporter in request.config.reporters:
-            # reporter.report(user_readable_msg)
-    return _log
-
-# Parametrization
-def pytest_generate_tests(metafunc):
-    # Unfortunately this runs before `pytest_runtest_setup`, so we have to
-    # extract the records again
-    if 'record' in metafunc.fixturenames:
-        metafunc.parametrize("record",
-                             [a for a in metafunc.config.option.invenio_records],
-                             indirect=True)
-
-@pytest.fixture(scope="function")
-def record(request):
-    return
-    record_id = request.param
-    return get_record(record_id)
-
-
-# Options
-def pytest_addoption(parser):
-    # Add env variable. Use `-E whatever` to set
-    parser.addoption("--invenio-records", action="store", type=ids_from_input,
-        help="set records", dest='invenio_records')
-    parser.addoption("--invenio-reporters", action="store", type=user_reporters_to_list,
-        help="set reporters", dest='invenio_reporters')
 
 # @pytest.mark.trylast
 # def pytest_cmdline_main(config):
@@ -114,122 +306,3 @@ def pytest_addoption(parser):
 #     import ipdb; ipdb.set_trace()
 #     report.when # setup, call
 #     InvenioReporter.report_failure(report)
-
-################################################################################
-################################################################################
-
-# Configure
-class InvenioReporter(TerminalReporter):
-    def __init__(self, reporter):
-        TerminalReporter.__init__(self, reporter.config)
-
-    @contextmanager
-    def new_tw(self):
-        """Scoped terminal writer to get output of designated functions.
-
-        Every time `getvalue` is called, the manager is ready to run its next
-        function.
-        """
-
-        def getvalue():
-            self._tw._file.seek(0)
-            try:
-                return self._tw._file.getvalue()
-            finally:
-                self._tw._file.truncate(0)
-
-        stream = StringIO()
-        self._tw = TerminalWriter(file=stream)
-        yield getvalue
-
-    def pytest_collectreport(self, report):
-        TerminalReporter.pytest_collectreport(self, report)
-
-        # self.rewrite("")  # erase the "collecting" message
-        if report.failed:
-            self.report_failure(report, when='collect')
-
-    def pytest_runtest_logreport(self, report):
-        # TerminalReporter.pytest_runtest_logreport(self, report)  # <-
-
-        if hasattr(report, 'wasxfail'):
-            return
-        if report.failed:
-            self.report_failure(report)
-
-    def pytest_runtest_logstart(self, nodeid, location):
-        return  # <-
-
-    def summary_failures(self):
-        pass
-
-    def summary_errors(self):
-        pass
-
-    def report_failure(self, report, when=None):
-        when = when or report.when
-        assert when in ('collect', 'setup', 'call', 'teardown')
-
-        with self.new_tw() as getvalue:
-            self._outrep_summary(report)
-            outrep_summary = getvalue()
-
-        # Output, should use celery?
-        fspath, lineno, domain = report.location  # we only care about domain really
-        # print ''.join(outrep_summary)
-        # print ''.join(traceback.format_exception(report.excinfo.type,
-        #                                          report.excinfo.value,
-        #                                          report.excinfo.traceback[0]._rawentry))
-
-        # Inform all enabled reporters
-        # for reporter in pytest.config.option.invenio_reporters:
-        #     reporter.report_exception(report)
-
-
-@pytest.mark.trylast
-def pytest_configure(config):
-    """Register our report handlers' handler."""
-    if hasattr(config, 'slaveinput'):
-        return  # xdist slave, we are already active on the master
-
-    # Get the standard terminal reporter plugin...
-    standard_reporter = config.pluginmanager.getplugin('terminalreporter')
-    config.pluginmanager.unregister(standard_reporter)
-
-    # Add our own reporter
-    invenioreporter = InvenioReporter(standard_reporter)
-    config.pluginmanager.register(invenioreporter, 'invenioreporter')
-
-################################################################################
-################################################################################
-
-def pytest_runtest_makereport(item, call):
-    """Override in order to inject `excinfo`."""
-    when = call.when
-    duration = call.stop-call.start
-    keywords = dict([(x,1) for x in item.keywords])
-    excinfo = call.excinfo
-    sections = []
-    if not call.excinfo:
-        outcome = "passed"
-        longrepr = None
-    else:
-        if not isinstance(excinfo, py.code.ExceptionInfo):
-            outcome = "failed"
-            longrepr = excinfo
-        elif excinfo.errisinstance(pytest.skip.Exception):
-            outcome = "skipped"
-            r = excinfo._getreprcrash()
-            longrepr = (str(r.path), r.lineno, r.message)
-        else:
-            outcome = "failed"
-            if call.when == "call":
-                longrepr = item.repr_failure(excinfo)
-            else: # exception in setup or teardown
-                longrepr = item._repr_failure_py(excinfo,
-                                            style=item.config.option.tbstyle)
-    for rwhen, key, content in item._report_sections:
-        sections.append(("Captured std%s %s" %(key, rwhen), content))
-    return TestReport(item.nodeid, item.location,
-                      keywords, outcome, longrepr, when,
-                      sections, duration, excinfo=excinfo)
