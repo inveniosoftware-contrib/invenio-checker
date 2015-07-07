@@ -69,6 +69,32 @@ class CheckerPluginRegistry(DictModuleAutoDiscoverySubRegistry):
         return class_or_module
 
 
+class CheckerReporterRegistry(CheckerPluginRegistry):
+    def valuegetter(self, class_or_module):
+        # if inspect.ismodule(class_or_module):
+        plugin_name = class_or_module.__name__.split('.')[-1]
+        if plugin_name == '__init__':
+            # Ignore __init__ modules.
+            return None
+
+        def check_attr(attr_name):
+            try:
+                attr = getattr(class_or_module, attr_name)
+                if not callable(attr):
+                    raise TypeError
+            except (AttributeError, TypeError) as e:
+                exc_info = sys.exc_info()
+                e.args += ("Checker reporter's {reporter_name} `{attr}` could "
+                            "not be loaded.".format(plugin_name=plugin_name,
+                                                    attr=attr_name)),
+                reraise(RegistryError, e, exc_info[2])
+            else:
+                return plugin_name
+
+        # check_attr('check_record')
+        return class_or_module
+
+
 class PkgResourcesDirDiscoveryRegistry(FlaskPkgResourcesDirDiscoveryRegistry):
     def to_pathdict(self, test):
         """Return LazyDict representation."""
@@ -82,3 +108,9 @@ plugin_files = RegistryProxy('checkerext.checks',
                              CheckerPluginRegistry,
                              'checks',
                              registry_namespace=checkerext)
+
+
+reporters_files = RegistryProxy('checkerext.reporters',
+                                CheckerReporterRegistry,
+                                'reporters',
+                                registry_namespace=checkerext)

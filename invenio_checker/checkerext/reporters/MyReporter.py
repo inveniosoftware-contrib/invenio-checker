@@ -1,6 +1,7 @@
-import mock
-
 class MyReporter(object):
+    def __init__(self):
+        pass
+
     def report(self, user_readable_msg, location_tuple):
         print user_readable_msg
         print '1'
@@ -23,5 +24,5 @@ class MyReporter(object):
             print patches
             print '~~~5'
 
-def get_by_name(foo):
+def get_reporter(foo):
     return MyReporter()

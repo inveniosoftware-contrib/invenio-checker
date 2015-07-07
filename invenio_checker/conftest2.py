@@ -213,6 +213,13 @@ def _pytest_collection_modifyitems(session, config, items):
 # FIXTURES
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
+# TODO
+# Helpers
+# @lru_cache(maxsize=2)
+def get_reporters(invenio_rule):
+    from .registry import reporters_files
+    registered_reporters = [reporter.plugin_file for reporter in invenio_rule.reporters]
+    return [reporter[1].get_reporter('a') for reporter in reporters_files.iteritems() if reporter[0].split('.')[-1] in registered_reporters]
 
 
 def _warn_if_empty(func):
@@ -317,7 +324,8 @@ def batch_recids(request):
     :rtype: intbitset
     """
     config = _request_to_config(request)
-    return config.option.redis_worker.bundle_requested_recids
+    from intbitset import intbitset
+    return config.option.redis_worker.bundle_requested_recids or intbitset([])
 
 
 @pytest.fixture(scope="function")
@@ -641,7 +649,6 @@ class InvenioReporter(TerminalReporter):
             else:
                 report_exception()
 
-
 ################################################################################
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # INTIALIZE, REGISTER REPORTERS
@@ -655,6 +662,7 @@ def pytest_configure(config):
 
     :type config: :py:class:`_pytest.config.Config`
     """
+<<<<<<< HEAD
     def get_reporters(invenio_rule):
         """
         :type invenio_rule: :py:class:`invenio_checker.models.CheckerRule`
@@ -669,6 +677,10 @@ def pytest_configure(config):
         config.option.redis_worker.master.get_execution()
 
     config.option.invenio_rule = config.option.invenio_execution.rule
+=======
+    if hasattr(config, 'slaveinput'):
+        return  # xdist slave, we are already active on the master
+>>>>>>> 51655b0... reporters: basic reporting capabilities
 
     config.option.invenio_reporters = get_reporters(config.option.invenio_rule)
 

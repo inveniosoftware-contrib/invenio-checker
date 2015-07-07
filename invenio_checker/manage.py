@@ -38,11 +38,12 @@ from invenio.ext.script import Manager, change_command_name
 from invenio.ext.sqlalchemy import db
 
 ################################################################################
-# from invenio_checker.models import CheckerRule, CheckerRecord
-# from invenio.ext.sqlalchemy import db
+from invenio_checker.models import CheckerRule, CheckerRecord, CheckerReporter
+from invenio.ext.sqlalchemy import db
 # CheckerRecord.query.delete()
 # CheckerRule.query.delete()
 # try:
+#     print "1"
 #     new_rule = CheckerRule(
 #         name='enum',
 #         plugin_module='invenio_checker',
@@ -54,8 +55,8 @@ from invenio.ext.sqlalchemy import db
 #     )
 #     db.session.add(new_rule)
 #     db.session.commit()
-# except Exception:
-#     pass
+# except Exception as e:
+#     raise e
 # try:
 #     new_rule = CheckerRule(
 #         name='enum2',
@@ -178,7 +179,6 @@ def create_rule(**kwargs):
     Creates a new rule.
     """
     new_rule = CheckerRule(**kwargs)
-    print new_rule
     db.session.add(new_rule)
     db.session.commit()
 

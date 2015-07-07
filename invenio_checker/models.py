@@ -124,6 +124,8 @@ class CheckerRule(db.Model):
 
     records = db.relationship('CheckerRecord', backref='rule',
                               cascade='all, delete-orphan')
+    reporters = db.relationship('CheckerReporter', backref='checker_rule',
+                                cascade='all, delete-orphan')
 
     last_run = db.Column(
         db.DateTime(),
@@ -361,4 +363,31 @@ class CheckerRecord(db.Model):
     last_run = db.Column(db.DateTime, nullable=True, server_default=None, index=True)
 
 
-__all__ = ('CheckerRule', 'CheckerRecord', 'CheckerRuleExecution')
+class CheckerReporter(db.Model):
+
+    """Represent instantiated reporters for rule."""
+
+    __tablename__ = 'checker_reporter'
+
+    name = db.Column(db.String(50), primary_key=True)
+
+    plugin_module = db.Column(db.String(50), nullable=False)
+    plugin_file = db.Column(db.String(50), nullable=False)
+    # plugin = composite(Plugin, plugin_module, plugin_file)
+
+    arguments = db.Column(db.PickleType, default={})
+
+    rule_name = db.Column(db.String(50), db.ForeignKey('checker_rule.name'))
+
+    # option_holdingpen = db.Column(db.Boolean, nullable=False, default=True)
+    # option_consider_deleted_records = db.Column(db.Boolean, nullable=True,
+    #                                              default=False)
+    # option = composite(Option, option_holdingpen,
+    #                    option_consider_deleted_records)
+
+    # filter_pattern = db.Column(db.String(255), nullable=True)
+    # filter_field = db.Column(db.String(255), nullable=True)
+    # filter_limit = db.Column(db.Integer(unsigned=True), nullable=True)
+    # filter = composite(Filter, filter_pattern, filter_field, filter_limit)
+
+__all__ = ('CheckerRule', 'CheckerRecord', 'CheckerReporter', 'CheckerRuleExecution')
