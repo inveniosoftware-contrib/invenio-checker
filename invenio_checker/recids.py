@@ -45,5 +45,4 @@ def ids_from_input(ids_input, all_repr=ALL):
         return all_repr
     else:
         from invenio.utils.shell import split_cli_ids_arg
-        return split_cli_ids_arg(ids_input)
-        return parse_range(ids_input)
+        return intbitset(split_cli_ids_arg(ids_input))
