@@ -29,13 +29,15 @@ from collections import defaultdict, MutableSequence
 from importlib import import_module
 from intbitset import intbitset
 from werkzeug.utils import cached_property
+import inspect
 
+from .registry import plugin_files
 from .common import ALL
-from .errors import DuplicateRuleError
+from .errors import DuplicateRuleError, PluginMissing
 from invenio.ext.sqlalchemy import db
 from invenio.legacy.search_engine import search_pattern
-from invenio.modules.checker.models import CheckerRule, CheckerRecord
-from invenio.modules.records.models import Record as Bibrec
+from .models import CheckerRule, CheckerRecord
+from invenio_records.models import Record as Bibrec
 
 
 class Query(object):
@@ -141,6 +143,9 @@ class Rule(dict):
         if 'filter' not in self:
             self['filter'] = {}
         self.query = Query(self['filter'], self['option'])
+        # Ensure that the plugin that has been assigned to this rule exists
+        if self.pluginspec not in plugin_files:
+            raise PluginMissing(self.pluginspec, self['name'])
 
     @classmethod
     def from_name(cls, name):
@@ -159,9 +164,18 @@ class Rule(dict):
         return '{module}.checkerext.checks.{file}'\
             .format(module=self['plugin']['module'], file=self['plugin']['file'])
 
+    @property
+    def filepath(self):
+        """Resolve a the filepath of this rule's plugin."""
+        path = inspect.getfile(plugin_files[self.pluginspec])
+        if path.endswith('.pyc'):
+            path = path[:-1]
+        return path
+
     # @cached_property
     def modified_records(self, user_ids):
         # Get all records that are already associated to this rule
+        # If this is returning an empty set, you forgot to run bibindex
         try:
             associated_records = zip(
                 *db.session
@@ -262,6 +276,13 @@ class Rules(MutableSequence):
                 rules.pop(ALL)
         for rule_name in user_rules:
             rules.load_rule(rule_name)
+        return rules
+
+    @classmethod
+    def from_ids(cls, rule_ids):
+        rules = cls()
+        for rule_id in rule_ids:
+            rules.load_rule(rule_id)
         return rules
 
     def load_rule(self, rule_name):
