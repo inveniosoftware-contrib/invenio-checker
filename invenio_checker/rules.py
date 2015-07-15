@@ -109,11 +109,11 @@ class Query(object):
         query_kwargs = {}
         query_kwargs.update(self._query_filters())
         query_kwargs.update(self._query_options())
-        result = search_pattern(**query_kwargs)
-        if result.is_infinite():
+        recids = search_pattern(**query_kwargs).recids
+        if recids.is_infinite():
             query_kwargs.update(self._query_filters(force_finiteness=True))
-            result = search_pattern(**query_kwargs)
-        assert not result.is_infinite(), '\n'.join((
+            recids = search_pattern(**query_kwargs)
+        assert not recids.is_infinite(), '\n'.join((
             '',
             '`search_pattern` now works,'
             'alas; you must now amend',
