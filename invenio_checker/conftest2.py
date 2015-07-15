@@ -28,13 +28,17 @@ import sys
 import re
 import traceback
 from contextlib import contextmanager
+import time
+# import six
 
+import py
 import pytest
 from _pytest.runner import pytest_runtest_makereport as orig_pytest_runtest_makereport
 from _pytest.terminal import TerminalReporter
 from six import StringIO
-from py._io.terminalwriter import write_out
+from py._io.terminalwriter import TerminalWriter
 
+from .redis_helpers import RedisWorker
 from invenio.modules.records.api import get_record as get_record_orig
 from invenio.legacy.search_engine import perform_request_search as perform_request_search_orig
 from .models import CheckerRule
@@ -48,22 +52,6 @@ except ImportError:
 
 
 ansi_escape = re.compile(r'\x1b[^m]*m')
-
-
-# TODO
-# Helpers
-# @lru_cache(maxsize=2)
-def get_reporters(invenio_rule):
-    # TODO
-    # return [reporter_from_spec(reporter.module, reporter.file)
-    #         for reporter in checker_rule.reporters]
-    from reporter import get_by_name
-    return [get_by_name(1)]
-
-
-@lru_cache(maxsize=2)
-def _load_rule_from_db(rule_name):
-    return CheckerRule.query.get(rule_name)
 
 
 class LocationTuple(object):
@@ -88,10 +76,6 @@ class LocationTuple(object):
         return filename, line_number, domain
 
 
-# Bare fixtures
-@pytest.fixture(scope="session")
-def db():
-    return db
 ################################################################################
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # COMMUNICATE WITH MASTER
@@ -99,9 +83,6 @@ def db():
 ################################################################################
 
 
-@pytest.fixture(scope="session")
-def requested_records(request):
-    return request.config.option.invenio_records
 # TODO: Do this before the collection ( dry run )
 def pytest_collection_modifyitems(session, config, items):
     """ called after collection has been performed, may filter or re-order
@@ -170,7 +151,9 @@ def pytest_collection_modifyitems(session, config, items):
 ################################################################################
 
 
-# FIXME: How do we become aware of modifications? FIXME
+@pytest.fixture(scope="session")
+def db():
+    return db
 
 
 @pytest.fixture(scope="session")
@@ -184,9 +167,27 @@ def get_record(request):
 
 
 @pytest.fixture(scope="session")
-def all_record_ids(request):
-    from invenio.modules.records.models import Record
-    return Record.allids()
+def all_recids(request):
+    try:
+        config = request.config
+    except AttributeError:
+        config = request
+    master_id = config.option.invenio_master_id
+    return config.redis_worker.get_master_all_recids(master_id)
+
+
+@pytest.fixture(scope="session")
+def requested_recids(request):
+    # FIXME: Don't forget to intersect! Do this outside of the worker?
+    # return request.config.option.requested_recids & all_recids & filters
+    try:
+        config = request.config
+    except AttributeError:
+        config = request
+    if hasattr(config.option, 'requested_recids'):
+        return config.option.requested_recids
+    else:
+        return all_recids(config)
 
 
 @pytest.fixture(scope="function")
@@ -204,33 +205,54 @@ def cfg_args(request):
     return request.config.option.invenio_rule.arguments
 
 
-# Parametrization
+@pytest.fixture(scope="function")
+def record(request):
+    record_id = request.param
+    return record_id  # TODO: Remove for release
+    return get_record_orig(record_id)
+
+
 def pytest_generate_tests(metafunc):
     # Unfortunately this runs before `pytest_runtest_setup`, so we have to
     # extract the records again
     if 'record' in metafunc.fixturenames:
         metafunc.parametrize("record",
-                             [a for a in metafunc.config.option.invenio_records],
+                             requested_recids(metafunc.config),
                              indirect=True)
 
 
-@pytest.fixture(scope="function")
-def record(request):
-    return  # TODO: Remove for release
-    record_id = request.param
-    return get_record_orig(record_id)
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# OPTIONS
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
 
 
-# Options
+@lru_cache(maxsize=2)
+def _load_rule_from_db(rule_name):
+    return CheckerRule.query.get(rule_name)
+
+
 def pytest_addoption(parser):
-    # Add env variable. Use `-E whatever` to set
+    # TODO: FROM all_recids, requested_recids
     parser.addoption("--invenio-records", action="store", type=ids_from_input,
-                     help="set records", dest='invenio_records')
+                     help="set records", dest='requested_recids')
     parser.addoption("--invenio-rule", action="store", type=_load_rule_from_db,
                      help="get rule", dest='invenio_rule')
+    # keep
+    parser.addoption("--invenio-task-id", action="store", type=str,
+                     help="get task id", dest='invenio_task_id')
+    parser.addoption("--invenio-master-id", action="store", type=str,
+                     help="get master id", dest='invenio_master_id')
 
 
-# Configure
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# REPORTER CALLER
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
+
+
 class InvenioReporter(TerminalReporter):
     def __init__(self, reporter):
         TerminalReporter.__init__(self, reporter.config)
@@ -299,54 +321,88 @@ class InvenioReporter(TerminalReporter):
         when = when or report.when
         assert when in ('collect', 'setup', 'call', 'teardown')
 
-        # import ipdb; ipdb.set_trace()
-        # report_toterminal(report)
         with self.new_tw() as getvalue:
             self._outrep_summary(report)  # pylint: disable=no-member
         outrep_summary = getvalue()
 
         # Output, should use celery?
         location_tuple = LocationTuple.from_report_location(report.location)
-        exc_info = (
-            report.excinfo.type,
-            report.excinfo.value,
-            report.excinfo.traceback[0]._rawentry
-        )
-        formatted_exception = ''.join(traceback.format_exception(*exc_info))
+        # exc_info = (
+        #     report.excinfo.type,
+        #     report.excinfo.value,
+        #     report.excinfo.traceback[0]._rawentry
+        # )
+        # formatted_exception = ''.join(traceback.format_exception(*exc_info))
 
         # Inform all enabled reporters
         for reporter in pytest.config.option.invenio_reporters:
-            reporter.report_exception(outrep_summary, location_tuple, exc_info, formatted_exception)
+            reporter.report_exception(when, outrep_summary, location_tuple)
+            # reporter.report_exception(when, outrep_summary, location_tuple, exc_info, formatted_exception)
+
+    def pytest_internalerror(self, excrepr):
+        return 0
+
+def pytest_internalerror(excrepr, excinfo):
+    when = 'internal'
+    stack = inspect.getinnerframes(excinfo.tb)
+    location_tuple = LocationTuple.from_stack(stack[1])
+    formatted_exception = ''.join(traceback.format_exception(*excinfo._excinfo))
+    summary = excrepr.reprcrash.message
+
+    if hasattr(pytest.config.option, 'invenio_reporters'):
+        for reporter in pytest.config.option.invenio_reporters:
+            # reporter.report_exception(when, summary, location_tuple, excinfo._excinfo, formatted_exception)
+            reporter.report_exception(when, summary, location_tuple)
+    return 1
+
+
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# INTIALIZE, REGISTER REPORTERS
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
 
 
 @pytest.mark.trylast
 def pytest_configure(config):
     """Register our report handlers' handler."""
-
-    config.option.invenio_reporters = get_reporters(config.option.invenio_rule)
-
     if hasattr(config, 'slaveinput'):
         return  # xdist slave, we are already active on the master
 
-    # Get the current terminal reporter
-    standard_reporter = config.pluginmanager.getplugin('terminalreporter')
+    # Redis
+    config.redis_worker = RedisWorker(config.option.invenio_task_id)
 
-    # Unregister it
-    config.pluginmanager.unregister(standard_reporter)
+    # Reporters
+    # @lru_cache(maxsize=2)
+    def get_reporters(invenio_rule):
+        # TODO
+        # return [reporter_from_spec(reporter.module, reporter.file)
+        #         for reporter in checker_rule.reporters]
+        from reporter import get_by_name
+        return [get_by_name(1)]
+
+    config.option.invenio_reporters = get_reporters(config.option.invenio_rule)
+
+    # Get the current terminal reporter
+    terminalreporter = config.pluginmanager.getplugin('terminalreporter')
+
+    # Unregister it  # TODO: Comment this line for production
+    config.pluginmanager.unregister(terminalreporter)
 
     # Add our own to act as a gateway
-    invenioreporter = InvenioReporter(standard_reporter)
+    invenioreporter = InvenioReporter(terminalreporter)
     config.pluginmanager.register(invenioreporter, 'invenioreporter')
 
 
-def pytest_runtest_makereport(item, call):
-    """Override in order to inject `excinfo`."""
-    excinfo = call.excinfo
-    try:
-        result = orig_pytest_runtest_makereport(item, call)
-    finally:
-        result.excinfo = excinfo
-    return result
+# def pytest_runtest_makereport(item, call):
+#     """Override in order to inject `excinfo`."""
+#     excinfo = call.excinfo
+#     try:
+#         result = orig_pytest_runtest_makereport(item, call)
+#     finally:
+#         result.excinfo = excinfo
+#     return result
+
 
 # Namespace manipulation
 # class InvenioStorage(object):

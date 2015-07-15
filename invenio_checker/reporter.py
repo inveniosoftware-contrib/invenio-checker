@@ -5,11 +5,17 @@ class MyReporter(object):
         print user_readable_msg
         print '1'
 
-    def report_exception(self, outrep_summary, location_tuple, exc_info, formatted_exception):
-        print outrep_summary
+    # def report_exception(self, when, outrep_summary, location_tuple, exc_info, formatted_exception):
+    def report_exception(self, when, outrep_summary, location_tuple):
         print '~~~1'
-        print formatted_exception
+        print outrep_summary
         print '~~~2'
+        print location_tuple
+        print '~~~3'
+        # print exc_info
+        # print '~~~4'
+        # print formatted_exception
+        # print '~~~5'
 
 def get_by_name(foo):
     return MyReporter()
