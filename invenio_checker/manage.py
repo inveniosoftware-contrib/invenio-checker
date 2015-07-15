@@ -25,7 +25,6 @@
 
 """Manage checker module."""
 
-import inspect
 from functools import wraps
 
 from .common import ALL
@@ -35,11 +34,9 @@ from .rules import Rules
 from .models import CheckerRule
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
-from .errors import PluginMissing
 
 ################################################################################
 from invenio.ext.sqlalchemy import db
-from .models import CheckerRule
 from sqlalchemy.exc import IntegrityError
 new_rule = CheckerRule(
     name='enum',
@@ -130,37 +127,10 @@ def run(rules, user_recids, queue, tickets, upload):
 
     :raises: invenio.modules.checker.errors:PluginMissing
     """
-    # Ensure defined plugins exist
-    for rule in rules:
-        if rule.pluginspec not in plugin_files:
-            raise PluginMissing((rule.pluginspec, rule['name']))
 
-    # Run
-    common = {
-        'tickets': tickets,
-        'queue': queue,
-        'upload': upload
-    }
-
-    def getfile(modspec):
-        """Resolve a modspec into the corresponding python file.
-
-        :param modspec: dot-notated module specifier
-        """
-        path = inspect.getfile(plugin_files[modspec])
-        if path.endswith('.pyc'):
-            path = path[:-1]
-        return path
-
-    for rule in rules:
-        from .tasks import run_test
-        filepath = getfile(rule.pluginspec)
-
-        # celery
-        # z = run_test.delay(filepath, e='2cool')
-
-        # celery sync
-        z = run_test(filepath=filepath)
+    from .supervisor import run_task
+    rule_names =('enum',)
+    run_task(rule_names)
 
     # return bool(z)
 
