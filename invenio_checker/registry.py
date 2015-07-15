@@ -24,8 +24,9 @@
 
 """Registry for checker module."""
 
+from six import reraise
 import os
-
+import sys
 import inspect
 from flask.ext.registry import (
     PkgResourcesDirDiscoveryRegistry as FlaskPkgResourcesDirDiscoveryRegistry,
@@ -45,29 +46,27 @@ class CheckerPluginRegistry(DictModuleAutoDiscoverySubRegistry):
         return orig_value.__name__
 
     def valuegetter(self, class_or_module):
-        if inspect.ismodule(class_or_module):
-            plugin_name = class_or_module.__name__.split('.')[-1]
-            if plugin_name == '__init__':
-                # Ignore __init__ modules.
-                return None
+        # if inspect.ismodule(class_or_module):
+        plugin_name = class_or_module.__name__.split('.')[-1]
+        if plugin_name == '__init__':
+            # Ignore __init__ modules.
+            return None
 
-            def check_attr(attr_name):
-                try:
-                    attr = getattr(class_or_module, attr_name)
-                    if not callable(attr):
-                        raise TypeError
-                except (AttributeError, TypeError):
-                    raise RegistryError(
-                        "Checker plugin's {plugin_name} `{attr}` could not be"
-                        "loaded.".format(plugin_name=plugin_name,
-                                         attr=attr_name))
-                else:
-                    return plugin_name
-
-            if check_attr('check_record'):
+        def check_attr(attr_name):
+            try:
+                attr = getattr(class_or_module, attr_name)
+                if not callable(attr):
+                    raise TypeError
+            except (AttributeError, TypeError) as e:
+                exc_info = sys.exc_info()
+                e.args += ("Checker plugin's {plugin_name} `{attr}` could "
+                            "not be loaded.".format(plugin_name=plugin_name,
+                                                    attr=attr_name)),
+                reraise(RegistryError, e, exc_info[2])
+            else:
                 return plugin_name
-        else:
-            return class_or_module
+        # check_attr('check_record')
+        return class_or_module
 
 
 class PkgResourcesDirDiscoveryRegistry(FlaskPkgResourcesDirDiscoveryRegistry):
@@ -78,19 +77,6 @@ class PkgResourcesDirDiscoveryRegistry(FlaskPkgResourcesDirDiscoveryRegistry):
 
 
 checkerext = RegistryProxy('checkerext', ModuleAutoDiscoveryRegistry, 'checkerext')
-
-config_files_proxy = RegistryProxy('checkerext.configuration',
-                                   PkgResourcesDirDiscoveryRegistry,
-                                   'configuration',
-                                   registry_namespace=checkerext)
-config_files = config_files_proxy.to_pathdict(lambda basename:
-                                              basename.endswith('.yaml'))
-
-schema_files_proxy = RegistryProxy('checker.schema',
-                                   PkgResourcesDirDiscoveryRegistry,
-                                   'schema')
-schema_files = schema_files_proxy.to_pathdict(lambda basename:
-                                              basename.endswith('.yaml'))
 
 plugin_files = RegistryProxy('checkerext.checks',
                              CheckerPluginRegistry,
