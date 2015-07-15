@@ -46,7 +46,7 @@ class RedisMaster(RedisClient):
     def __init__(self, master_id):
         super(RedisMaster, self).__init__()
         self.master_id = master_id
-        from invenio.modules.records.models import Record
+        from invenio_records.models import Record
         self.all_recids = Record.allids()  # __init__ is a good time for this.
 
     def fmt(self, string):

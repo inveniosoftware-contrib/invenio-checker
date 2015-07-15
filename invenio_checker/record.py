@@ -24,7 +24,7 @@
 
 """Wrap records for workflows of checker module."""
 
-from invenio.modules.records.api import Record
+from invenio_records.api import Record
 
 class Issue(object):
     """Holds information about a single record issue."""
