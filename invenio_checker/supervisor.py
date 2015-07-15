@@ -1,5 +1,40 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of Invenio.
+# Copyright (C) 2015 CERN.
+#
+# Invenio is free software; you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# Invenio is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Invenio; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307, USA.
+#
+# In applying this license, CERN does not
+# waive the privileges and immunities granted to it by virtue of its status
+# as an Intergovernmental Organization or submit itself to any jurisdiction.
+
+"""Load, construct and supervise tasks."""
+
 import itertools as it
+import time
+
+from .rules import Rules
 from frozendict import frozendict
+from functools import partial
+from .redis_helpers import capped_intervalometer
+from celery import group
+from .redis_helpers import RedisMaster
+from .redis_helpers import RedisWorker
+from uuid import uuid4
 
 
 def pairwise(iterable):
@@ -101,3 +136,112 @@ def split_on_conflict(workers):
     for tr_group in final_pairs:
         transformed_finals.add((frozenset((fdict['uuid'] for fdict in tr_group))))
     return frozenset(transformed_finals)
+
+
+def _worker_ready_handler(workers, message):
+    task_id = message['channel'].split(':')[2]
+    data = message['data']
+    if data == 'ready':
+        worker = RedisWorker(task_id)
+        workers[task_id] = {
+            'allowed_paths': worker.allowed_paths,
+            'allowed_recids': worker.allowed_recids,
+        }
+    else:
+        raise ValueError('Bad message from worker: ' + message)
+
+
+def run_task(rule_names):
+    # TODO: Split each rule
+    # common = {
+    #     'tickets': tickets,
+    #     'queue': queue,
+    #     'upload': upload
+    # }
+
+    # Load the rules
+    rules = Rules.from_ids(rule_names)
+    rules = (rules[0], rules[0])   # FIXME: Remove this for production
+    a = rules[0].query.requested_ids('ALL')
+
+    # • ▌ ▄ ·.  ▄▄▄· .▄▄ · ▄▄▄▄▄▄▄▄ .▄▄▄
+    # ·██ ▐███▪▐█ ▀█ ▐█ ▀. •██  ▀▄.▀·▀▄ █·
+    # ▐█ ▌▐▌▐█·▄█▀▀█ ▄▀▀▀█▄ ▐█.▪▐▀▀▪▄▐▀▀▄
+    # ██ ██▌▐█▌▐█ ▪▐▌▐█▄▪▐█ ▐█▌·▐█▄▄▌▐█•█▌
+    # ▀▀  █▪▀▀▀ ▀  ▀  ▀▀▀▀  ▀▀▀  ▀▀▀ .▀  ▀
+
+    # Unfortunately, it seems that there is no group UUID before apply_async()
+    # has finished, so we create our own UUID.
+    master_id = str(uuid4())
+    redis_master = RedisMaster(master_id)
+
+    # ▄▄▌ ▐ ▄▌      ▄▄▄  ▄ •▄ ▄▄▄ .▄▄▄  .▄▄ ·
+    # ██· █▌▐█▪     ▀▄ █·█▌▄▌▪▀▄.▀·▀▄ █·▐█ ▀.
+    # ██▪▐█▐▐▌ ▄█▀▄ ▐▀▀▄ ▐▀▀▄·▐▀▀▪▄▐▀▀▄ ▄▀▀▀█▄
+    # ▐█▌██▐█▌▐█▌.▐▌▐█•█▌▐█.█▌▐█▄▄▌▐█•█▌▐█▄▪▐█
+    #  ▀▀▀▀ ▀▪ ▀█▄▀▪.▀  ▀·▀  ▀ ▀▀▀ .▀  ▀ ▀▀▀▀
+
+    # Start workers.
+    from .tasks import run_test
+    job = group((
+        run_test.s(rule.filepath, master_id)
+        for rule in rules
+    ))
+    group_result = job.apply_async()
+
+    # Make the master aware of its workers
+    redis_master.workers = {r.id for r in group_result}
+
+    #  ▄▄ • ▄▄▄ .▄▄▄▄▄     ▄ .▄▪   ▐ ▄ ▄▄▄▄▄.▄▄ ·
+    # ▐█ ▀ ▪▀▄.▀·•██      ██▪▐███ •█▌▐█•██  ▐█ ▀.
+    # ▄█ ▀█▄▐▀▀▪▄ ▐█.▪    ██▀▐█▐█·▐█▐▐▌ ▐█.▪▄▀▀▀█▄
+    # ▐█▄▪▐█▐█▄▄▌ ▐█▌·    ██▌▐▀▐█▌██▐█▌ ▐█▌·▐█▄▪▐█
+    # ·▀▀▀▀  ▀▀▀  ▀▀▀     ▀▀▀ ·▀▀▀▀▀ █▪ ▀▀▀  ▀▀▀▀
+
+    # It is important that we keep a list of expected UUIDs so that we know how
+    # many answers to anticipate.
+    workers = {}
+    for worker in redis_master.workers:
+        workers[worker] = {}  # id: paths, recids
+
+    # We subscribe to the workers and call the handler every time one of them
+    # sends us a message.
+    # The handler filles in the values in the `workers` dict. When all the keys
+    # in the dict have been filled in, we  know that all the workers have
+    # replied.
+    handler = partial(_worker_ready_handler, workers)
+    redis_master.sub_to_workers((celery_task.id for celery_task in group_result),
+                                handler)
+
+    # Every time we get a relevant message it is passed to
+    # _worker_ready_handler, which in turn fills in the values in `workers`.
+    def on_timeout():
+        group_result.revoke(terminate=True)
+        # TODO: Clear workers' storage: redis_conn.delete(
+        raise Exception('Workers timed out!')
+
+    capped_intervalometer(20, 0.01,
+                          while_=lambda: not all(workers.values()),
+                          do=redis_master.pubsub.get_message,
+                          on_timeout=on_timeout)
+
+    # .▄▄ ·  ▄▄▄· ▄▄▄· ▄▄▌ ▐ ▄▌ ▐ ▄      ▄▄ • ▄▄▄        ▄• ▄▌ ▄▄▄·.▄▄ ·
+    # ▐█ ▀. ▐█ ▄█▐█ ▀█ ██· █▌▐█•█▌▐█    ▐█ ▀ ▪▀▄ █·▪     █▪██▌▐█ ▄█▐█ ▀.
+    # ▄▀▀▀█▄ ██▀·▄█▀▀█ ██▪▐█▐▐▌▐█▐▐▌    ▄█ ▀█▄▐▀▀▄  ▄█▀▄ █▌▐█▌ ██▀·▄▀▀▀█▄
+    # ▐█▄▪▐█▐█▪·•▐█ ▪▐▌▐█▌██▐█▌██▐█▌    ▐█▄▪▐█▐█•█▌▐█▌.▐▌▐█▄█▌▐█▪·•▐█▄▪▐█
+    #  ▀▀▀▀ .▀    ▀  ▀  ▀▀▀▀ ▀▪▀▀ █▪    ·▀▀▀▀ .▀  ▀ ▀█▄▀▪ ▀▀▀ .▀    ▀▀▀▀
+
+    # start
+    worker_groups_names = split_on_conflict(workers)
+    for worker_group in worker_groups_names:
+        for worker_name in worker_group:
+            ctx_receivers = redis_master.pub_to_worker(worker_name, 'run')
+            print ctx_receivers  # should be == len(rules)
+        time.sleep(4)
+
+    # group_result.ready()  # have all subtasks completed?
+    # group_result.successful() # were all subtasks successful?
+    # group_result.get()
+
+    # see what the result was(?)
+    # for task_id in check_paths:

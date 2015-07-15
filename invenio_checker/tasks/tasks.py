@@ -36,27 +36,38 @@ from invenio.base.globals import cfg
 
 from invenio.ext.sqlalchemy import db
 from invenio.legacy.bibsched.bibtask import task_low_level_submission
-from invenio.modules.checker.models import CheckerRecord
-from invenio.modules.checker.record import AmendableRecord
-from invenio.modules.checker.rules import Rules, Rule
-from invenio.modules.records.api import get_record, Record
+from .models import CheckerRecord
+from .record import AmendableRecord
+from .rules import Rules, Rule
+from invenio_records.api import get_record, Record
 
 from invenio.celery import celery
 from invenio.base.helpers import with_app_context
 
 @celery.task
 @with_app_context()
-def run_test(filepath, a=None):
+def run_test(filepath, master_id):
     # We set `-c` so that our environment does not affect the test run.
     import pytest
     import os
+    import random
     this_file_dir = os.path.dirname(os.path.realpath(__file__))
-    pytest.cmdline.main(args=['-s', '-v',
+    # run_test.backend.mark_as_started(run_test.request.id, foo={'foo':'starto'})
+    pytest.cmdline.main(args=['-s', '-v', '--tb=long',
+
+                              # basic
                               '-p', 'invenio_checker.conftest2',
                               '-c', os.path.join(this_file_dir, 'conftest2.ini'),
-                              '--invenio-records', ','.join(str(i) for i in range(1)),
+
+                              # to delete
+                              '--invenio-records', ','.join([str(random.randint(1, 100))]),
                               '--invenio-rule', 'enum',
+
+                              # keep
+                              '--invenio-task-id', run_test.request.id,
+                              '--invenio-master-id', master_id,
                               filepath])
+    return 2
 
 
 def _set_done(obj, eng, rule_names, recids):

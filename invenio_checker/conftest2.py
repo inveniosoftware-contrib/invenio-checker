@@ -92,11 +92,82 @@ class LocationTuple(object):
 @pytest.fixture(scope="session")
 def db():
     return db
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# COMMUNICATE WITH MASTER
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
 
 
 @pytest.fixture(scope="session")
 def requested_records(request):
     return request.config.option.invenio_records
+# TODO: Do this before the collection ( dry run )
+def pytest_collection_modifyitems(session, config, items):
+    """ called after collection has been performed, may filter or re-order
+    the items in-place."""
+
+    assert len(set((item.function for item in items))) == 1, \
+        'We only support one check function per file.'
+    item = items[0]
+
+    # Set allowed_paths and allowed_recids
+    if hasattr(item, 'cls'):
+        if hasattr(item.cls, 'allowed_paths'):
+            # TODO Must return jsonpointers (IETF RFC 6901)
+            allowed_paths = item.cls.allowed_paths(config.option.invenio_rule.arguments)
+        else:
+            allowed_paths = set()
+        if hasattr(item.cls, 'allowed_recids'):
+            allowed_recids = item.cls.allowed_recids(config.option.invenio_rule.arguments,
+                                                     requested_recids(session),
+                                                     all_recids(session),
+                                                     perform_request_search(session))
+        else:
+            allowed_recids = requested_recids(session)
+
+    # We could be intersecting instead of raising, but we are evil.
+    if allowed_recids - all_recids(session):
+        raise Exception('Check requested recids that are not in the database!')
+
+    config.redis_worker.allowed_paths = allowed_paths
+    config.redis_worker.allowed_recids = allowed_recids
+
+    # Tell master that we are ready and wait for further instructions
+    # TODO
+    # We could wait for worker to initialize here. We are extremely unlikely to
+    # run into this condition. If we don't do this, worst case we timeout.
+    # Should be easy with the intervalometer.
+    config.redis_worker.sub_to_master()
+    ctx_receivers = config.redis_worker.pub_to_master('ready')
+    if not ctx_receivers:
+        raise Exception('Master has gone away!')
+
+    worker_timeout = 20  # TODO: From config
+    sleep_per_interval = 0.01
+    time_slept = 0
+    while True:
+        message = config.redis_worker.pubsub.get_message()
+        if message:
+            if message['data'] == 'run':
+                return
+            elif message['data'] == 'cancel':
+                # Be graceful
+                del items[:]
+                return
+            else:
+                raise Exception('Unknown message received: {0}'.format(message))
+        time.sleep(sleep_per_interval)
+        time_slept += sleep_per_interval
+        if time_slept >= worker_timeout:
+            raise Exception('Master timed out!')
+
+
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# FIXTURES
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
 
 
 # FIXME: How do we become aware of modifications? FIXME
