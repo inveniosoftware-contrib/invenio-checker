@@ -162,7 +162,7 @@ def run_task(rule_names):
     # Load the rules
     rules = Rules.from_ids(rule_names)
     rules = (rules[0], rules[0])   # FIXME: Remove this for production
-    a = rules[0].query.requested_ids('ALL')
+    a = rules[0].query_ex.requested_ids('ALL')
 
     # • ▌ ▄ ·.  ▄▄▄· .▄▄ · ▄▄▄▄▄▄▄▄ .▄▄▄
     # ·██ ▐███▪▐█ ▀█ ▐█ ▀. •██  ▀▄.▀·▀▄ █·
@@ -220,6 +220,7 @@ def run_task(rule_names):
         # TODO: Clear workers' storage: redis_conn.delete(
         raise Exception('Workers timed out!')
 
+    # FIXME: This waits if there is an exception. Hmm..
     capped_intervalometer(20, 0.01,
                           while_=lambda: not all(workers.values()),
                           do=redis_master.pubsub.get_message,

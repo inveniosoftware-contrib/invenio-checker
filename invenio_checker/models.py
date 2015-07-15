@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of Invenio.
-# Copyright (C) 2014 CERN.
+# Copyright (C) 2015 CERN.
 #
 # Invenio is free software; you can redistribute it
 # and/or modify it under the terms of the GNU General Public License as
@@ -23,106 +23,14 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 """Database models for Checker module."""
+import inspect
 
-from sqlalchemy.ext.mutable import MutableComposite
-from sqlalchemy.orm import composite
-
-from .sqlalchemyext.json_encoded_dict import MutableDict, JSONEncodedDict
 from invenio.ext.sqlalchemy import db
+from invenio_records.models import Record as Bibrec
+from sqlalchemy import orm
 
-
-class CompositeItems(MutableComposite):
-
-    def __composite_items__(self):
-        """Return list of supported names.
-
-        This is neccessary for serialization since we have no other way of
-        knowing which properties to read.
-        """
-        raise NotImplementedError
-
-    def __composite_orig_keys__(self):
-        raise NotImplementedError
-
-    def __composite_mapper__(self):
-        raise NotImplementedError
-
-
-class CompositeChecker(CompositeItems):
-
-    def __init__(self):
-        """Ensure that there are no mistakes in the mapper."""
-        for key in self.__composite_mapper__().keys():
-            assert hasattr(self, key)
-
-    def __repr__(self):
-        repr_values = ', '.join(self.__composite_items__())
-        return "{cls}: ({values})".format(cls=type(self).__name__,
-                                          values=str(repr_values))
-
-    def __setattr__(self, key, value):
-        "Intercept set events."
-        object.__setattr__(self, key, value)
-        self.changed()
-
-    def __composite_values__(self):
-        for key, val in self.__composite_items__():
-            yield val
-
-    def __composite_keys__(self):
-        for key, val in self.__composite_items__():
-            yield key
-
-    def __composite_items__(self):
-        for key, val in self.__composite_mapper__().items():
-            yield key, getattr(self, key)
-
-    def __composite_orig_keys__(self):
-        for orig_key in self.__composite_mapper__().values():
-            yield orig_key
-
-
-class Plugin(CompositeChecker):
-    def __init__(self, module, file):
-        self.module = module
-        self.file = file
-        super(Plugin, self).__init__()
-
-    def __composite_mapper__(self):
-        return {'module': 'plugin_module',
-                'file': 'plugin_file'}
-
-    def __eq__(self, other):
-        return isinstance(other, Plugin) and \
-            other.module == self.file and \
-            other.module == self.module
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-
-class Option(CompositeChecker):
-    def __init__(self, holdingpen, consider_deleted_records):
-        self.holdingpen = holdingpen
-        self.consider_deleted_records = consider_deleted_records
-        super(Option, self).__init__()
-
-    def __composite_mapper__(self):
-        return {'holdingpen': 'option_holdingpen',
-                'consider_deleted_records': 'option_consider_deleted_records'}
-
-
-class Filter(CompositeChecker):
-    def __init__(self, pattern, field, limit):
-        self.pattern = pattern
-        self.field = field
-        self.limit = limit
-        super(Filter, self).__init__()
-
-    def __composite_mapper__(self):
-        return {'pattern': 'filter_pattern',
-                'field': 'filter_field',
-                'limit': 'filter_limit'}
+from .errors import PluginMissing
+from .registry import plugin_files
 
 
 class CheckerRule(db.Model):
@@ -135,23 +43,108 @@ class CheckerRule(db.Model):
 
     plugin_module = db.Column(db.String(50), nullable=False)
     plugin_file = db.Column(db.String(50), nullable=False)
-    plugin = composite(Plugin, plugin_module, plugin_file)
 
-    arguments = db.Column(MutableDict.as_mutable(JSONEncodedDict), default={})
+    arguments = db.Column(db.PickleType, default={})
 
     option_holdingpen = db.Column(db.Boolean, nullable=False, default=True)
     option_consider_deleted_records = db.Column(db.Boolean, nullable=True,
                                                  default=False)
-    option = composite(Option, option_holdingpen,
-                       option_consider_deleted_records)
 
     filter_pattern = db.Column(db.String(255), nullable=True)
     filter_field = db.Column(db.String(255), nullable=True)
     filter_limit = db.Column(db.Integer(unsigned=True), nullable=True)
-    filter = composite(Filter, filter_pattern, filter_field, filter_limit)
 
     records = db.relationship('CheckerRecord', backref='checker_rule',
                               cascade='all, delete-orphan')
+
+    @db.hybrid_property
+    def filter(self):
+        return {
+            'pattern': self.filter_pattern,
+            'field': self.filter_field,
+            'limit': self.filter_limit,
+        }
+
+    @db.hybrid_property
+    def option(self):
+        return {
+            'holdingpen': self.option_holdingpen,
+            'consider_deleted_records': self.option_consider_deleted_records,
+        }
+
+    @orm.reconstructor
+    def init_on_load(self):
+        from .rules import Query
+        self.query_ex = Query(self.filter, self.option)
+        if self.pluginspec not in plugin_files:
+            raise PluginMissing(self.pluginspec, self.name)
+
+    @classmethod
+    def from_name(cls, name):
+        return cls.query.filter(CheckerRule.name==name).one()
+
+    @property
+    def pluginspec(self):
+        """Resolve checkspec of the rule's check."""
+        return '{module}.checkerext.checks.{file}'\
+            .format(module=self.plugin_module, file=self.plugin_file)
+
+    @property
+    def filepath(self):
+        """Resolve a the filepath of this rule's plugin."""
+        path = inspect.getfile(plugin_files[self.pluginspec])
+        if path.endswith('.pyc'):
+            path = path[:-1]
+        return path
+
+    # @cached_property
+    def modified_records(self, user_ids):
+        # Get all records that are already associated to this rule
+        # If this is returning an empty set, you forgot to run bibindex
+        try:
+            associated_records = zip(
+                *db.session
+                .query(CheckerRecord.id_bibrec)
+                .filter(
+                    CheckerRecord.name_checker_rule==self.name
+                ).all()
+            )[0]
+        except IndexError:
+            associated_records = []
+
+        # Store requested records that were until now unknown to this rule
+        requested_ids = self.query.requested_ids(user_ids)
+        for requested_id in requested_ids:
+            if requested_id not in associated_records:
+                new_record = CheckerRecord(id_bibrec=requested_id,
+                                           name_checker_rule=self.name)
+                db.session.add(new_record)
+        db.session.commit()
+
+        # Figure out which records have been edited since the last time we ran
+        # this rule
+        try:
+            return zip(
+                *db.session
+                .query(CheckerRecord.id_bibrec)
+                .outerjoin(Bibrec)
+                .filter(
+                    db.and_(
+                        CheckerRecord.id_bibrec.in_(requested_ids),
+                        CheckerRecord.name_checker_rule == self.name,
+                        db.or_(
+                            CheckerRecord.last_run < Bibrec.modification_date,
+                            db.and_(
+                                CheckerRecord.last_run > Bibrec.modification_date,
+                                CheckerRecord.expecting_modification == True
+                            )
+                        )
+                    )
+                )
+            )[0]
+        except IndexError:
+            return []
+
 
 
 class CheckerRecord(db.Model):

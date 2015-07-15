@@ -23,21 +23,14 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 """Rule handlers for checker module."""
+from collections import MutableSequence
 
-import json
-from collections import defaultdict, MutableSequence
-from importlib import import_module
 from intbitset import intbitset
-from werkzeug.utils import cached_property
-import inspect
-
-from .registry import plugin_files
-from .common import ALL
-from .errors import DuplicateRuleError, PluginMissing
-from invenio.ext.sqlalchemy import db
 from invenio.legacy.search_engine import search_pattern
-from .models import CheckerRule, CheckerRecord
-from invenio_records.models import Record as Bibrec
+
+from .common import ALL
+from .errors import DuplicateRuleError
+from .models import CheckerRule
 
 
 class Query(object):
@@ -126,99 +119,7 @@ class Query(object):
             'alas; you must now amend',
             'my delicate workarounds.',
         ))
-        return result
-
-
-class Rule(dict):
-    """Interface for a single rule."""
-
-    def __init__(self, *args, **kwargs):
-        """Initialize a single rule.
-
-        It is the programmer's responsibility to decide when to do validation,
-        because it is strict about extraneous values which may be useful to have
-        in the dict.
-        """
-        super(Rule, self).__init__(*args, **kwargs)
-        if 'filter' not in self:
-            self['filter'] = {}
-        self.query = Query(self['filter'], self['option'])
-        # Ensure that the plugin that has been assigned to this rule exists
-        if self.pluginspec not in plugin_files:
-            raise PluginMissing(self.pluginspec, self['name'])
-
-    @classmethod
-    def from_name(cls, name):
-        try:
-            rule = CheckerRule.query.filter(CheckerRule.name==name).all()[0]
-        except IndexError as e:
-            e.args += ("Requested rule {0} not found in the database."
-                       .format(name),)
-            raise e
-        else:
-            return cls((rule.todict(composites=True)))
-
-    @property
-    def pluginspec(self):
-        """Resolve checkspec of the rule's check."""
-        return '{module}.checkerext.checks.{file}'\
-            .format(module=self['plugin']['module'], file=self['plugin']['file'])
-
-    @property
-    def filepath(self):
-        """Resolve a the filepath of this rule's plugin."""
-        path = inspect.getfile(plugin_files[self.pluginspec])
-        if path.endswith('.pyc'):
-            path = path[:-1]
-        return path
-
-    # @cached_property
-    def modified_records(self, user_ids):
-        # Get all records that are already associated to this rule
-        # If this is returning an empty set, you forgot to run bibindex
-        try:
-            associated_records = zip(
-                *db.session
-                .query(CheckerRecord.id_bibrec)
-                .filter(
-                    CheckerRecord.name_checker_rule==self['name']
-                ).all()
-            )[0]
-        except IndexError:
-            associated_records = []
-
-        # Store requested records that were until now unknown to this rule
-        requested_ids = self.query.requested_ids(user_ids)
-        for requested_id in requested_ids:
-            if requested_id not in associated_records:
-                new_record = CheckerRecord(id_bibrec=requested_id,
-                                           name_checker_rule=self['name'])
-                db.session.add(new_record)
-        db.session.commit()
-
-        # Figure out which records have been edited since the last time we ran
-        # this rule
-        try:
-            return zip(
-                *db.session
-                .query(CheckerRecord.id_bibrec)
-                .outerjoin(Bibrec)
-                .filter(
-                    db.and_(
-                        CheckerRecord.id_bibrec.in_(requested_ids),
-                        CheckerRecord.name_checker_rule == self['name'],
-                        db.or_(
-                            CheckerRecord.last_run < Bibrec.modification_date,
-                            db.and_(
-                                CheckerRecord.last_run > Bibrec.modification_date,
-                                CheckerRecord.expecting_modification == True
-                            )
-                        )
-                    )
-                )
-            )[0]
-        except IndexError:
-            return []
+        return recids
 
 
 class Rules(MutableSequence):
@@ -233,8 +134,8 @@ class Rules(MutableSequence):
 
         :raises: DuplicateRuleError
         """
-        rule_name = document['name']
-        if rule_name in (rule['name'] for rule in self):
+        rule_name = document.name
+        if rule_name in (rule.name for rule in self):
             raise DuplicateRuleError(rule_name)
 
     def __len__(self):
@@ -294,6 +195,6 @@ class Rules(MutableSequence):
         """
         if rule_name == ALL:
             for db_rule in CheckerRule.query.all():
-                self.append(Rule(db_rule.todict(composites=True)))
+                self.append(CheckerRule(db_rule))
         else:
-            self.append(Rule.from_name(rule_name))
+            self.append(CheckerRule.from_name(rule_name))
