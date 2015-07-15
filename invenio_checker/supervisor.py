@@ -18,8 +18,10 @@ def _exclusive_paths(path1, path2):
 
 
 def _touch_common_paths(paths1, paths2):
-    assert paths1, 'Both workers must set some path.'
-    assert paths2, 'Both workers must set some path.'
+    if not paths1:
+        paths1 = frozenset({'/'})
+    if not paths2:
+        paths2 = frozenset({'/'})
     for a, b in it.product(paths1, paths2):
         if _exclusive_paths(a, b):
             return True

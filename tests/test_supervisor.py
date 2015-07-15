@@ -47,7 +47,7 @@ all_workers = {
         'allowed_recids': frozenset({1, 2, 3, 20, 30, 40, 50, 60, 70}),
     }),
     'base': frozendict({
-        'allowed_paths': frozenset({'/'}),
+        'allowed_paths': frozenset(),
         'allowed_recids': frozenset({1, 2, 3}),
     }),
 }
