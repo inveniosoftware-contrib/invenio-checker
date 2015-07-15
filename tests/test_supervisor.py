@@ -1,4 +1,3 @@
-from uuid import uuid4  # TODO
 import pytest
 from frozendict import frozendict
 import itertools
@@ -126,14 +125,35 @@ all_workers = {
 ])
 def test_split_on_conflict(_, worker_names, sets):
     from invenio_checker.supervisor import split_on_conflict
-    # aa = split_on_conflict(workers)
-    # import ipdb; ipdb.set_trace()
 
-    # if _ == 'same':
-    #     import ipdb; ipdb.set_trace()
+    # Convert `sets`:
+    #
+    #     set(
+    #         (
+    #             w('ab_4_6', 'ab_1_3_20_70'),
+    #             w('ab_6_12'),
+    #         ),
+    #     ),
+    # to `expected_sets`:
+    #     {{'ab_4_6', 'ab_1_3_20_70'}, {'ab_6_12'}}
+    expected_sets = set()
+    for superset in sets:
+        expected_subset = set()
+        for fdict in superset:
+            expected_subset.update(fdict.keys())
+        expected_sets.add(frozenset(expected_subset))
+    expected_sets = frozenset(expected_sets)
+
+    # Convert `worker_names`:
+    #     ('ab_ac_1_3', 'ab_ac_1_3`')
+    # to `workers`:
+    #     {{'ab_ac_1_3': <worker_dict>, 'ab_ac_1_3`': <worker_dict>}}
     workers = {worker_name: all_workers[worker_name.rstrip('`')] for worker_name in worker_names}
 
+    # Run
     output = split_on_conflict(workers)
 
-    assert output == sets
+    # Did we get the right sets?
+    assert output == expected_sets
+    # Are there any workers missing from the sets?
     assert len(workers) == len(tuple(itertools.chain.from_iterable(output)))

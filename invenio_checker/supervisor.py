@@ -98,16 +98,6 @@ def split_on_conflict(workers):
 
     # Convert internal representation to uuid-value workers
     transformed_finals = set()
-    for group in final_pairs:
-        tr = set()
-        for fdict in group:
-            tr.add(
-                frozendict(
-                    {fdict['uuid']: frozendict({
-                        'allowed_paths': fdict['allowed_paths'],
-                        'allowed_recids': fdict['allowed_recids'],
-                    })}
-                )
-            )
-        transformed_finals.add(frozenset(tr))
-    return set(transformed_finals)
+    for tr_group in final_pairs:
+        transformed_finals.add((frozenset((fdict['uuid'] for fdict in tr_group))))
+    return frozenset(transformed_finals)
