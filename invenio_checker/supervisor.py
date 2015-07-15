@@ -27,7 +27,6 @@
 import itertools as it
 import time
 
-from .rules import Rules
 from frozendict import frozendict
 from functools import partial
 from .redis_helpers import capped_intervalometer
@@ -160,6 +159,7 @@ def run_task(rule_names):
     # }
 
     # Load the rules
+    from .rules import Rules
     rules = Rules.from_ids(rule_names)
     rules = (rules[0], rules[0])   # FIXME: Remove this for production
     a = rules[0].query_ex.requested_ids('ALL')

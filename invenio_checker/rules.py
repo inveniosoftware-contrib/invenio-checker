@@ -25,7 +25,7 @@
 """Rule handlers for checker module."""
 from collections import MutableSequence
 
-from intbitset import intbitset
+from intbitset import intbitset  # pylint: disable=no-name-in-module
 from invenio.legacy.search_engine import search_pattern
 
 from .common import ALL
