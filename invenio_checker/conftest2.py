@@ -43,6 +43,7 @@ from invenio_records.api import get_record as get_record_orig
 from invenio.legacy.search_engine import perform_request_search as perform_request_search_orig
 from .models import CheckerRule
 from .recids import ids_from_input
+from intbitset import intbitset
 
 
 try:
@@ -101,11 +102,11 @@ def pytest_collection_modifyitems(session, config, items):
             allowed_paths = set()
         if hasattr(item.cls, 'allowed_recids'):
             allowed_recids = item.cls.allowed_recids(config.option.invenio_rule.arguments,
-                                                     requested_recids(session),
+                                                     batch_recids(session),
                                                      all_recids(session),
                                                      perform_request_search(session))
         else:
-            allowed_recids = requested_recids(session)
+            allowed_recids = batch_recids(session)
 
     # We could be intersecting instead of raising, but we are evil.
     if allowed_recids - all_recids(session):
@@ -177,17 +178,17 @@ def all_recids(request):
 
 
 @pytest.fixture(scope="session")
-def requested_recids(request):
-    # FIXME: Don't forget to intersect! Do this outside of the worker?
-    # return request.config.option.requested_recids & all_recids & filters
+def batch_recids(request):
     try:
         config = request.config
     except AttributeError:
         config = request
-    if hasattr(config.option, 'requested_recids'):
-        return config.option.requested_recids
+    if hasattr(config.option, 'bundle_requested_recids'):
+        bundle_requested_recids = config.option.bundle_requested_recids
     else:
-        return all_recids(config)
+        bundle_requested_recids = intbitset(trailing_bits=True)
+    return config.option.invenio_rule.modified_requested_recids & \
+        all_recids(request) & bundle_requested_recids
 
 
 @pytest.fixture(scope="function")
@@ -217,7 +218,7 @@ def pytest_generate_tests(metafunc):
     # extract the records again
     if 'record' in metafunc.fixturenames:
         metafunc.parametrize("record",
-                             requested_recids(metafunc.config),
+                             batch_recids(metafunc.config),
                              indirect=True)
 
 
@@ -234,12 +235,10 @@ def _load_rule_from_db(rule_name):
 
 
 def pytest_addoption(parser):
-    # TODO: FROM all_recids, requested_recids
-    parser.addoption("--invenio-records", action="store", type=ids_from_input,
-                     help="set records", dest='requested_recids')
+    parser.addoption("--invenio-bundle-requested-recids", action="store", type=ids_from_input,
+                     help="set records", dest='bundle_requested_recids')
     parser.addoption("--invenio-rule", action="store", type=_load_rule_from_db,
                      help="get rule", dest='invenio_rule')
-    # keep
     parser.addoption("--invenio-task-id", action="store", type=str,
                      help="get task id", dest='invenio_task_id')
     parser.addoption("--invenio-master-id", action="store", type=str,

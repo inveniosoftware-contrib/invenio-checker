@@ -25,12 +25,28 @@
 """Database models for Checker module."""
 import inspect
 
+import sqlalchemy.types as types
+from intbitset import intbitset
 from invenio.ext.sqlalchemy import db
+from invenio.modules.search.api import Query
 from invenio_records.models import Record as Bibrec
 from sqlalchemy import orm
 
 from .errors import PluginMissing
 from .registry import plugin_files
+
+
+class PickleIntBitSet(types.TypeDecorator):
+    '''Prefixes Unicode values with "PREFIX:" on the way in and
+    strips it off on the way out.
+    '''
+
+    impl = db.PickleType
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return intbitset(value)
 
 
 class CheckerRule(db.Model):
@@ -51,31 +67,13 @@ class CheckerRule(db.Model):
                                                  default=False)
 
     filter_pattern = db.Column(db.String(255), nullable=True)
-    filter_field = db.Column(db.String(255), nullable=True)
-    filter_limit = db.Column(db.Integer(unsigned=True), nullable=True)
+    filter_records = db.Column(PickleIntBitSet, nullable=True)
 
     records = db.relationship('CheckerRecord', backref='checker_rule',
                               cascade='all, delete-orphan')
 
-    @db.hybrid_property
-    def filter(self):
-        return {
-            'pattern': self.filter_pattern,
-            'field': self.filter_field,
-            'limit': self.filter_limit,
-        }
-
-    @db.hybrid_property
-    def option(self):
-        return {
-            'holdingpen': self.option_holdingpen,
-            'consider_deleted_records': self.option_consider_deleted_records,
-        }
-
     @orm.reconstructor
     def init_on_load(self):
-        from .rules import Query
-        self.query_ex = Query(self.filter, self.option)
         if self.pluginspec not in plugin_files:
             raise PluginMissing(self.pluginspec, self.name)
 
@@ -83,13 +81,13 @@ class CheckerRule(db.Model):
     def from_name(cls, name):
         return cls.query.filter(CheckerRule.name==name).one()
 
-    @property
+    @db.hybrid_property
     def pluginspec(self):
         """Resolve checkspec of the rule's check."""
         return '{module}.checkerext.checks.{file}'\
             .format(module=self.plugin_module, file=self.plugin_file)
 
-    @property
+    @db.hybrid_property
     def filepath(self):
         """Resolve a the filepath of this rule's plugin."""
         path = inspect.getfile(plugin_files[self.pluginspec])
@@ -97,8 +95,8 @@ class CheckerRule(db.Model):
             path = path[:-1]
         return path
 
-    # @cached_property
-    def modified_records(self, user_ids):
+    @db.hybrid_property
+    def modified_requested_recids(self):
         # Get all records that are already associated to this rule
         # If this is returning an empty set, you forgot to run bibindex
         try:
@@ -113,7 +111,7 @@ class CheckerRule(db.Model):
             associated_records = []
 
         # Store requested records that were until now unknown to this rule
-        requested_ids = self.query.requested_ids(user_ids)
+        requested_ids = self.requested_recids
         for requested_id in requested_ids:
             if requested_id not in associated_records:
                 new_record = CheckerRecord(id_bibrec=requested_id,
@@ -124,7 +122,7 @@ class CheckerRule(db.Model):
         # Figure out which records have been edited since the last time we ran
         # this rule
         try:
-            return zip(
+            recids = zip(
                 *db.session
                 .query(CheckerRecord.id_bibrec)
                 .outerjoin(Bibrec)
@@ -143,8 +141,20 @@ class CheckerRule(db.Model):
                 )
             )[0]
         except IndexError:
-            return []
+            recids = {}
+        return intbitset(recids)
 
+    @db.hybrid_property
+    def requested_recids(self):
+        """Search using config only."""
+        # TODO: Use self.option_consider_deleted_records
+        pattern = self.filter_pattern or ''
+        recids = Query(pattern).search().recids
+
+        if self.filter_records is not None:
+            recids &= self.filter_records
+
+        return recids
 
 
 class CheckerRecord(db.Model):
