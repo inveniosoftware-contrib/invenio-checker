@@ -30,33 +30,28 @@ from functools import wraps
 from .common import ALL
 from .recids import ids_from_input
 from .registry import plugin_files
-from .rules import Rules
-from .models import CheckerRule
+from .models import CheckerRule, CheckerRecord
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
 
 ################################################################################
 from invenio.ext.sqlalchemy import db
 from sqlalchemy.exc import IntegrityError
-new_rule = CheckerRule(
-    name='enum',
-    plugin_module='invenio_checker',
-    plugin_file='enum',
-    option_holdingpen=True,
-    option_consider_deleted_records=False,
-    filter_pattern=None,
-    filter_field=None,
-    filter_limit=None,
-)
+CheckerRecord.query.delete()
+CheckerRule.query.delete()
 try:
-    old=CheckerRule.query.one()
-    db.session.delete(old)
-except:
-    pass
-try:
+    new_rule = CheckerRule(
+        name='enum',
+        plugin_module='invenio_checker',
+        plugin_file='enum',
+        option_holdingpen=True,
+        option_consider_deleted_records=False,
+        filter_pattern=None,
+        filter_records=None,
+    )
     db.session.add(new_rule)
     db.session.commit()
-except IntegrityError:
+except Exception:
     pass
 ################################################################################
 
