@@ -83,7 +83,7 @@ def resolve_rules(func):
     """Resolve `rules` to list of Rules."""
     @wraps(func)
     def _resolve_rules(*args, **kwargs):
-        kwargs['rules'] = Rules.from_input(kwargs['rules'])
+        kwargs['rules'] = CheckerRule.from_input(kwargs['rules'])
         return func(*args, **kwargs)
     return _resolve_rules
 

@@ -23,6 +23,7 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 """Database models for Checker module."""
+
 import inspect
 
 import sqlalchemy.types as types
@@ -32,6 +33,7 @@ from invenio.modules.search.api import Query
 from invenio_records.models import Record as Bibrec
 from sqlalchemy import orm
 
+from .common import ALL
 from .errors import PluginMissing
 from .registry import plugin_files
 
@@ -76,10 +78,6 @@ class CheckerRule(db.Model):
     def init_on_load(self):
         if self.pluginspec not in plugin_files:
             raise PluginMissing(self.pluginspec, self.name)
-
-    @classmethod
-    def from_name(cls, name):
-        return cls.query.filter(CheckerRule.name==name).one()
 
     @db.hybrid_property
     def pluginspec(self):
@@ -156,6 +154,31 @@ class CheckerRule(db.Model):
             recids &= self.filter_records
 
         return recids
+
+    @classmethod
+    def from_input(cls, user_rule_names):
+        """Return the rules that should run from user input.
+
+        :param user_rule_names: comma-separated list of rule specifiers
+            example: 'my_rule,other_rule'
+        :type  user_rule_names: str
+
+        :returns: set of rules
+        """
+        rule_names = set(user_rule_names.split(','))
+        if ALL in rule_names:
+            return set(cls.query.all())
+        else:
+            return cls.from_ids(rule_names)
+
+    @classmethod
+    def from_ids(cls, rule_names):
+        """Get a set of rules from their names.
+
+        :param rule_names: list of rule names
+        """
+        return set(cls.query.filter(cls.name.in_(rule_names)).all())
+
 
 
 class CheckerRecord(db.Model):
