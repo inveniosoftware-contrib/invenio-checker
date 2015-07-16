@@ -131,9 +131,10 @@ class CheckerRule(db.Model):
                         CheckerRecord.id_bibrec.in_(requested_ids),
                         CheckerRecord.name_checker_rule == self.name,
                         db.or_(
+                            CheckerRecord.last_run == None,
                             CheckerRecord.last_run < Bibrec.modification_date,
                             db.and_(
-                                CheckerRecord.last_run > Bibrec.modification_date,
+                                CheckerRecord.last_run >= Bibrec.modification_date,
                                 CheckerRecord.expecting_modification == True
                             )
                         )
@@ -174,7 +175,7 @@ class CheckerRecord(db.Model):
 
     expecting_modification = db.Column(db.Boolean, nullable=False, default=False)
 
-    last_run = db.Column(db.DateTime, nullable=False,
-                         server_default='1900-01-01 00:00:00', index=True)
+    last_run = db.Column(db.DateTime, nullable=True, server_default=None, index=True)
+
 
 __all__ = ('CheckerRule', 'CheckerRecord', )
