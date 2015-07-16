@@ -98,23 +98,22 @@ class CheckerRule(db.Model):
         # Get all records that are already associated to this rule
         # If this is returning an empty set, you forgot to run bibindex
         try:
-            associated_records = zip(
+            associated_records = intbitset(zip(
                 *db.session
                 .query(CheckerRecord.id_bibrec)
                 .filter(
                     CheckerRecord.name_checker_rule==self.name
                 ).all()
-            )[0]
+            )[0])
         except IndexError:
-            associated_records = []
+            associated_records = intbitset()
 
         # Store requested records that were until now unknown to this rule
         requested_ids = self.requested_recids
-        for requested_id in requested_ids:
-            if requested_id not in associated_records:
-                new_record = CheckerRecord(id_bibrec=requested_id,
-                                           name_checker_rule=self.name)
-                db.session.add(new_record)
+        for requested_id in requested_ids - associated_records:
+            new_record = CheckerRecord(id_bibrec=requested_id,
+                                       name_checker_rule=self.name)
+            db.session.add(new_record)
         db.session.commit()
 
         # Figure out which records have been edited since the last time we ran
