@@ -176,8 +176,10 @@ class CheckerRule(db.Model):
 
         :param rule_names: list of rule names
         """
-        return set(cls.query.filter(cls.name.in_(rule_names)).all())
-
+        ret = set(cls.query.filter(cls.name.in_(rule_names)).all())
+        if len(rule_names) != len(ret):
+            raise Exception('Not all requested rules were found in the database!')
+        return ret
 
 
 class CheckerRecord(db.Model):
