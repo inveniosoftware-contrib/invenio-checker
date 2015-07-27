@@ -125,9 +125,6 @@ def pytest_collection_modifyitems(session, config, items):
     if not ctx_receivers:
         raise RuntimeError('Master has gone away!')
 
-    worker_timeout = 20  # TODO: From config
-    sleep_per_interval = 0.01
-    time_slept = 0
     while True:
         message = config.redis_worker.pubsub.get_message()
         if message:
@@ -139,11 +136,8 @@ def pytest_collection_modifyitems(session, config, items):
                 del items[:]
                 return
             else:
-                raise Exception('Unknown message received: {0}'.format(message))
-        time.sleep(sleep_per_interval)
-        time_slept += sleep_per_interval
-        if time_slept >= worker_timeout:
-            raise Exception('Master timed out!')
+                raise ValueError('Unknown message received: {0}'.format(message))
+        time.sleep(0.5)
 
 
 ################################################################################
