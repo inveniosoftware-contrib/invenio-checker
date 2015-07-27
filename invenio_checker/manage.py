@@ -35,24 +35,38 @@ from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
 
 ################################################################################
-from invenio.ext.sqlalchemy import db
-from sqlalchemy.exc import IntegrityError
-CheckerRecord.query.delete()
-CheckerRule.query.delete()
-try:
-    new_rule = CheckerRule(
-        name='enum',
-        plugin_module='invenio_checker',
-        plugin_file='enum',
-        option_holdingpen=True,
-        option_consider_deleted_records=False,
-        filter_pattern=None,
-        filter_records=None,
-    )
-    db.session.add(new_rule)
-    db.session.commit()
-except Exception:
-    pass
+# from invenio_checker.models import CheckerRule, CheckerRecord
+# from invenio.ext.sqlalchemy import db
+# CheckerRecord.query.delete()
+# CheckerRule.query.delete()
+# try:
+#     new_rule = CheckerRule(
+#         name='enum',
+#         plugin_module='invenio_checker',
+#         plugin_file='enum',
+#         option_holdingpen=True,
+#         option_consider_deleted_records=False,
+#         filter_pattern=None,
+#         filter_records=None,
+#     )
+#     db.session.add(new_rule)
+#     db.session.commit()
+# except Exception:
+#     pass
+# try:
+#     new_rule = CheckerRule(
+#         name='enum2',
+#         plugin_module='invenio_checker',
+#         plugin_file='enum',
+#         option_holdingpen=True,
+#         option_consider_deleted_records=False,
+#         filter_pattern=None,
+#         filter_records=None,
+#     )
+#     db.session.add(new_rule)
+#     db.session.commit()
+# except Exception:
+#     pass
 ################################################################################
 
 manager = Manager(usage=__doc__)
@@ -124,7 +138,7 @@ def run(rules, user_recids, queue, tickets, upload):
     """
 
     from .supervisor import run_task
-    rule_names =('enum',)
+    rule_names =('enum','enum2')
     run_task(rule_names)
 
     # return bool(z)
