@@ -29,7 +29,7 @@ import re
 import traceback
 from contextlib import contextmanager
 import time
-# import six
+from warnings import warn
 
 import py
 import pytest
@@ -123,7 +123,7 @@ def pytest_collection_modifyitems(session, config, items):
     config.redis_worker.sub_to_master()
     ctx_receivers = config.redis_worker.pub_to_master('ready')
     if not ctx_receivers:
-        raise Exception('Master has gone away!')
+        raise RuntimeError('Master has gone away!')
 
     worker_timeout = 20  # TODO: From config
     sleep_per_interval = 0.01
@@ -132,6 +132,7 @@ def pytest_collection_modifyitems(session, config, items):
         message = config.redis_worker.pubsub.get_message()
         if message:
             if message['data'] == 'run':
+                # No need to set status, master does that within the Lock.
                 return
             elif message['data'] == 'cancel':
                 # Be graceful
@@ -174,7 +175,10 @@ def all_recids(request):
     except AttributeError:
         config = request
     master_id = config.option.invenio_master_id
-    return config.redis_worker.get_master_all_recids(master_id)
+    ret = config.redis_worker.get_master_all_recids(master_id)
+    if not ret:
+        warn("Master's all_recids is empty!")
+    return ret
 
 
 @pytest.fixture(scope="session")
@@ -187,8 +191,25 @@ def batch_recids(request):
         bundle_requested_recids = config.option.bundle_requested_recids
     else:
         bundle_requested_recids = intbitset(trailing_bits=True)
-    return config.option.invenio_rule.modified_requested_recids & \
-        all_recids(request) & bundle_requested_recids
+
+    modified_requested_recids = config.option.invenio_rule.modified_requested_recids
+    if not modified_requested_recids:
+        warn('modified_requested_recids is empty!')
+
+    all_recids_ = all_recids(request)
+    if not all_recids_:
+        warn('all_recids is empty!')
+
+    if not bundle_requested_recids:
+        warn('bundle_requested_recids is empty!')
+
+    ret = modified_requested_recids & \
+        all_recids_ & bundle_requested_recids
+
+    if not ret:
+       warn('Record ID intersection returned no records!')
+
+    return ret
 
 
 @pytest.fixture(scope="function")
