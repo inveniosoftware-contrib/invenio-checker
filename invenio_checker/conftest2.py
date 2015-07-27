@@ -38,7 +38,7 @@ from _pytest.terminal import TerminalReporter
 from six import StringIO
 from py._io.terminalwriter import TerminalWriter
 
-from .redis_helpers import RedisWorker
+from .redis_helpers import RedisWorker, StatusWorker
 from invenio_records.api import get_record as get_record_orig
 from invenio.legacy.search_engine import perform_request_search as perform_request_search_orig
 from .models import CheckerRule

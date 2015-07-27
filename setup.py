@@ -44,6 +44,7 @@ requirements = [
     'redis>=2.10.3',
     'intbitset>=2.1.1',
     'frozendict>=0.4',
+    'redlock-py=>1.0.5',
 ]
 
 if platform.python_version_tuple() < ('3', '2'):

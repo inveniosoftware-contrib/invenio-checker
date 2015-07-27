@@ -25,15 +25,24 @@
 """Load, construct and supervise tasks."""
 
 import itertools as it
+import signal
+import sys
 import time
 
-from frozendict import frozendict
-from functools import partial
-from .redis_helpers import capped_intervalometer
 from celery import group
-from .redis_helpers import RedisMaster
-from .redis_helpers import RedisWorker
-from uuid import uuid4
+from frozendict import frozendict
+from six import reraise
+
+from .redis_helpers import (
+    Lock,
+    RedisMaster,
+    RedisWorker,
+    StatusWorker,
+    capped_intervalometer,
+    get_running_workers,
+    StatusMaster,
+)
+from .tasks import run_test
 
 
 def pairwise(iterable):
@@ -137,66 +146,53 @@ def split_on_conflict(workers):
     return frozenset(transformed_finals)
 
 
-def _worker_ready_handler(workers, message):
-    task_id = message['channel'].split(':')[2]
-    data = message['data']
-    if data == 'ready':
-        worker = RedisWorker(task_id)
-        workers[task_id] = {
-            'allowed_paths': worker.allowed_paths,
-            'allowed_recids': worker.allowed_recids,
-        }
-    else:
-        raise ValueError('Bad message from worker: ' + message)
-
 
 def run_task(rule_names):
-    # TODO: Split each rule
-    # common = {
-    #     'tickets': tickets,
-    #     'queue': queue,
-    #     'upload': upload
-    # }
+    from .models import CheckerRule
 
-    # Load the rules
-    from .rules import Rules
-    rules = Rules.from_ids(rule_names)
-    rules = (rules[0], rules[0])   # FIXME: Remove this for production
-    a = rules[0].query_ex.requested_ids('ALL')
+    # TODO: Clean up stray masters by querying them.
+    # TODO: Clean up workers that are attached to them
+    # XXX: Do we need to lock while doing this?
 
-    # • ▌ ▄ ·.  ▄▄▄· .▄▄ · ▄▄▄▄▄▄▄▄ .▄▄▄
-    # ·██ ▐███▪▐█ ▀█ ▐█ ▀. •██  ▀▄.▀·▀▄ █·
-    # ▐█ ▌▐▌▐█·▄█▀▀█ ▄▀▀▀█▄ ▐█.▪▐▀▀▪▄▐▀▀▄
-    # ██ ██▌▐█▌▐█ ▪▐▌▐█▄▪▐█ ▐█▌·▐█▄▄▌▐█•█▌
-    # ▀▀  █▪▀▀▀ ▀  ▀  ▀▀▀▀  ▀▀▀  ▀▀▀ .▀  ▀
+    redis_master = None
+    group_result = None
+    my_lock = None
+    def cleanup_session(fail=False):
+        print 'CLEANUP', fail
+        if group_result is not None:
+            # Kill workers
+            group_result.revoke(terminate=fail)
+        if redis_master is not None:
+            # Clear master and workers from redis
+            redis_master.workers = []
+            redis_master.zap()
+        if my_lock is not None:
+            Lock.release(my_lock)
+    def sigint_hook(rcv_signal, frame):
+        cleanup_session(fail=True)
+        sys.exit(1)
+    def except_hook(type_, value, tback):
+        cleanup_session(fail=True)
+        reraise(type_, value, tback)
+    signal.signal(signal.SIGINT, sigint_hook)
+    sys.excepthook = except_hook
 
-    # Unfortunately, it seems that there is no group UUID before apply_async()
-    # has finished, so we create our own UUID.
-    master_id = str(uuid4())
-    redis_master = RedisMaster(master_id)
+    # TODO: Split each rule by recids from database filters
 
-    # ▄▄▌ ▐ ▄▌      ▄▄▄  ▄ •▄ ▄▄▄ .▄▄▄  .▄▄ ·
-    # ██· █▌▐█▪     ▀▄ █·█▌▄▌▪▀▄.▀·▀▄ █·▐█ ▀.
-    # ██▪▐█▐▐▌ ▄█▀▄ ▐▀▀▄ ▐▀▀▄·▐▀▀▪▄▐▀▀▄ ▄▀▀▀█▄
-    # ▐█▌██▐█▌▐█▌.▐▌▐█•█▌▐█.█▌▐█▄▄▌▐█•█▌▐█▄▪▐█
-    #  ▀▀▀▀ ▀▪ ▀█▄▀▪.▀  ▀·▀  ▀ ▀▀▀ .▀  ▀ ▀▀▀▀
+    # Load master
+    print 'Initializing master'
+    redis_master = RedisMaster()
 
     # Start workers.
-    from .tasks import run_test
+    print 'Starting workers'
+    rules = CheckerRule.from_ids(rule_names)
     job = group((
-        run_test.s(rule.filepath, master_id)
+        run_test.s(rule.filepath, redis_master.master_id, rule.name)
         for rule in rules
     ))
     group_result = job.apply_async()
-
-    # Make the master aware of its workers
+    print 'Registering workers'
     redis_master.workers = {r.id for r in group_result}
-
-    #  ▄▄ • ▄▄▄ .▄▄▄▄▄     ▄ .▄▪   ▐ ▄ ▄▄▄▄▄.▄▄ ·
-    # ▐█ ▀ ▪▀▄.▀·•██      ██▪▐███ •█▌▐█•██  ▐█ ▀.
-    # ▄█ ▀█▄▐▀▀▪▄ ▐█.▪    ██▀▐█▐█·▐█▐▐▌ ▐█.▪▄▀▀▀█▄
-    # ▐█▄▪▐█▐█▄▄▌ ▐█▌·    ██▌▐▀▐█▌██▐█▌ ▐█▌·▐█▄▪▐█
-    # ·▀▀▀▀  ▀▀▀  ▀▀▀     ▀▀▀ ·▀▀▀▀▀ █▪ ▀▀▀  ▀▀▀▀
 
     # It is important that we keep a list of expected UUIDs so that we know how
     # many answers to anticipate.
@@ -209,40 +205,74 @@ def run_task(rule_names):
     # The handler filles in the values in the `workers` dict. When all the keys
     # in the dict have been filled in, we  know that all the workers have
     # replied.
-    handler = partial(_worker_ready_handler, workers)
+    def _worker_ready_handler(message):
+        task_id = message['channel'].split(':')[2]
+        data = message['data']
+        if data != 'ready':
+            raise ValueError('Bad message from worker: ' + message)
+        worker = RedisWorker(task_id)
+        workers[worker.task_id] = worker.conflict_dict
+    print 'Subscribing to workers'
     redis_master.sub_to_workers((celery_task.id for celery_task in group_result),
-                                handler)
-
-    # Every time we get a relevant message it is passed to
-    # _worker_ready_handler, which in turn fills in the values in `workers`.
+                                _worker_ready_handler)
     def on_timeout():
         group_result.revoke(terminate=True)
         # TODO: Clear workers' storage: redis_conn.delete(
         raise Exception('Workers timed out!')
 
-    # FIXME: This waits if there is an exception. Hmm..
-    capped_intervalometer(20, 0.01,
+    # FIXME: This waits if there is an exception. Hmm.. Can we check for available workers?
+    # Wait for all workers to get ready
+    print 'Waiting for workers to get ready'
+    capped_intervalometer(float('inf'), 0.5,
                           while_=lambda: not all(workers.values()),
                           do=redis_master.pubsub.get_message,
                           on_timeout=on_timeout)
-
-    # .▄▄ ·  ▄▄▄· ▄▄▄· ▄▄▌ ▐ ▄▌ ▐ ▄      ▄▄ • ▄▄▄        ▄• ▄▌ ▄▄▄·.▄▄ ·
-    # ▐█ ▀. ▐█ ▄█▐█ ▀█ ██· █▌▐█•█▌▐█    ▐█ ▀ ▪▀▄ █·▪     █▪██▌▐█ ▄█▐█ ▀.
-    # ▄▀▀▀█▄ ██▀·▄█▀▀█ ██▪▐█▐▐▌▐█▐▐▌    ▄█ ▀█▄▐▀▀▄  ▄█▀▄ █▌▐█▌ ██▀·▄▀▀▀█▄
-    # ▐█▄▪▐█▐█▪·•▐█ ▪▐▌▐█▌██▐█▌██▐█▌    ▐█▄▪▐█▐█•█▌▐█▌.▐▌▐█▄█▌▐█▪·•▐█▄▪▐█
-    #  ▀▀▀▀ .▀    ▀  ▀  ▀▀▀▀ ▀▪▀▀ █▪    ·▀▀▀▀ .▀  ▀ ▀█▄▀▪ ▀▀▀ .▀    ▀▀▀▀
+    redis_master.status = StatusMaster.ready
 
     # start
-    worker_groups_names = split_on_conflict(workers)
-    for worker_group in worker_groups_names:
-        for worker_name in worker_group:
-            ctx_receivers = redis_master.pub_to_worker(worker_name, 'run')
-            print ctx_receivers  # should be == len(rules)
-        time.sleep(4)
+    def get_foreign_running_workers(local_workers):
+        return {k: v for k, v in  get_running_workers().items() if k not in local_workers}
 
-    # group_result.ready()  # have all subtasks completed?
-    # group_result.successful() # were all subtasks successful?
-    # group_result.get()
+    def worker_conflicts_with_currently_running(worker):
+        group_of_worker = next((w for w in mixed_worker_grouped_names
+                                if worker in w))                                                        ; print '!', group_of_worker
+        pass                                                                                            ; print '.', foreign_running_workers.keys()
+        for gr in foreign_running_workers.keys():
+            if gr != group_of_worker:
+                print 'TRUE'; return True
+        print 'FALSE'; return False
 
-    # see what the result was(?)
-    # for task_id in check_paths:
+    def resume_test(task_id):
+        child = next((child for child in group_result.children
+                      if child.task_id == task_id))
+        # We know the groups to be mutually exclusive so we wait.
+        print 'Starting worker ' + task_id
+        ctx_receivers = redis_master.pub_to_worker(task_id, 'run')
+        assert ctx_receivers == 1, 'Worker has died ' + task_id
+        return child
+
+    # Anything that we finish working with, becomes foreign!
+
+    deleted_workers = set()
+    z = set()
+    while len(workers) != len(deleted_workers):
+        my_lock = Lock.get()
+        foreign_running_workers = get_foreign_running_workers(workers)                                  ; print '.', foreign_running_workers
+        mixed_worker_grouped_names = list(split_on_conflict(dict(workers, **foreign_running_workers)))  ; print ',', mixed_worker_grouped_names
+        for group_ in mixed_worker_grouped_names:
+            for worker in workers:
+                if worker in group_:
+                    if worker not in deleted_workers:
+                        if not worker_conflicts_with_currently_running(worker):
+                            RedisWorker(worker).status = StatusWorker.running
+                            z.add(resume_test(worker))
+                            deleted_workers.add(worker)
+        Lock.release(my_lock); my_lock = None
+        if len(workers) != len(deleted_workers):
+            print 'Conflicting workers remain in this group'; time.sleep(1)
+
+    for batman in z:
+        print 'Waiting for worker to finish ' + str(batman)
+        batman.wait()
+
+    cleanup_session()

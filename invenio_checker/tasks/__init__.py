@@ -25,28 +25,24 @@
 """Workflow tasks for checker module."""
 
 import os
-import time
-
 import tempfile
+import time
+from functools import wraps
+
 from datetime import datetime
 from dictdiffer import diff
-from functools import wraps, partial
-from importlib import import_module
 from invenio.base.globals import cfg
-
-from invenio.ext.sqlalchemy import db
-from invenio.legacy.bibsched.bibtask import task_low_level_submission
-from ..models import CheckerRecord
-from ..record import AmendableRecord
-from ..rules import Rules
-from invenio_records.api import get_record, Record
-
-from invenio.celery import celery
 from invenio.base.helpers import with_app_context
+from invenio.celery import celery
+from invenio.ext.sqlalchemy import db
+# from invenio.legacy.bibsched.bibtask import task_low_level_submission
+# from invenio_records.api import get_record, Record
+
+
 
 @celery.task
 @with_app_context()
-def run_test(filepath, master_id):
+def run_test(filepath, master_id, rule_name):
     # We set `-c` so that our environment does not affect the test run.
     import pytest
     import os
@@ -60,8 +56,9 @@ def run_test(filepath, master_id):
                               '-c', os.path.join(this_file_dir, '..', 'conftest2.ini'),
 
                               # to delete
-                              '--invenio-records', ','.join([str(random.randint(1, 100))]),
-                              '--invenio-rule', 'enum',
+                              # '--invenio-bundle-requested-recids', ','.join([str(random.randint(1, 100))]),
+                              '--invenio-bundle-requested-recids', '34,35,36,98,99,100',
+                              '--invenio-rule', rule_name,
 
                               # keep
                               '--invenio-task-id', run_test.request.id,
@@ -71,6 +68,7 @@ def run_test(filepath, master_id):
 
 def _set_done(obj, eng, rule_names, recids):
     """Update the database that a rule run has completed."""
+    from ..models import CheckerRecord
     # FIXME: Don't re-get extra data. It was already pulled out before this
     # funciton call
     extra_data = obj.get_extra_data()
@@ -106,6 +104,7 @@ def _record_has_changed(obj, eng, record, extra_data):
     :returns: whether the record has changed
     :rtype:   bool
     """
+    from ..record import AmendableRecord
     recid = record['recid']
     modified_record = record.dumps()
     db_record = get_record(recid).dumps()
