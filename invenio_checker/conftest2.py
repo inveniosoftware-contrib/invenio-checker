@@ -84,15 +84,15 @@ class LocationTuple(object):
 ################################################################################
 
 
-# TODO: Do this before the collection ( dry run )
 def pytest_collection_modifyitems(session, config, items):
     """ called after collection has been performed, may filter or re-order
     the items in-place."""
-
-    assert len(set((item.function for item in items))) == 1, \
-        'We only support one check function per file.'
+    unique_functions_found = set((item.function for item in items))
+    assert len(unique_functions_found) == 1,\
+        "We only support one check function per file. Found {0} instead. "\
+        "Don't forget to scroll up for other exceptions!"\
+        .format(len(unique_functions_found))
     item = items[0]
-
     # Set allowed_paths and allowed_recids
     if hasattr(item, 'cls'):
         if hasattr(item.cls, 'allowed_paths'):
@@ -341,16 +341,19 @@ class InvenioReporter(TerminalReporter):
 
         # Output, should use celery?
         location_tuple = LocationTuple.from_report_location(report.location)
-        # exc_info = (
-        #     report.excinfo.type,
-        #     report.excinfo.value,
-        #     report.excinfo.traceback[0]._rawentry
-        # )
-        # formatted_exception = ''.join(traceback.format_exception(*exc_info))
+        try:
+            exc_info = (
+                report.excinfo.type,
+                report.excinfo.value,
+                report.excinfo.traceback[0]._rawentry
+            )
+        except AttributeError:
+            exc_info = sys.exc_info()
+        formatted_exception = ''.join(traceback.format_exception(*exc_info))
 
         # Inform all enabled reporters
         for reporter in pytest.config.option.invenio_reporters:
-            reporter.report_exception(when, outrep_summary, location_tuple)
+            reporter.report_exception(when, outrep_summary, location_tuple, formatted_exception=formatted_exception)
             # reporter.report_exception(when, outrep_summary, location_tuple, exc_info, formatted_exception)
 
     def pytest_internalerror(self, excrepr):
@@ -366,7 +369,7 @@ def pytest_internalerror(excrepr, excinfo):
     if hasattr(pytest.config.option, 'invenio_reporters'):
         for reporter in pytest.config.option.invenio_reporters:
             # reporter.report_exception(when, summary, location_tuple, excinfo._excinfo, formatted_exception)
-            reporter.report_exception(when, summary, location_tuple)
+            reporter.report_exception(when, summary, location_tuple, formatted_exception=formatted_exception)
     return 1
 
 
@@ -408,14 +411,14 @@ def pytest_configure(config):
     config.pluginmanager.register(invenioreporter, 'invenioreporter')
 
 
-# def pytest_runtest_makereport(item, call):
-#     """Override in order to inject `excinfo`."""
-#     excinfo = call.excinfo
-#     try:
-#         result = orig_pytest_runtest_makereport(item, call)
-#     finally:
-#         result.excinfo = excinfo
-#     return result
+def pytest_runtest_makereport(item, call):
+    """Override in order to inject `excinfo`."""
+    excinfo = call.excinfo
+    try:
+        result = orig_pytest_runtest_makereport(item, call)
+    finally:
+        result.excinfo = excinfo
+    return result
 
 
 # Namespace manipulation
