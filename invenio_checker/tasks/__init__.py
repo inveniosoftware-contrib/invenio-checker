@@ -54,13 +54,7 @@ def run_test(filepath, master_id, rule_name):
                               # basic
                               '-p', 'invenio_checker.conftest2',
                               '-c', os.path.join(this_file_dir, '..', 'conftest2.ini'),
-
-                              # to delete
-                              # '--invenio-bundle-requested-recids', ','.join([str(random.randint(1, 100))]),
-                              '--invenio-bundle-requested-recids', '34,35,36,98,99,100',
                               '--invenio-rule', rule_name,
-
-                              # keep
                               '--invenio-task-id', run_test.request.id,
                               '--invenio-master-id', master_id,
                               filepath])

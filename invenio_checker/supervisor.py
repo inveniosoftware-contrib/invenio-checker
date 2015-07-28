@@ -29,7 +29,7 @@ import signal
 import sys
 import time
 
-from celery import group
+from celery import group, uuid
 from frozendict import frozendict
 from six import reraise
 
@@ -146,6 +146,24 @@ def split_on_conflict(workers):
     return frozenset(transformed_finals)
 
 
+def chunks(l, n):
+    """Yield successive n-sized chunks from l."""
+    for i in xrange(0, len(l), n):
+        yield l[i:i+n]
+
+
+def rules_to_bundles(rules):
+    max_chunk_size = 1000
+    max_chunks = 10
+    rule_bundles = {}
+    for rule in rules:
+        modified_requested_recids = rule.modified_requested_recids
+        chunk_size = len(modified_requested_recids)/max_chunks
+        if chunk_size > max_chunk_size:
+            chunk_size = max_chunk_size
+        rule_bundles[rule] = chunks(modified_requested_recids, chunk_size)
+    return rule_bundles
+
 
 def run_task(rule_names):
     from .models import CheckerRule
@@ -186,13 +204,19 @@ def run_task(rule_names):
     # Start workers.
     print 'Starting workers'
     rules = CheckerRule.from_ids(rule_names)
-    job = group((
-        run_test.s(rule.filepath, redis_master.master_id, rule.name)
-        for rule in rules
-    ))
-    group_result = job.apply_async()
+    bundles = rules_to_bundles(rules)
+    subtasks = []
+    for rule, rule_chunks in bundles.iteritems():
+        for chunk in rule_chunks:
+            task_id = uuid()
+            RedisWorker(task_id).bundle_requested_recids = chunk
+            subtasks.append(run_test.subtask(args=(rule.filepath, redis_master.master_id, rule.name), task_id=task_id))
     print 'Registering workers'
-    redis_master.workers = {r.id for r in group_result}
+    redis_master.workers = {subtask.id for subtask in subtasks}
+
+    group_id = uuid()
+    job = group((s for s in subtasks), group_id=group_id)
+    group_result = job.apply_async()
 
     # It is important that we keep a list of expected UUIDs so that we know how
     # many answers to anticipate.

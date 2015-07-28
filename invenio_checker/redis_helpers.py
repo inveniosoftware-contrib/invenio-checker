@@ -20,6 +20,7 @@ master_status = 'invenio_checker:master:{master_id}:status'
 # Worker
 worker_allowed_recids = 'invenio_checker:worker:{task_id}:allowed_recids'
 worker_allowed_paths = 'invenio_checker:worker:{task_id}:allowed_paths'
+worker_requested_recids = 'invenio_checker:worker:{task_id}:requested_recids'
 worker_status = 'invenio_checker:worker:{task_id}:status'
 
 
@@ -203,20 +204,18 @@ class RedisWorker(RedisClient):
     def __init__(self, task_id):
         super(RedisWorker, self).__init__()
         self.task_id = task_id
-        # self.master_id = master_id
         # Figure out master
-        # for master in self.conn.scan_iter('invenio_checker:master:*:workers'):
-        #     print '{}'.format(self.conn.smembers(master))
-        #     if self.conn.sismember(master, task_id):
-        #         self.master_id = master.split(':')[2]
-        #         break
-        #     else:
-        #         raise Exception("Can't find master!")
+
+    @property
+    def master(self):
+        for master in self.conn.scan_iter('invenio_checker:master:*:workers'):
+            if self.conn.sismember(master, self.task_id):
+                master_id = master.split(':')[2]
+                return RedisMaster(master_id, instantiate=False)
+        else:
+            raise Exception("Can't find master!")
 
     def fmt(self, string):
-        # if self.master_id:
-        #     return string.format(task_id=self.task_id, master_id=self.master_id)
-        # else:
         return string.format(task_id=self.task_id)
 
     @property
@@ -256,13 +255,6 @@ class RedisWorker(RedisClient):
         if allowed_paths:
             self.conn.sadd(identifier, *allowed_paths)
 
-    # TODO: This is duplicate code from RedisMaster
-    @staticmethod
-    def get_master_all_recids(master_id):
-        identifier = master_all_ids.format(master_id=master_id)
-        conn = _get_redis_conn()
-        return intbitset(conn.get(identifier))
-
     @property
     def ready(self):
         return self.allowed_recids is not None and self.allowed_paths is not None
@@ -284,6 +276,19 @@ class RedisWorker(RedisClient):
         assert new_status in StatusWorker
         identifier = self.fmt(worker_status)
         self.conn.set(identifier, new_status.value)
+
+    @property
+    def bundle_requested_recids(self):
+        identifier = self.fmt(worker_requested_recids)
+        recids = self.conn.get(identifier)
+        if recids is None:
+            return None
+        return intbitset(self.conn.get(identifier))
+
+    @bundle_requested_recids.setter
+    def bundle_requested_recids(self, new_recids):
+        identifier = self.fmt(worker_requested_recids)
+        self.conn.set(identifier, intbitset(new_recids).fastdump())
 
     def __eq__(self, other):
         return self.task_id == other.task_id

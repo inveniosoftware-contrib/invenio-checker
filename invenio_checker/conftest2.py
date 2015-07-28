@@ -168,8 +168,7 @@ def all_recids(request):
         config = request.config
     except AttributeError:
         config = request
-    master_id = config.option.invenio_master_id
-    ret = config.redis_worker.get_master_all_recids(master_id)
+    ret = config.redis_worker.master.all_recids
     if not ret:
         warn("Master's all_recids is empty!")
     return ret
@@ -181,14 +180,13 @@ def batch_recids(request):
         config = request.config
     except AttributeError:
         config = request
-    if hasattr(config.option, 'bundle_requested_recids'):
-        bundle_requested_recids = config.option.bundle_requested_recids
-    else:
-        bundle_requested_recids = intbitset(trailing_bits=True)
 
-    modified_requested_recids = config.option.invenio_rule.modified_requested_recids
-    if not modified_requested_recids:
-        warn('modified_requested_recids is empty!')
+    task_id = config.option.invenio_task_id
+    bundle_requested_recids = RedisWorker(task_id).bundle_requested_recids
+    # modified_requested_recids = config.option.invenio_rule.modified_requested_recids
+
+    # if not modified_requested_recids:
+    #     warn('modified_requested_recids is empty!')
 
     all_recids_ = all_recids(request)
     if not all_recids_:
@@ -197,8 +195,8 @@ def batch_recids(request):
     if not bundle_requested_recids:
         warn('bundle_requested_recids is empty!')
 
-    ret = modified_requested_recids & \
-        all_recids_ & bundle_requested_recids
+    # ret = modified_requested_recids & \
+    ret = all_recids_ & bundle_requested_recids
 
     if not ret:
        warn('Record ID intersection returned no records!')
@@ -250,8 +248,6 @@ def _load_rule_from_db(rule_name):
 
 
 def pytest_addoption(parser):
-    parser.addoption("--invenio-bundle-requested-recids", action="store", type=ids_from_input,
-                     help="set records", dest='bundle_requested_recids')
     parser.addoption("--invenio-rule", action="store", type=_load_rule_from_db,
                      help="get rule", dest='invenio_rule')
     parser.addoption("--invenio-task-id", action="store", type=str,
