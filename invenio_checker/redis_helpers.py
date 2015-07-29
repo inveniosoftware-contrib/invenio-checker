@@ -6,6 +6,7 @@ from frozendict import frozendict
 from redlock import Redlock
 from uuid import uuid4
 from enum import Enum
+from six import string_types
 
 # PubSub
 channel_where_worker_listens = 'invenio_checker:master:{task_id}'
@@ -81,14 +82,9 @@ def get_running_workers():
     masters = _get_all_masters(conn)
     running_workers = {}
     for master in masters:
-        print '>', master.master_id, master.status.value, '<', StatusMaster.ready.value
-        if master.status.value < StatusMaster.ready.value:
-            print '..not even ready, skipping'
-            # Master is not ready and is definitely not running this
-            # function either.
-            continue
         for worker in [RedisWorker(worker) for worker in master.workers]:
             print '<', worker.task_id, worker
+            print worker.status
             if worker.status == StatusWorker.running:
                 running_workers[worker.task_id] = worker.conflict_dict
     masters_new = _get_all_masters(conn)
@@ -140,9 +136,13 @@ class RedisMaster(RedisClient):
         if worker_ids:
             self.conn.sadd(identifier, *worker_ids)
 
-    def sub_to_workers(self, task_ids, handler):
-        self.pubsub.psubscribe(**{channel_where_master_listens.format(task_id=task_id):
-                                  handler for task_id in task_ids})
+    @property
+    def redis_workers(self):
+        return {RedisWorker(worker_id) for worker_id in self.workers}
+
+    def sub_to_workers(self, task_ids):
+        self.pubsub.subscribe(*(channel_where_master_listens.format(task_id=task_id)
+                                for task_id in task_ids))
 
     def pub_to_worker(self, task_id, message):
         assert message in ('run', )
@@ -198,6 +198,7 @@ class StatusWorker(Enum):
     ready = 1
     booting = 2
     running = 3
+    terminated = 4
 
 
 class RedisWorker(RedisClient):
@@ -233,7 +234,7 @@ class RedisWorker(RedisClient):
 
     def sub_to_master(self):
         identifier = self.fmt(channel_where_worker_listens)
-        return self.pubsub.psubscribe(identifier)
+        return self.pubsub.subscribe(identifier)
 
     def pub_to_master(self, message):
         identifier = self.fmt(channel_where_master_listens)
@@ -256,18 +257,21 @@ class RedisWorker(RedisClient):
             self.conn.sadd(identifier, *allowed_paths)
 
     @property
-    def ready(self):
-        return self.allowed_recids is not None and self.allowed_paths is not None
-
-    @property
     def status(self):
+        # Check for terminated
+        from celery import states
+        from celery.states import state
+        from celery.result import AsyncResult
+        result = AsyncResult(id=self.task_id)
+        if result.state in states.READY_STATES:
+            self.status = StatusWorker.terminated
+
+        # Check for other statuses
         identifier = self.fmt(worker_status)
         got = self.conn.get(identifier)
+        # TODO: No implicit?
         if got is None:
-            if self.ready:
-                self.status = StatusWorker.ready
-            else:
-                self.status = StatusWorker.booting
+            self.status = StatusWorker.booting
             return self.status
         return StatusWorker(int(got))
 
@@ -291,9 +295,13 @@ class RedisWorker(RedisClient):
         self.conn.set(identifier, intbitset(new_recids).fastdump())
 
     def __eq__(self, other):
+        if isinstance(other, string_types):
+            return self.task_id == other
         return self.task_id == other.task_id
 
     def __ne__(self, other):
+        if isinstance(other, string_types):
+            return self.task_id == other
         return self.task_id != other.task_id
 
     def __hash__(self):

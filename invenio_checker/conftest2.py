@@ -107,24 +107,25 @@ def pytest_collection_modifyitems(session, config, items):
                                                      perform_request_search(session))
         else:
             allowed_recids = batch_recids(session)
-
+    print 3
     # We could be intersecting instead of raising, but we are evil.
     if allowed_recids - all_recids(session):
         raise Exception('Check requested recids that are not in the database!')
-
+    print 4
+    print 'paths', allowed_paths
+    print 'recids', allowed_recids
     config.redis_worker.allowed_paths = allowed_paths
     config.redis_worker.allowed_recids = allowed_recids
+    config.redis_worker.status = StatusWorker.ready
 
+    print 5
     # Tell master that we are ready and wait for further instructions
     # TODO
     # We could wait for worker to initialize here. We are extremely unlikely to
     # run into this condition. If we don't do this, worst case we timeout.
     # Should be easy with the intervalometer.
-    config.redis_worker.sub_to_master()
-    ctx_receivers = config.redis_worker.pub_to_master('ready')
-    if not ctx_receivers:
-        raise RuntimeError('Master has gone away!')
 
+    config.redis_worker.sub_to_master()
     while True:
         message = config.redis_worker.pubsub.get_message()
         if message:
@@ -183,25 +184,8 @@ def batch_recids(request):
 
     task_id = config.option.invenio_task_id
     bundle_requested_recids = RedisWorker(task_id).bundle_requested_recids
-    # modified_requested_recids = config.option.invenio_rule.modified_requested_recids
 
-    # if not modified_requested_recids:
-    #     warn('modified_requested_recids is empty!')
-
-    all_recids_ = all_recids(request)
-    if not all_recids_:
-        warn('all_recids is empty!')
-
-    if not bundle_requested_recids:
-        warn('bundle_requested_recids is empty!')
-
-    # ret = modified_requested_recids & \
-    ret = all_recids_ & bundle_requested_recids
-
-    if not ret:
-       warn('Record ID intersection returned no records!')
-
-    return ret
+    return bundle_requested_recids
 
 
 @pytest.fixture(scope="function")
