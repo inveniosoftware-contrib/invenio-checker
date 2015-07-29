@@ -180,12 +180,12 @@ def run_task(rule_names):
         if group_result is not None:
             # Kill workers
             group_result.revoke(terminate=fail)
+        if my_lock is not None:
+            Lock.release(my_lock)
         if redis_master is not None:
             # Clear master and workers from redis
             redis_master.workers = []
             redis_master.zap()
-        if my_lock is not None:
-            Lock.release(my_lock)
     def sigint_hook(rcv_signal, frame):
         cleanup_session(fail=True)
         sys.exit(1)
