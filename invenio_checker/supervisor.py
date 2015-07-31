@@ -28,21 +28,23 @@ import itertools as it
 import signal
 import sys
 import time
+import os
 
+from celery.exceptions import TimeoutError
 from celery import group, uuid
 from frozendict import frozendict
 from six import reraise
+from invenio.celery import celery
 
 from .redis_helpers import (
-    Lock,
     RedisMaster,
     RedisWorker,
     StatusWorker,
     capped_intervalometer,
     get_running_workers,
     StatusMaster,
+    cleanup_failed_runs,
 )
-from .tasks import run_test
 
 
 def pairwise(iterable):
@@ -166,44 +168,41 @@ def rules_to_bundles(rules, all_recids):
 
 
 def run_task(rule_names):
-    from .models import CheckerRule
+    master_id = uuid()
+    _run_task.apply_async(args=(rule_names, master_id), task_id=master_id)
 
-    # TODO: Clean up stray masters by querying them.
-    # TODO: Clean up workers that are attached to them
-    # XXX: Do we need to lock while doing this?
+
+@celery.task
+def _run_task(rule_names, master_id):
+    from .models import CheckerRule
+    from .tasks import run_test
+
+    cleanup_failed_runs()
 
     redis_master = None
     group_result = None
-    my_lock = None
-    def cleanup_session(fail=False):
-        print 'CLEANUP', fail
-        if group_result is not None:
-            # Kill workers
-            group_result.revoke(terminate=fail)
-        if my_lock is not None:
-            Lock.release(my_lock)
+    def cleanup_session(force=False):
+        signal.signal(signal.SIGINT, lambda rcv_signal, frame: None)
+        print 'Cleaning up'
         if redis_master is not None:
-            # Clear master and workers from redis
-            redis_master.workers = []
-            redis_master.zap()
+            redis_master.zap(force=force)
     def sigint_hook(rcv_signal, frame):
-        cleanup_session(fail=True)
+        cleanup_session(force=True)
         sys.exit(1)
     def except_hook(type_, value, tback):
-        cleanup_session(fail=True)
+        cleanup_session(force=True)
         reraise(type_, value, tback)
     signal.signal(signal.SIGINT, sigint_hook)
+    signal.signal(signal.SIGTERM, sigint_hook)
     sys.excepthook = except_hook
-
-    # TODO: Split each rule by recids from database filters
 
     # Load master
     print 'Initializing master'
-    redis_master = RedisMaster()
+    redis_master = RedisMaster(master_id)
 
     # Start workers.
     print 'Starting workers'
-    rules = CheckerRule.from_ids(rule_names)
+    rules = CheckerRule.from_ids(['enum'])
     bundles = rules_to_bundles(rules, redis_master.all_recids)
     subtasks = []
     for rule, rule_chunks in bundles.iteritems():
@@ -242,13 +241,13 @@ def run_task(rule_names):
         return child
 
     # Anything that we finish working with, becomes foreign!
-    z = set()
+    results_to_wait_for = set()
     workers = redis_master.redis_workers
-    while len(workers) != len(z):
+    while len(workers) != len(results_to_wait_for):
         ready_workers = {worker for worker in workers if worker.status==StatusWorker.ready}
         print len(ready_workers)
         if ready_workers:
-            my_lock = Lock.get()
+            redis_master.lock.get()
             foreign_running_workers = get_running_workers()                                                       ; print '.', foreign_running_workers.keys()
             mixed_worker_grouped_names = list(split_on_conflict(dict(workers_to_dict(ready_workers), **foreign_running_workers)))  ; print ',', mixed_worker_grouped_names
             for group_ in mixed_worker_grouped_names:
@@ -258,17 +257,16 @@ def run_task(rule_names):
                 for worker in ready_workers_of_this_group:
                     worker = RedisWorker(worker)
                     if not worker_conflicts_with_currently_running(worker.task_id):
-                        z.add(resume_test(worker))
+                        results_to_wait_for.add(resume_test(worker))
                 break
-            Lock.release(my_lock); my_lock = None
-        # print 'Conflicting workers remain in this group'
+            redis_master.lock.release()
         time.sleep(1)
 
-    for batman in z:
-        print 'Waiting for worker to finish ' + str(batman)
-        batman.wait()
+    while not all(result.ready() for result in results_to_wait_for):
+        pass
 
     cleanup_session()
+
 
 def workers_to_dict(workers):
     dict_ = {}

@@ -38,24 +38,23 @@ from invenio.ext.sqlalchemy import db
 # from invenio.legacy.bibsched.bibtask import task_low_level_submission
 # from invenio_records.api import get_record, Record
 
-
+from ..supervisor import run_task
 
 @celery.task
 @with_app_context()
 def run_test(filepath, master_id, rule_name):
     # We set `-c` so that our environment does not affect the test run.
-    import pytest
+    from pytest import main
     import os
     import random
-    this_file_dir = os.path.dirname(os.path.realpath(__file__))
-    # run_test.backend.mark_as_started(run_test.request.id, foo={'foo':'starto'})
-    pytest.cmdline.main(args=['-s', '-v', '--tb=long',
 
-                              # basic
+    task_id = run_test.request.id
+    this_file_dir = os.path.dirname(os.path.realpath(__file__))
+    return main(args=['-s', '-v', '--tb=long',
                               '-p', 'invenio_checker.conftest2',
                               '-c', os.path.join(this_file_dir, '..', 'conftest2.ini'),
                               '--invenio-rule', rule_name,
-                              '--invenio-task-id', run_test.request.id,
+                              '--invenio-task-id', task_id,
                               '--invenio-master-id', master_id,
                               filepath])
 

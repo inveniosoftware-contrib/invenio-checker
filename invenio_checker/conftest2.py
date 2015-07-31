@@ -107,29 +107,27 @@ def pytest_collection_modifyitems(session, config, items):
                                                      perform_request_search(session))
         else:
             allowed_recids = batch_recids(session)
-    print 3
+
     # We could be intersecting instead of raising, but we are evil.
     if allowed_recids - all_recids(session):
         raise Exception('Check requested recids that are not in the database!')
-    print 4
-    print 'paths', allowed_paths
-    print 'recids', allowed_recids
-    config.redis_worker.allowed_paths = allowed_paths
-    config.redis_worker.allowed_recids = allowed_recids
-    config.redis_worker.status = StatusWorker.ready
+    redis_worker = config.option.redis_worker
+    redis_worker.allowed_paths = allowed_paths
+    redis_worker.allowed_recids = allowed_recids
+    redis_worker.status = StatusWorker.ready
 
-    print 5
     # Tell master that we are ready and wait for further instructions
     # TODO
     # We could wait for worker to initialize here. We are extremely unlikely to
     # run into this condition. If we don't do this, worst case we timeout.
     # Should be easy with the intervalometer.
 
-    config.redis_worker.sub_to_master()
+    redis_worker.sub_to_master()
     while True:
-        message = config.redis_worker.pubsub.get_message()
+        message = redis_worker.pubsub.get_message()
         if message:
             if message['data'] == 'run':
+                print 'RESUMING ' + str(redis_worker.task_id)
                 # No need to set status, master does that within the Lock.
                 return
             elif message['data'] == 'cancel':
@@ -169,7 +167,7 @@ def all_recids(request):
         config = request.config
     except AttributeError:
         config = request
-    ret = config.redis_worker.master.all_recids
+    ret = config.option.redis_worker.master.all_recids
     if not ret:
         warn("Master's all_recids is empty!")
     return ret
@@ -181,11 +179,7 @@ def batch_recids(request):
         config = request.config
     except AttributeError:
         config = request
-
-    task_id = config.option.invenio_task_id
-    bundle_requested_recids = RedisWorker(task_id).bundle_requested_recids
-
-    return bundle_requested_recids
+    return config.option.redis_worker.bundle_requested_recids
 
 
 @pytest.fixture(scope="function")
@@ -234,8 +228,8 @@ def _load_rule_from_db(rule_name):
 def pytest_addoption(parser):
     parser.addoption("--invenio-rule", action="store", type=_load_rule_from_db,
                      help="get rule", dest='invenio_rule')
-    parser.addoption("--invenio-task-id", action="store", type=str,
-                     help="get task id", dest='invenio_task_id')
+    parser.addoption("--invenio-task-id", action="store", type=RedisWorker,
+                     help="get task id", dest='redis_worker')
     parser.addoption("--invenio-master-id", action="store", type=str,
                      help="get master id", dest='invenio_master_id')
 
@@ -336,21 +330,21 @@ class InvenioReporter(TerminalReporter):
             reporter.report_exception(when, outrep_summary, location_tuple, formatted_exception=formatted_exception)
             # reporter.report_exception(when, outrep_summary, location_tuple, exc_info, formatted_exception)
 
-    def pytest_internalerror(self, excrepr):
-        return 0
+    # def pytest_internalerror(self, excrepr):
+    #     return 0
 
-def pytest_internalerror(excrepr, excinfo):
-    when = 'internal'
-    stack = inspect.getinnerframes(excinfo.tb)
-    location_tuple = LocationTuple.from_stack(stack[1])
-    formatted_exception = ''.join(traceback.format_exception(*excinfo._excinfo))
-    summary = excrepr.reprcrash.message
+# def pytest_internalerror(excrepr, excinfo):
+#     when = 'internal'
+#     stack = inspect.getinnerframes(excinfo.tb)
+#     location_tuple = LocationTuple.from_stack(stack[1])
+#     formatted_exception = ''.join(traceback.format_exception(*excinfo._excinfo))
+#     summary = excrepr.reprcrash.message
 
-    if hasattr(pytest.config.option, 'invenio_reporters'):
-        for reporter in pytest.config.option.invenio_reporters:
-            # reporter.report_exception(when, summary, location_tuple, excinfo._excinfo, formatted_exception)
-            reporter.report_exception(when, summary, location_tuple, formatted_exception=formatted_exception)
-    return 1
+#     if hasattr(pytest.config.option, 'invenio_reporters'):
+#         for reporter in pytest.config.option.invenio_reporters:
+#             # reporter.report_exception(when, summary, location_tuple, excinfo._excinfo, formatted_exception)
+#             reporter.report_exception(when, summary, location_tuple, formatted_exception=formatted_exception)
+#     return 1
 
 
 ################################################################################
@@ -365,9 +359,6 @@ def pytest_configure(config):
     """Register our report handlers' handler."""
     if hasattr(config, 'slaveinput'):
         return  # xdist slave, we are already active on the master
-
-    # Redis
-    config.redis_worker = RedisWorker(config.option.invenio_task_id)
 
     # Reporters
     # @lru_cache(maxsize=2)
@@ -425,8 +416,15 @@ def pytest_runtest_makereport(item, call):
 #     pytest.invenio_storage.records = config.option.records.split(',')
 #     pytest.invenio_storage.reporters = config.option.reporters.split(',')
 
-# Results
-# def pytest_exception_interact(node, call, report):
-#     import ipdb; ipdb.set_trace()
-#     report.when # setup, call
-#     InvenioReporter.report_failure(report)
+def pytest_exception_interact(node, call, report):
+    """Terminate execution on SystemExit.
+
+    This is a workaround for the fact that pytest/billiard interpret SIGTERM
+    sent to a celery thread to have come from the test function itself. We ask
+    pytest to handle this graecfully by raising Interrupted.
+
+    Not calling os._exit() here is important so that we don't break eventlet,
+    if in use.
+    """
+    if isinstance(call.excinfo.value, SystemExit):
+        raise node.session.Interrupted(True)
