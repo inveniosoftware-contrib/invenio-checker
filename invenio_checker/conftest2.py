@@ -30,6 +30,7 @@ import traceback
 from contextlib import contextmanager
 import time
 from warnings import warn
+import signal
 
 import py
 import pytest
@@ -53,6 +54,12 @@ except ImportError:
 
 
 ansi_escape = re.compile(r'\x1b[^m]*m')
+
+def die(rcv_signal, frame):
+    raise SystemExit
+
+signal.signal(signal.SIGINT, die)
+signal.signal(signal.SIGTERM, die)
 
 
 class LocationTuple(object):
@@ -427,4 +434,7 @@ def pytest_exception_interact(node, call, report):
     if in use.
     """
     if isinstance(call.excinfo.value, SystemExit):
+        redis_worker = node.config.option.redis_worker
+        warn('Ending worker' + str(redis_worker.task_id))
+        redis_worker._cleanup()
         raise node.session.Interrupted(True)

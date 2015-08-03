@@ -181,19 +181,19 @@ def _run_task(rule_names, master_id):
 
     redis_master = None
     group_result = None
-    def cleanup_session(force=False):
-        signal.signal(signal.SIGINT, lambda rcv_signal, frame: None)
+    def cleanup_session():
+        # from celery.contrib import rdb; rdb.set_trace()
         print 'Cleaning up'
         if redis_master is not None:
-            redis_master.zap(force=force)
+            redis_master.zap()
     def sigint_hook(rcv_signal, frame):
-        cleanup_session(force=True)
-        sys.exit(1)
+        cleanup_session()
+        # sys.exit(1)
     def except_hook(type_, value, tback):
-        cleanup_session(force=True)
+        cleanup_session()
         reraise(type_, value, tback)
     signal.signal(signal.SIGINT, sigint_hook)
-    signal.signal(signal.SIGTERM, sigint_hook)
+    # signal.signal(signal.SIGTERM, sigint_hook)
     sys.excepthook = except_hook
 
     # Load master
@@ -216,8 +216,6 @@ def _run_task(rule_names, master_id):
     group_id = uuid()
     job = group((s for s in subtasks), group_id=group_id)
     group_result = job.apply_async()
-
-    redis_master.status = StatusMaster.ready
 
     def worker_conflicts_with_currently_running(worker):
         group_of_worker = next((w for w in mixed_worker_grouped_names

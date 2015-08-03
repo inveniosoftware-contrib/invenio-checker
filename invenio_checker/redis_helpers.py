@@ -1,5 +1,6 @@
 import time
 
+import sys
 import redis
 import redlock
 from celery import states
@@ -10,6 +11,7 @@ from intbitset import intbitset  # pylint: disable=no-name-in-module
 from invenio_records.models import Record
 from six import string_types
 from warnings import warn
+import signal
 
 
 prefix = 'invenio_checker'
@@ -112,20 +114,19 @@ def get_workers_in_redis():
 
 
 def cleanup_failed_runs():
-    # from celery.contrib import rdb; rdb.set_trace()
     slept = False
     for master in get_masters_in_redis():
         if not master.in_celery:
             if not slept:
                 time.sleep(2)
                 slept = True
-            master.zap(force=True, sleep_before_kill=0)
+            master.zap()
     for worker in get_workers_in_redis():
         if not worker.in_celery:
             if not slept:
                 time.sleep(2)
                 slept = True
-            worker.zap(force=True, sleep_before_kill=0)
+            worker.zap()
 
 
 class Lock(object):
@@ -245,22 +246,25 @@ class RedisMaster(RedisClient):
                     return True
         return False
 
-    def zap(self, force=False, sleep_before_kill=2):
+    def zap(self):
+        """Zap this master and its workers.
+
+        This method is meant to be called by a SIGINT or exception handler from
+        within the master process itself.
+        """
         # FIXME: Should we lock here?
-        warn('Zapping ' + str(self.master_id))
-        # Release lock
-        self.lock.release(check_expired=False)
-        if force:
-            time.sleep(sleep_before_kill)
-            self.result.revoke(terminate=True, signal='TERM')
-            time.sleep(sleep_before_kill)
-            self.result.revoke(terminate=True, signal='KILL')
-        for key in keys_master:
-            self.conn.delete(self.fmt(key))
+        signal.signal(signal.SIGINT, lambda rcv_signal, frame: None)
         # Kill workers
         for redis_worker in self.redis_workers:
-            redis_worker.zap(force=force, sleep_before_kill=False)
+            redis_worker.zap()
+        warn('Zapping master ' + str(self.master_id))
+        self._cleanup()
 
+    def _cleanup(self):
+        for key in keys_master:
+            self.conn.delete(self.fmt(key))
+        # Release lock
+        self.lock.release(check_expired=False)
 
     @property
     def exited(self):
@@ -362,13 +366,16 @@ class RedisWorker(RedisClient):
     def fmt(self, string):
         return string.format(task_id=self.task_id)
 
-    def zap(self, force=False, sleep_before_kill=2):
-        warn('Zapping ' + str(self.task_id))
-        if force:
-            time.sleep(sleep_before_kill)
+    def zap(self):
+        """
+        This method is meant to be called from the master.
+        """
+        warn('Zapping worker' + str(self.task_id))
+        if not self.result.ready():
             self.result.revoke(terminate=True, signal='TERM')
-            time.sleep(sleep_before_kill)
-            self.result.revoke(terminate=True, signal='KILL')
+        self._cleanup()
+
+    def _cleanup(self):
         for key in keys_worker:
             self.conn.delete(self.fmt(key))
 
