@@ -48,28 +48,22 @@ redis_uri_string = 'redis://localhost:6379/1'
 #     redis_conn = redis.StrictRedis.from_url(redis_uri_string)
 
 
-# https://mail.python.org/pipermail/python-ideas/2011-January/008958.html
-class staticproperty(object):
-    """Property decorator for static methods."""
-
-    def __init__(self, function):
-        self._function = function
-
-    def __get__(self, instance, owner):
-        return self._function()
-
-
 def _get_redis_conn():
     # return RedisConn.redis_conn
     return redis.StrictRedis.from_url(redis_uri_string)
 
 
 def _get_all_masters(conn):
-    return set([RedisMaster(master_worker.split(':')[2], instantiate=False)
+    """Return all masters found in redis.
+
+    :type conn: :py:class:`redis.client.StrictRedis`
+    """
+    return set([RedisMaster(master_worker.split(':')[2])
                 for master_worker in conn.scan_iter(master_workers.format(master_id='*'))])
 
 
 def _get_lock_manager():
+    """Get an instance of redlock for the configured redis servers."""
     return redlock.Redlock([redis_uri_string])
 
 
@@ -87,7 +81,7 @@ def get_running_workers():
         # print '>', master.master_id, master.status.value, '<', StatusMaster.ready.value
         for worker in [RedisWorker(worker) for worker in master.workers]:
             # print '<', worker.task_id, worker
-            print worker.status
+            # print worker.status
             if worker.status == StatusWorker.running:
                 running_workers[worker.task_id] = worker.conflict_dict
     masters_new = _get_all_masters(conn)
@@ -96,21 +90,27 @@ def get_running_workers():
 
 
 def get_things_in_redis(prefixes):
+    """Return the IDs of all masters or workers in redis.
+
+    :type prefixes: set
+
+    :rtype: set
+    """
     conn = _get_redis_conn()
     ids = set()
-    for prefix in prefixes:
-        for field in conn.scan_iter(prefix.format(master_id='*', task_id='*')):
+    for pref in prefixes:
+        for field in conn.scan_iter(pref.format(master_id='*', task_id='*')):
             id_ = field.split(':')[2]
             ids.add(id_)
     return ids
 
 
 def get_masters_in_redis():
-    return set([RedisMaster(i, instantiate=False) for i in get_things_in_redis(keys_master)])
+    return set([RedisMaster(master_id) for master_id in get_things_in_redis(keys_master)])
 
 
 def get_workers_in_redis():
-    return set([RedisWorker(i) for i in get_things_in_redis(keys_worker)])
+    return set([RedisWorker(worker_id) for worker_id in get_things_in_redis(keys_worker)])
 
 
 def cleanup_failed_runs():
@@ -132,12 +132,17 @@ def cleanup_failed_runs():
 class Lock(object):
 
     def __init__(self, master_id):
+        """Initialize a lock handle for a certain master.
+
+        :type master_id: str
+        """
         self.conn = _get_redis_conn()
         self.master_id = master_id
         self._lock_manager = _get_lock_manager()
 
     @property
     def _lock(self):
+        """Redis representation of the lock object."""
         ret = self.conn.hgetall(master_last_lock)
         return {
             'last_master_id': ret['last_master_id'],
@@ -150,6 +155,10 @@ class Lock(object):
 
     @_lock.setter
     def _lock(self, tuple_):
+        """Redis representation of the lock object.
+
+        :type tuple_: :py:class:`redlock.Lock`
+        """
         self.conn.hmset(
             master_last_lock,
             {
@@ -161,18 +170,19 @@ class Lock(object):
         )
 
     def get(self):
+        """Block while trying to claim the lock to this master."""
         while True:
-            new_lock = self._lock_manager.lock(master_examining_lock, 1000*1000)
-            persisted = self.conn.persist(master_examining_lock)
-            assert persisted
-            if new_lock is False:
-                print 'Failed to get lock, trying again.'
-                time.sleep(0.5)
-            else:
+            new_lock = self._lock_manager.lock(master_examining_lock, 100)
+            if new_lock:
+                assert self.conn.persist(master_examining_lock)
                 self._lock = new_lock
                 break
+            else:
+                print 'Failed to get lock, trying again.'
+                time.sleep(0.5)
 
-    def release(self, check_expired=True):
+    def release(self):
+        """Release the lock if it belongs to this master."""
         if self._lock['last_master_id'] != self.master_id:
             return
         self._lock_manager.unlock(self._lock['tuple'])
@@ -180,20 +190,28 @@ class Lock(object):
 
 class RedisClient(object):
     def __init__(self):
+        """Initialize a lock handle for a certain client."""
         self.conn = _get_redis_conn()
         self.pubsub = self.conn.pubsub(ignore_subscribe_messages=True)
 
     @property
     def uuid(self):
+        """Coerce any given ID to this property."""
         raise NotImplementedError
 
     @property
     def result(self):
+        """Get the celery result object.
+
+        ..note:: This will return even if the object does not exist.
+
+        :rtype: :py:class:`celery.result.AsyncResult`
+        """
         return AsyncResult(id=self.uuid)
 
     @property
     def in_celery(self):
-        # if self.result.state == states.STARTED:
+        """Return whether this client exists as a process in celery."""
         insp = inspect()
         active = insp.active()
         for active_tasks in active.values():
@@ -203,11 +221,19 @@ class RedisClient(object):
         return False
 
     def __eq__(self, other):
+        """Compare with other clients in a rich manner.
+
+        :type other: str
+        """
         if isinstance(other, string_types):
             return self.uuid == other
         return self.uuid == other.uuid
 
     def __ne__(self, other):
+        """Compare with other clients in a rich manner.
+
+        :type other: str
+        """
         if isinstance(other, string_types):
             return self.uuid == other
         return self.uuid != other.uuid
@@ -222,7 +248,14 @@ class StatusMaster(Enum):
 
 
 class RedisMaster(RedisClient):
-    def __init__(self, master_id, instantiate=True):
+    def __init__(self, master_id):
+        """Initialize a lock handle for a certain master.
+
+        ..note::
+            Registers the master with redis if it does not already exist.
+
+        :type master_id: str
+        """
         super(RedisMaster, self).__init__()
 
         self.master_id = master_id
@@ -238,6 +271,10 @@ class RedisMaster(RedisClient):
 
     @staticmethod
     def _already_instnatiated(master_id):
+        """Return whether this master is already registered with redis.
+
+        :type master_id: str
+        """
         conn = _get_redis_conn()
         for prefix in keys_master:
             for field in conn.scan_iter(prefix.format(master_id='*', task_id='*')):
@@ -261,28 +298,33 @@ class RedisMaster(RedisClient):
         self._cleanup()
 
     def _cleanup(self):
+        """Clear this master from redis."""
         for key in keys_master:
             self.conn.delete(self.fmt(key))
         # Release lock
-        self.lock.release(check_expired=False)
-
-    @property
-    def exited(self):
-        for key in keys_master:
-            if self.conn.get(self.fmt(key)):
-                return True
-        return False
+        self.lock.release()
 
     def fmt(self, string):
+        """Format a redis string with the current master_id.
+        :type string: str
+        """
         return string.format(master_id=self.master_id)
 
     @property
     def workers(self):
+        """Get all the worker IDs associated with this master.
+
+        :rtype: set of :py:class:`WorkerRedis`
+        """
         identifier = self.fmt(master_workers)
         return self.conn.smembers(identifier)
 
     @workers.setter
     def workers(self, worker_ids):
+        """Associate workers with this master.
+
+        :type worker_ids: set of IDs
+        """
         identifier = self.fmt(master_workers)
         self.conn.delete(identifier)
         if worker_ids:
@@ -290,6 +332,10 @@ class RedisMaster(RedisClient):
 
     @property
     def redis_workers(self):
+        """Get all the workers associated with this master.
+
+        :rtype: set of :py:class:`WorkerRedis`
+        """
         return {RedisWorker(worker_id) for worker_id in self.workers}
 
     # def sub_to_workers(self, task_ids):
@@ -297,12 +343,18 @@ class RedisMaster(RedisClient):
     #                             for task_id in task_ids))
 
     def pub_to_worker(self, task_id, message):
+        """Publish a message to a certain worker.
+
+        :type task_id: str
+        :type message: str
+        """
         assert message in ('run', )
         return self.conn.publish(channel_where_worker_listens.format(task_id=task_id),
                                  message)
 
     @property
     def all_recids(self):
+        """Get all recids that are assumed to exist by tasks of this master."""
         identifier = self.fmt(master_all_ids)
         recids_set = self.conn.get(identifier)
         if recids_set is None:
@@ -311,6 +363,10 @@ class RedisMaster(RedisClient):
 
     @all_recids.setter
     def all_recids(self, recids):
+        """Set all recids that are assumed to exist by tasks of this master.
+
+        :type recids: :py:class:`intbitset`
+        """
         if self.all_recids is not None:
             raise Exception('Thou shall not set `all_recids` twice.')
         else:
@@ -330,7 +386,7 @@ class RedisMaster(RedisClient):
     def status(self, new_status):
         """Set the status of the master.
 
-        :param new_status: StatusMaster
+        :type new_status: :py:class:`invenio_checker.redis_helpers.StatusMaster`
         """
         assert new_status in StatusMaster
         identifier = self.fmt(master_status)
@@ -346,9 +402,12 @@ class StatusWorker(Enum):
 
 class RedisWorker(RedisClient):
     def __init__(self, task_id):
+        """Instantiate a handle to all the manifestations of a worker.
+
+        :type task_id: str
+        """
         super(RedisWorker, self).__init__()
         self.task_id = task_id
-        # Figure out master
 
     @property
     def uuid(self):
@@ -359,15 +418,20 @@ class RedisWorker(RedisClient):
         for master in self.conn.scan_iter('invenio_checker:master:*:workers'):
             if self.conn.sismember(master, self.task_id):
                 master_id = master.split(':')[2]
-                return RedisMaster(master_id, instantiate=False)
+                return RedisMaster(master_id)
         else:
             raise Exception("Can't find master!")
 
     def fmt(self, string):
+        """Format a redis string with the current master_id.
+
+        :type string: str
+        """
         return string.format(task_id=self.task_id)
 
     def zap(self):
-        """
+        """Zap this worker.
+
         This method is meant to be called from the master.
         """
         warn('Zapping worker' + str(self.task_id))
@@ -376,11 +440,13 @@ class RedisWorker(RedisClient):
         self._cleanup()
 
     def _cleanup(self):
+        """Remove this worker from redis."""
         for key in keys_worker:
             self.conn.delete(self.fmt(key))
 
     @property
     def allowed_recids(self):
+        """Get the recids that this worker is allowed to modify."""
         identifier = self.fmt(worker_allowed_recids)
         recids = self.conn.get(identifier)
         if recids is None:
@@ -389,10 +455,15 @@ class RedisWorker(RedisClient):
 
     @allowed_recids.setter
     def allowed_recids(self, allowed_recids):
+        """Set the recids that this worker will be allowed to modify.
+
+        :type allowed_recids: set
+        """
         identifier = self.fmt(worker_allowed_recids)
         self.conn.set(identifier, intbitset(allowed_recids).fastdump())
 
     def sub_to_master(self):
+        """Subscribe to messages from the associated master."""
         identifier = self.fmt(channel_where_worker_listens)
         return self.pubsub.subscribe(identifier)
 
@@ -403,6 +474,7 @@ class RedisWorker(RedisClient):
 
     @property
     def allowed_paths(self):
+        """Get the dictionary paths that this worker is allowed to modify."""
         identifier = self.fmt(worker_allowed_paths)
         paths = self.conn.smembers(identifier)
         if paths is None:
@@ -411,6 +483,10 @@ class RedisWorker(RedisClient):
 
     @allowed_paths.setter
     def allowed_paths(self, allowed_paths):
+        """Set the dictionary paths that this worker will be allowed to modify.
+
+        :type allowed_paths: set
+        """
         identifier = self.fmt(worker_allowed_paths)
         self.conn.delete(identifier)
         if allowed_paths:
@@ -418,6 +494,10 @@ class RedisWorker(RedisClient):
 
     @property
     def status(self):
+        """Get the status of this worker.
+
+        :rtype: :py:class:`StatusWorker`"
+        """
         # Check for terminated
         if self.result.state in states.READY_STATES:
             self.status = StatusWorker.terminated
@@ -433,12 +513,20 @@ class RedisWorker(RedisClient):
 
     @status.setter
     def status(self, new_status):
+        """Set the status of this worker.
+
+        :type new_status: :py:class:`invenio_checker.redis_helpers.StatusWorker`
+        """
         assert new_status in StatusWorker
         identifier = self.fmt(worker_status)
         self.conn.set(identifier, new_status.value)
 
     @property
     def bundle_requested_recids(self):
+        """Get the recids that this worker shall iterate over.
+
+        ..note:: These recids have already been filtered.
+        """
         identifier = self.fmt(worker_requested_recids)
         recids = self.conn.get(identifier)
         if recids is None:
@@ -448,28 +536,20 @@ class RedisWorker(RedisClient):
 
     @bundle_requested_recids.setter
     def bundle_requested_recids(self, new_recids):
+        """Set the recids that this worker shall iterate over.
+
+        :type new_recids: :py:class:`intbitset`
+        """
         identifier = self.fmt(worker_requested_recids)
         self.conn.set(identifier, intbitset(new_recids).fastdump())
 
     @property
     def conflict_dict(self):
-        """Dictionary for use with resolving conflicting workers."""
+        """Dictionary for use with resolving conflicting workers.
+
+        :rtype: dict
+        """
         return {
             'allowed_paths': self.allowed_paths,
             'allowed_recids': self.allowed_recids
         }
-
-
-def capped_intervalometer(timeout, interval,
-                          while_, do=None,
-                          on_timeout=None):
-    time_slept = 0
-    while while_():
-        if do:
-            do()
-        time.sleep(interval)
-        time_slept += interval
-        if time_slept >= timeout:
-            if on_timeout:
-                on_timeout()
-            break
