@@ -40,7 +40,6 @@ from .redis_helpers import (
     RedisMaster,
     RedisWorker,
     StatusWorker,
-    capped_intervalometer,
     get_running_workers,
     StatusMaster,
     cleanup_failed_runs,
