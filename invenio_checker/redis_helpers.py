@@ -27,7 +27,7 @@ channel_where_worker_listens = 'invenio_checker:master:{task_id}'
 
 # Master
 master_workers = prefix_master + ':workers'
-master_all_ids = prefix_master + ':all_ids'
+master_all_recids = prefix_master + ':all_recids'
 master_status = prefix_master + ':status'
 master_last_lock = prefix_master + ':examine_lock'
 
@@ -37,7 +37,7 @@ worker_allowed_paths = prefix_worker + ':allowed_paths'
 worker_requested_recids = prefix_worker + ':requested_recids'
 worker_status = prefix_worker + ':status'
 
-keys_master = {master_workers, master_all_ids, master_status}
+keys_master = {master_workers, master_all_recids, master_status}
 keys_worker = {worker_allowed_recids, worker_allowed_paths, worker_requested_recids, worker_status}
 
 # config['CACHE_REDIS_URL']  # FIXME
@@ -121,6 +121,7 @@ def cleanup_failed_runs():
                 time.sleep(2)
                 slept = True
             master.zap()
+    # We probably don't want to remove results from celery!
     for worker in get_workers_in_redis():
         if not worker.in_celery:
             if not slept:
@@ -355,7 +356,7 @@ class RedisMaster(RedisClient):
     @property
     def all_recids(self):
         """Get all recids that are assumed to exist by tasks of this master."""
-        identifier = self.fmt(master_all_ids)
+        identifier = self.fmt(master_all_recids)
         recids_set = self.conn.get(identifier)
         if recids_set is None:
             return None
@@ -370,7 +371,7 @@ class RedisMaster(RedisClient):
         if self.all_recids is not None:
             raise Exception('Thou shall not set `all_recids` twice.')
         else:
-            identifier = self.fmt(master_all_ids)
+            identifier = self.fmt(master_all_recids)
             self.conn.set(identifier, intbitset(recids).fastdump())
 
     @property
