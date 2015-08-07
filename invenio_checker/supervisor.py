@@ -245,8 +245,11 @@ def _run_task(rule_names, master_id):
         print len(ready_workers)
         if ready_workers:
             redis_master.lock.get()
-            foreign_running_workers = get_running_workers()                                                       ; print '.', foreign_running_workers.keys()
-            mixed_worker_grouped_names = list(split_on_conflict(dict(workers_to_dict(ready_workers), **foreign_running_workers)))  ; print ',', mixed_worker_grouped_names
+            foreign_running_workers = get_running_workers()
+            print '.', foreign_running_workers.keys()
+            running_and_local_ready_workers = dict(workers_to_dict(ready_workers), **foreign_running_workers)
+            mixed_worker_grouped_names = list(split_on_conflict(running_and_local_ready_workers))
+            print ',', mixed_worker_grouped_names
             for group_ in mixed_worker_grouped_names:
                 ready_workers_of_this_group = (ready_workers & group_)
                 if not ready_workers_of_this_group:
