@@ -31,6 +31,8 @@ from contextlib import contextmanager
 import time
 from warnings import warn
 import signal
+from copy import deepcopy
+from collections import defaultdict, namedtuple
 
 import py
 import pytest
@@ -39,7 +41,8 @@ from _pytest.terminal import TerminalReporter
 from six import StringIO
 from py._io.terminalwriter import TerminalWriter
 
-from functools import wraps
+import jsonpatch
+from functools import wraps, partial
 from invenio.ext.sqlalchemy import db as invenio_db
 from .redis_helpers import RedisWorker, StatusWorker
 from invenio_records.api import get_record as get_record_orig
@@ -47,6 +50,7 @@ from invenio.legacy.search_engine import perform_request_search as perform_reque
 from .models import CheckerRule
 from .recids import ids_from_input
 from intbitset import intbitset
+from orderedset import OrderedSet
 
 
 try:
@@ -161,7 +165,7 @@ def pytest_collection_modifyitems(session, config, items):
 ################################################################################
 
 
-def warn_if_empty(func):
+def _warn_if_empty(func):
     """Print a warning if the given functions returns no results.
 
     ..note:: pytest relies on the signature function to set fixtures, in this
@@ -211,15 +215,32 @@ def perform_request_search(request):
 
 @pytest.fixture(scope="session")
 def get_record(request):
-    """Wrap `get_record`.
+    """Wrap `get_record` for record patch generation.
 
-    :type request: :py:class:_pytest.python.SubRequest
+    This function ensures that we
+        1) hit the database once per record,
+        2) maintain the latest, valid, modified version of the records,
+        3) return the same 'temporary' object reference per check.
+
+    :type request: :py:class:`_pytest.python.SubRequest`
     """
-    return get_record_orig
+    def _get_record(recid):
+        invenio_records = request.session.invenio_records
+        if recid not in invenio_records['original']:
+            invenio_records['original'][recid] = get_record_orig(recid)
+
+        if recid not in invenio_records['modified']:
+            invenio_records['modified'][recid] = deepcopy(invenio_records['original'][recid])
+
+        if recid not in invenio_records['temporary']:
+            invenio_records['temporary'][recid] = invenio_records['modified'][recid]
+        return invenio_records['temporary'][recid]
+
+    return _get_record
 
 
 @pytest.fixture(scope="session")
-@warn_if_empty
+@_warn_if_empty
 def all_recids(request):
     """Return all the recids this run is ever allowed to change.
 
@@ -230,11 +251,13 @@ def all_recids(request):
 
 
 @pytest.fixture(scope="session")
-@warn_if_empty
+@_warn_if_empty
 def batch_recids(request):
     """Return the recids that were assigned to this worker.
 
     :type request: :py:class:_pytest.python.SubRequest
+
+    :rtype: intbitset
     """
     config = _request_to_config(request)
     return config.option.redis_worker.bundle_requested_recids
@@ -270,8 +293,7 @@ def record(request):
     :type request: :py:class:_pytest.python.SubRequest
     """
     record_id = request.param
-    return record_id  # TODO: Remove for release
-    return get_record_orig(record_id)
+    return get_record(request)(record_id)
 
 
 def pytest_generate_tests(metafunc):
@@ -279,12 +301,79 @@ def pytest_generate_tests(metafunc):
 
     :type metafunc: :py:class:_pytest.python.Metafunc
     """
-    # Unfortunately this runs before `pytest_runtest_setup`, so we have to
-    # extract the records again
     if 'record' in metafunc.fixturenames:
-        metafunc.parametrize("record",
-                             batch_recids(metafunc.config),
+        metafunc.parametrize("record", batch_recids(metafunc.config),
                              indirect=True)
+
+
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# RESULT HANDLING
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
+
+
+def pytest_sessionstart(session):
+    """Initialize session-wide variables for record management and caching.
+
+    :type session: :py:class:`_pytest.main.Session`
+    """
+    session.invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
+    session.invenio_patches = OrderedSet()
+    Session.session = session
+
+
+class Session(object):
+    session = None
+
+FullPatch = namedtuple('FullPatch', ['recid', 'record_hash', 'patch'])
+
+def _patches_of_last_execution(action):
+    """Get or apply the full_patches generated during the last check.
+
+    If 'apply' is requested, the 'temporary' records' patches will be added to
+    `invenio_patches` and their `temporary` state will be updated.
+
+    If 'return' is requested, the patches are generated and returned, but never
+    applied.
+
+    :type action: str
+    :param action: 'apply' or 'return'
+
+    ..note::
+        `invenio_records` is populated by the `get_record` function.
+    """
+    assert action in ('apply', 'return')
+
+    session = Session.session
+    invenio_records = session.invenio_records
+
+    def get_full_patches():
+        """Return all the record patches resulting from the last run."""
+        for recid, modified_record in invenio_records['temporary'].items():
+            original_record = invenio_records['original'][recid]
+            patch = jsonpatch.make_patch(original_record, modified_record)
+            if patch:
+                yield FullPatch(recid, hash(original_record), patch)
+
+    if action == 'return':
+        for full_patch in get_full_patches():
+            del invenio_records['temporary'][full_patch.recid]
+            yield full_patch
+
+    elif action == 'apply':
+        for full_patch in get_full_patches():
+            session.invenio_patches.add(full_patch)
+            invenio_records['modified'][full_patch.recid] = invenio_records['temporary'].pop(full_patch.recid)
+
+
+# Runs after exception has been reported to the reporter, after every single fine-grained step
+def pytest_runtest_logreport(report):
+    """
+    TODO
+    """
+    if report.when == 'teardown' and report.outcome == 'passed':
+        _patches_of_last_execution('apply')
 
 
 ################################################################################
@@ -465,9 +554,14 @@ class InvenioReporter(TerminalReporter):
         formatted_exception = ''.join(traceback.format_exception(*exc_info))
 
         # Inform all enabled reporters
-        for reporter in pytest.config.option.invenio_reporters:
-            reporter.report_exception(when, outrep_summary, location_tuple, formatted_exception=formatted_exception)
-            # reporter.report_exception(when, outrep_summary, location_tuple, exc_info, formatted_exception)
+        patches = tuple(_patches_of_last_execution('return'))
+        for reporter in pytest.config.option.invenio_reporters:  # pylint: disable=no-member
+            report_exception = partial(reporter.report_exception, when, outrep_summary,
+                                       location_tuple, formatted_exception=formatted_exception)
+            if patches:
+                report_exception(patches=patches)
+            else:
+                report_exception(patches=patches)
 
     # def pytest_internalerror(self, excrepr):
     #     return 0
