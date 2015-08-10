@@ -331,8 +331,8 @@ FullPatch = namedtuple('FullPatch', ['recid', 'record_hash', 'patch'])
 def _patches_of_last_execution(action):
     """Get or apply the full_patches generated during the last check.
 
-    If 'apply' is requested, the 'temporary' records' patches will be added to
-    `invenio_patches` and their `temporary` state will be updated.
+    If 'apply' is requested, the 'modified' records will be update from the
+    'temporary' ones.
 
     If 'return' is requested, the patches are generated and returned, but never
     applied.
@@ -362,9 +362,8 @@ def _patches_of_last_execution(action):
             yield full_patch
 
     elif action == 'apply':
-        for full_patch in get_full_patches():
-            session.invenio_patches.add(full_patch)
-            invenio_records['modified'][full_patch.recid] = invenio_records['temporary'].pop(full_patch.recid)
+        for recid in invenio_records['temporary'].keys():
+            invenio_records['modified'][recid] = invenio_records['temporary'].pop(recid)
 
 
 # Runs after exception has been reported to the reporter, after every single fine-grained step
@@ -397,7 +396,6 @@ def pytest_addoption(parser):
 
     :type parser: :py:class:`_pytest.config.Parser`
     """
-    # from celery.contrib import rdb; rdb.set_trace()
     parser.addoption("--invenio-rule", action="store", type=_load_rule_from_db,
                      help="get rule", dest='invenio_rule')
     parser.addoption("--invenio-task-id", action="store", type=RedisWorker,
@@ -411,6 +409,24 @@ def pytest_addoption(parser):
 # REPORTER CALLER
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """whole test run finishes.
+
+    TODO: Upload
+    """
+
+    invenio_records = session.invenio_records
+
+    for recid, modified_record in invenio_records['temporary'].items():
+        original_record = invenio_records['original'][recid]
+        patch = jsonpatch.make_patch(original_record, modified_record)
+        if patch:
+            yield FullPatch(recid, hash(original_record), patch)
+
+    for patch in session.invenio_patches:
+        print "{} {}".format(patch.recid, str(patch.patch))
 
 
 class LocationTuple(object):
