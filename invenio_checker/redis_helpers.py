@@ -8,34 +8,30 @@ from celery.result import AsyncResult
 from celery.task.control import inspect  # pylint: disable=no-name-in-module
 from enum import Enum
 from intbitset import intbitset  # pylint: disable=no-name-in-module
-from invenio_records.models import Record
 from six import string_types
 from warnings import warn
 import signal
 
 
-prefix = 'invenio_checker'
-prefix_worker = prefix + ':worker:{task_id}'
-prefix_master = prefix + ':master:{master_id}'
+_prefix = 'invenio_checker'
+_prefix_worker = _prefix + ':worker:{task_id}'
+_prefix_master = _prefix + ':master:{master_id}'
 
 # Global
-master_examining_lock = prefix + ':master:examine_lock'
-
-# Pubsub
-channel_where_master_listens = 'invenio_checker:worker:{task_id}'
-channel_where_worker_listens = 'invenio_checker:master:{task_id}'
+master_examining_lock = _prefix + ':master:examine_lock'
 
 # Master
-master_workers = prefix_master + ':workers'
-master_all_recids = prefix_master + ':all_recids'
-master_status = prefix_master + ':status'
-master_last_lock = prefix_master + ':examine_lock'
+master_workers = _prefix_master + ':workers'
+master_all_recids = _prefix_master + ':all_recids'
+master_status = _prefix_master + ':status'
+master_last_lock = _prefix_master + ':examine_lock'
 
 # Worker
-worker_allowed_recids = prefix_worker + ':allowed_recids'
-worker_allowed_paths = prefix_worker + ':allowed_paths'
-worker_requested_recids = prefix_worker + ':requested_recids'
-worker_status = prefix_worker + ':status'
+worker_allowed_recids = _prefix_worker + ':allowed_recids'
+worker_allowed_paths = _prefix_worker + ':allowed_paths'
+worker_requested_recids = _prefix_worker + ':requested_recids'
+worker_status = _prefix_worker + ':status'
+worker_patches = _prefix_worker + ':patches'
 
 keys_master = {master_workers, master_all_recids, master_status}
 keys_worker = {worker_allowed_recids, worker_allowed_paths, worker_requested_recids, worker_status}
@@ -190,7 +186,6 @@ class RedisClient(object):
     def __init__(self):
         """Initialize a lock handle for a certain client."""
         self.conn = _get_redis_conn()
-        self.pubsub = self.conn.pubsub(ignore_subscribe_messages=True)
 
     @property
     def uuid(self):
@@ -337,10 +332,6 @@ class RedisMaster(RedisClient):
         """
         return {RedisWorker(worker_id) for worker_id in self.workers}
 
-    # def sub_to_workers(self, task_ids):
-    #     self.pubsub.subscribe(*(channel_where_master_listens.format(task_id=task_id)
-    #                             for task_id in task_ids))
-
     def pub_to_worker(self, task_id, message):
         """Publish a message to a certain worker.
 
@@ -460,16 +451,6 @@ class RedisWorker(RedisClient):
         """
         identifier = self.fmt(worker_allowed_recids)
         self.conn.set(identifier, intbitset(allowed_recids).fastdump())
-
-    def sub_to_master(self):
-        """Subscribe to messages from the associated master."""
-        identifier = self.fmt(channel_where_worker_listens)
-        return self.pubsub.subscribe(identifier)
-
-    # def pub_to_master(self, message):
-    #     identifier = self.fmt(channel_where_master_listens)
-    #     assert message in ('ready', )
-    #     return self.conn.publish(identifier, message)
 
     @property
     def allowed_paths(self):
