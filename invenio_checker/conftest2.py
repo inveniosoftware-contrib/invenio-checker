@@ -49,8 +49,11 @@ from invenio_records.api import get_record as get_record_orig
 from invenio.legacy.search_engine import perform_request_search as perform_request_search_orig
 from .models import CheckerRule
 from .recids import ids_from_input
-from intbitset import intbitset
+from intbitset import intbitset  # pylint: disable=no-name-in-module
 from orderedset import OrderedSet
+
+from invenio_checker.redis_helpers import get_workers_with_unprocessed_results
+# from invenio_checker.supervisor import split_on_conflict
 
 
 try:
@@ -136,26 +139,30 @@ def pytest_collection_modifyitems(session, config, items):
     if allowed_recids - all_recids(session):
         raise Exception('Check requested recids that are not in the database!')
     redis_worker = config.option.redis_worker
+    redis_master = redis_worker.master
+
     redis_worker.allowed_paths = allowed_paths
     redis_worker.allowed_recids = allowed_recids
 
-    # Tell master that we are ready and wait for further instructions
-    redis_worker.status = StatusWorker.ready
-    redis_worker.sub_to_master()
+    def worker_conflicts_with_currently_running(worker):
+        from .supervisor import _are_compatible
+        foreign_running_workers = get_workers_with_unprocessed_results()
+        for foreign in foreign_running_workers:
+            if not _are_compatible(worker, foreign):
+                print 'CONFLICT'
+                return True
+        return False
+
     while True:
-        message = redis_worker.pubsub.get_message()
-        if message:
-            if message['data'] == 'run':
-                print 'RESUMING ' + str(redis_worker.task_id)
-                # No need to set status, master does that within the Lock.
-                return
-            elif message['data'] == 'cancel':
-                # Be graceful
-                del items[:]
-                return
-            else:
-                raise ValueError('Unknown message received: {0}'.format(message))
-        time.sleep(0.5)
+        redis_master.lock.get()
+        if not worker_conflicts_with_currently_running(redis_worker):
+            print 'RESUMING ' + str(redis_worker.task_id)
+            redis_worker.status = StatusWorker.running
+            redis_master.lock.release()
+            return
+        redis_master.lock.release()
+        time.sleep(1)
+
 
 
 ################################################################################

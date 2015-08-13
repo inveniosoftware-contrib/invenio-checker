@@ -67,25 +67,22 @@ def _get_lock_manager():
     return redlock.Redlock([redis_uri_string])
 
 
-def get_running_workers():
-    """Return all running_workers which are at in, at least, ready state in the format
-    they report allowed_paths and allowed_recids.
+def get_workers_with_unprocessed_results():
+    """Return all workers which have started processing, but their results have
+    not been handled yet.
 
-    ..note::
-        This function will infinitely wait for non-ready running_workers to become ready.
+    ..note:: Must be in a lock.
+
+    :rtype: dict of {task_id:conflict_dict}
     """
+    # cleanup_failed_runs()
     conn = _get_redis_conn()
     masters = _get_all_masters(conn)
-    running_workers = {}
+    running_workers = set()
     for master in masters:
-        # print '>', master.master_id, master.status.value, '<', StatusMaster.ready.value
         for worker in [RedisWorker(worker) for worker in master.workers]:
-            # print '<', worker.task_id, worker
-            # print worker.status
             if worker.status == StatusWorker.running:
-                running_workers[worker.task_id] = worker.conflict_dict
-    masters_new = _get_all_masters(conn)
-    assert masters_new == masters
+                running_workers.add(worker)
     return running_workers
 
 
@@ -245,7 +242,7 @@ class RedisClient(object):
 
 class StatusMaster(Enum):
     booting = 1
-    ready = 2
+    waiting_for_results = 2
 
 
 class RedisMaster(RedisClient):
@@ -257,6 +254,7 @@ class RedisMaster(RedisClient):
 
         :type master_id: str
         """
+        from invenio_records.models import Record
         super(RedisMaster, self).__init__()
 
         self.master_id = master_id
