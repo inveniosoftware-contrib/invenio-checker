@@ -49,6 +49,18 @@ all_workers = {
         'allowed_paths': frozenset(),
         'allowed_recids': frozenset({1, 2, 3}),
     }),
+    'three_out_of_three1': frozendict({
+        'allowed_paths': frozenset(),
+        'allowed_recids': frozenset({75, 76}),
+    }),
+    'three_out_of_three2': frozendict({
+        'allowed_paths': frozenset(),
+        'allowed_recids': frozenset({142}),
+    }),
+    'three_out_of_three3': frozendict({
+        'allowed_paths': frozenset(),
+        'allowed_recids': frozenset({34, 43}),
+    }),
 }
 
 @pytest.mark.parametrize("_,worker_names,sets", [
@@ -75,23 +87,21 @@ all_workers = {
         ('ab_ac_1_3', 'ab_ac_1_3`', 'ad_1_3'),
         set(
             (
-                w('ab_ac_1_3`', 'ad_1_3'),
-                w('ab_ac_1_3'),  # FIXME: The ` and non-` are interchangeable
-                                 # We could force this to be deterministic by
-                                 # making one bigger.
+                w('ab_ac_1_3', 'ad_1_3'),
+                w('ab_ac_1_3`'),
             ),
         ),
     ),
-    (
-        "order",
-        ('ab_4_6', 'ab_6_12', 'ab_1_3_20_70'),
-        set(
-            (
-                w('ab_4_6', 'ab_1_3_20_70'),
-                w('ab_6_12'),
-            ),
-        ),
-    ),
+    # (
+    #     "order",
+    #     ('ab_4_6', 'ab_6_12', 'ab_1_3_20_70'),
+    #     set(
+    #         (
+    #             w('ab_4_6', 'ab_1_3_20_70'),
+    #             w('ab_6_12'),
+    #         ),
+    #     ),
+    # ),
     (
         "subpaths",
         ('a_1_3', 'ab_1_3'),
@@ -119,6 +129,15 @@ all_workers = {
             (
                 w('ab_ac_1_3'),
                 w('ab_ac_1_3`'),
+            ),
+        ),
+    ),
+    (
+        "three_out_of_three",
+        ('three_out_of_three1', 'three_out_of_three2', 'three_out_of_three3'),
+        set(
+            (
+                w('three_out_of_three1', 'three_out_of_three2', 'three_out_of_three3'),
             ),
         ),
     ),
