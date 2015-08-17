@@ -44,24 +44,32 @@ from py._io.terminalwriter import TerminalWriter
 import jsonpatch
 from functools import wraps, partial
 from invenio.ext.sqlalchemy import db as invenio_db
-from .redis_helpers import RedisWorker, StatusWorker
 from invenio_records.api import get_record as get_record_orig
 from invenio.legacy.search_engine import perform_request_search as perform_request_search_orig
 from .models import CheckerRule
 from .recids import ids_from_input
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from orderedset import OrderedSet
+from .redis_helpers import (
+    RedisWorker,
+    StatusWorker,
+    get_workers_with_unprocessed_results,
+)
 
-from invenio_checker.redis_helpers import get_workers_with_unprocessed_results
-# from invenio_checker.supervisor import split_on_conflict
+from eliot import (
+    Action,
+    Message,
+    start_action,
+    to_file,
+)
+from functools import wraps
+from .supervisor import eliot_log_path
 
 
 try:
     from functools import lru_cache
 except ImportError:
     from backports.functools_lru_cache import lru_cache
-
-import imp; foo = imp.load_source('foo', '/home/gs-sis/z.py')
 
 
 ################################################################################
@@ -84,7 +92,7 @@ def pytest_exception_interact(node, call, report):
 
     This is a workaround for the fact that pytest/billiard interpret SIGTERM
     sent to a celery thread to have come from the test function itself. We ask
-    pytest to handle this graecfully by raising Interrupted.
+    pytest to handle this gracefully by raising Interrupted.
 
     Not calling os._exit() here is important so that we don't break eventlet,
     if in use.
@@ -102,47 +110,85 @@ def pytest_exception_interact(node, call, report):
 
 ################################################################################
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# ELIOT
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
+
+to_file_set = False
+
+def start_action_dec(action_type, **dec_kwargs):
+    def real_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            redis_worker = Session.session.config.option.redis_worker
+            eliot_task_id = redis_worker.eliot_task_id
+            print "~{} {}".format(eliot_task_id, action_type)
+            global to_file_set
+            if not to_file_set:
+                to_file(open(eliot_log_path + redis_worker.task_id, "ab"))
+                to_file_set = True
+            eliot_task = Action.continue_task(task_id=eliot_task_id)
+            with eliot_task:
+                with start_action(action_type=action_type,
+                                  worker_id=redis_worker.task_id,
+                                  **dec_kwargs):
+                    func(*args, **kwargs)
+                redis_worker.eliot_task_id = eliot_task.serialize_task_id()
+        return wrapper
+    return real_decorator
+
+
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # COMMUNICATE WITH MASTER
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
 
 
 def pytest_collection_modifyitems(session, config, items):
+    _pytest_collection_modifyitems(session, config, items)
+
+
+@start_action_dec(action_type='invenio_checker.conftest2.pytest_collection_modifyitems')
+def _pytest_collection_modifyitems(session, config, items):
     """Report allowed recids and jsonpaths to master and await start.
 
     :type session: :py:class:_pytest.main.Session
     :type config: :py:class:_pytest.config.Config
     :type items: list
     """
-    unique_functions_found = set((item.function for item in items))
-    assert len(unique_functions_found) == 1,\
-        "We only support one check function per file. Found {0} instead. "\
-        "Don't forget to scroll up for other exceptions!"\
-        .format(len(unique_functions_found))
-    item = items[0]
-    # Set allowed_paths and allowed_recids
-    if hasattr(item, 'cls'):
-        if hasattr(item.cls, 'allowed_paths'):
-            # TODO Must return jsonpointers (IETF RFC 6901)
-            allowed_paths = item.cls.allowed_paths(config.option.invenio_rule.arguments)
-        else:
-            allowed_paths = set()
-        if hasattr(item.cls, 'allowed_recids'):
-            allowed_recids = item.cls.allowed_recids(config.option.invenio_rule.arguments,
-                                                     batch_recids(session),
-                                                     all_recids(session),
-                                                     perform_request_search(session))
-        else:
-            allowed_recids = batch_recids(session)
+    with start_action(action_type='get performance hints'):
+        unique_functions_found = set((item.function for item in items))
+        assert len(unique_functions_found) == 1,\
+            "We only support one check function per file. Found {0} instead. "\
+            "Don't forget to scroll up for other exceptions!"\
+            .format(len(unique_functions_found))
+        item = items[0]
+        # Set allowed_paths and allowed_recids
+        if hasattr(item, 'cls'):
+            if hasattr(item.cls, 'allowed_paths'):
+                allowed_paths = item.cls.allowed_paths(config.option.invenio_rule.arguments)
+            else:
+                allowed_paths = set()
+            if hasattr(item.cls, 'allowed_recids'):
+                allowed_recids = item.cls.allowed_recids(config.option.invenio_rule.arguments,
+                                                         batch_recids(session),
+                                                         all_recids(session),
+                                                         perform_request_search(session))
+            else:
+                allowed_recids = batch_recids(session)
 
-    # We could be intersecting instead of raising, but we are evil.
-    if allowed_recids - all_recids(session):
-        raise Exception('Check requested recids that are not in the database!')
-    redis_worker = config.option.redis_worker
-    redis_master = redis_worker.master
+    with start_action(action_type='ensure hints returned sane values'):
+        # We could be intersecting instead of raising, but we are evil.
+        if allowed_recids - all_recids(session):
+            raise Exception('Check requested recids that are not in the database!')
+        # TODO Must return jsonpointers (IETF RFC 6901)
 
-    redis_worker.allowed_paths = allowed_paths
-    redis_worker.allowed_recids = allowed_recids
+    with start_action(action_type='store performance hints'):
+        redis_worker = config.option.redis_worker
+        redis_master = redis_worker.master
+        redis_worker.allowed_paths = allowed_paths
+        redis_worker.allowed_recids = allowed_recids
 
     def worker_conflicts_with_currently_running(worker):
         from .supervisor import _are_compatible
@@ -153,15 +199,16 @@ def pytest_collection_modifyitems(session, config, items):
                 return True
         return False
 
-    while True:
-        redis_master.lock.get()
-        if not worker_conflicts_with_currently_running(redis_worker):
-            print 'RESUMING ' + str(redis_worker.task_id)
-            redis_worker.status = StatusWorker.running
+    with start_action(action_type='wait for any conflicting tests to finish'):
+        while True:
+            redis_master.lock.get()
+            if not worker_conflicts_with_currently_running(redis_worker):
+                print 'RESUMING ' + str(redis_worker.task_id)
+                redis_worker.status = StatusWorker.running
+                redis_master.lock.release()
+                return
             redis_master.lock.release()
-            return
-        redis_master.lock.release()
-        time.sleep(1)
+            time.sleep(1)
 
 
 
@@ -325,6 +372,10 @@ def pytest_sessionstart(session):
 
     :type session: :py:class:`_pytest.main.Session`
     """
+    return _pytest_sessionstart(session)
+
+
+def _pytest_sessionstart(session):
     session.invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
     session.invenio_patches = OrderedSet()
     Session.session = session
@@ -335,23 +386,12 @@ class Session(object):
 
 FullPatch = namedtuple('FullPatch', ['recid', 'record_hash', 'patch'])
 
-def _patches_of_last_execution(action):
-    """Get or apply the full_patches generated during the last check.
-
-    If 'apply' is requested, the 'modified' records will be update from the
-    'temporary' ones.
-
-    If 'return' is requested, the patches are generated and returned, but never
-    applied.
-
-    :type action: str
-    :param action: 'apply' or 'return'
+def _patches_of_last_execution():
+    """Get the full_patches generated during the last check.
 
     ..note::
         `invenio_records` is populated by the `get_record` function.
     """
-    assert action in ('apply', 'return')
-
     session = Session.session
     invenio_records = session.invenio_records
 
@@ -363,14 +403,9 @@ def _patches_of_last_execution(action):
             if patch:
                 yield FullPatch(recid, hash(original_record), patch)
 
-    if action == 'return':
-        for full_patch in get_full_patches():
-            del invenio_records['temporary'][full_patch.recid]
-            yield full_patch
-
-    elif action == 'apply':
-        for recid in invenio_records['temporary'].keys():
-            invenio_records['modified'][recid] = invenio_records['temporary'].pop(recid)
+    for full_patch in get_full_patches():
+        del invenio_records['temporary'][full_patch.recid]
+        yield full_patch
 
 
 # Runs after exception has been reported to the reporter, after every single fine-grained step
@@ -378,8 +413,20 @@ def pytest_runtest_logreport(report):
     """
     TODO
     """
+    return _pytest_runtest_logreport
+
+
+@start_action_dec(action_type='invenio_checker:conftest2:pytest_runtest_logreport')
+def _pytest_runtest_logreport(report):
+    session = Session.session
+    invenio_records = session.invenio_records
+
     if report.when == 'teardown' and report.outcome == 'passed':
-        _patches_of_last_execution('apply')
+        temp_keys = invenio_records['temporary'].keys()
+        if temp_keys:
+            Message.log(action='adding patches to list of requested ones')
+        for recid in temp_keys:
+            invenio_records['modified'][recid] = invenio_records['temporary'].pop(recid)
 
 
 ################################################################################
@@ -423,17 +470,20 @@ def pytest_sessionfinish(session, exitstatus):
 
     TODO: Upload
     """
+    return _pytest_sessionfinish(session, exitstatus)
 
-    invenio_records = session.invenio_records
 
-    for recid, modified_record in invenio_records['temporary'].items():
-        original_record = invenio_records['original'][recid]
-        patch = jsonpatch.make_patch(original_record, modified_record)
-        if patch:
-            yield FullPatch(recid, hash(original_record), patch)
+@start_action_dec(action_type='invenio_checker:conftest2:_pytest_sessionfinish')
+def _pytest_sessionfinish(session, exitstatus):
+    with start_action(action_type='moving added patches to redis'):
+        invenio_records = session.invenio_records
 
-    for patch in session.invenio_patches:
-        print "{} {}".format(patch.recid, str(patch.patch))
+        for recid, modified_record in invenio_records['modified'].items():
+            original_record = invenio_records['original'][recid]
+            patch = jsonpatch.make_patch(original_record, modified_record)
+            if patch:
+                pass
+                # print FullPatch(recid, hash(original_record), patch)
 
 
 class LocationTuple(object):
@@ -577,7 +627,7 @@ class InvenioReporter(TerminalReporter):
         formatted_exception = ''.join(traceback.format_exception(*exc_info))
 
         # Inform all enabled reporters
-        patches = tuple(_patches_of_last_execution('return'))
+        patches = tuple(_patches_of_last_execution())
         for reporter in pytest.config.option.invenio_reporters:  # pylint: disable=no-member
             report_exception = partial(reporter.report_exception, when, outrep_summary,
                                        location_tuple, formatted_exception=formatted_exception)

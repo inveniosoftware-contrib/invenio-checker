@@ -33,7 +33,7 @@ import os
 from pytest import main
 from functools import wraps
 from celery.exceptions import TimeoutError
-from celery import chord, uuid, group
+from celery import chord, uuid, group, Task
 from frozendict import frozendict
 from six import reraise
 from invenio.celery import celery
@@ -46,6 +46,17 @@ from .redis_helpers import (
     StatusMaster,
     cleanup_failed_runs,
 )
+
+from eliot import Message, to_file, start_action, start_task, Message, Action
+
+from flask import current_app
+app = current_app
+eliot_log_path = os.path.join(
+    app.instance_path,
+    app.config.get('CFG_LOGDIR', ''),
+    'checker' + '.log.'
+)
+
 
 
 def _exclusive_paths(path1, path2):
@@ -103,57 +114,63 @@ def run_task(rule_names):
 
 @celery.task()
 def _run_task(rule_name, master_id):
-    from .models import CheckerRule
+    to_file(open(eliot_log_path + master_id, "ab"))
 
-    redis_master = None
-    group_result = None
+    with start_task(action_type="invenio_checker:supervisor:_run_task",
+                    master_id=master_id) as eliot_task:
+        from .models import CheckerRule
 
-    def cleanup_session():
-        print 'Cleaning up'
-        if redis_master is not None:
-            redis_master.zap()
+        redis_master = None
+        group_result = None
 
-    def sigint_hook(rcv_signal, frame):
-        cleanup_session()
+        def cleanup_session():
+            print 'Cleaning up'
+            if redis_master is not None:
+                redis_master.zap()
 
-    def except_hook(type_, value, tback):
-        cleanup_session()
-        reraise(type_, value, tback)
+        def sigint_hook(rcv_signal, frame):
+            cleanup_session()
+
+        def except_hook(type_, value, tback):
+            cleanup_session()
+            reraise(type_, value, tback)
 
 
-    signal.signal(signal.SIGINT, sigint_hook)
-    # signal.signal(signal.SIGTERM, sigint_hook)
-    sys.excepthook = except_hook
+        signal.signal(signal.SIGINT, sigint_hook)
+        # signal.signal(signal.SIGTERM, sigint_hook)
+        sys.excepthook = except_hook
 
-    print 'Initializing master'
-    redis_master = RedisMaster(master_id)
+        with start_action(action_type='create master'):
+            eliot_task_id = eliot_task.serialize_task_id()
+            redis_master = RedisMaster(master_id, eliot_task_id)
 
-    print 'Starting workers'
-    rules = CheckerRule.from_ids((rule_name,))
-    bundles = rules_to_bundles(rules, redis_master.all_recids)
+        with start_action(action_type='create subtasks'):
+            rules = CheckerRule.from_ids((rule_name,))
+            bundles = rules_to_bundles(rules, redis_master.all_recids)
 
-    subtasks = []
-    errback = handle_error.subtask(args=(master_id,))
-    for rule, rule_chunks in bundles.iteritems():
-        for chunk in rule_chunks:
-            task_id = uuid()
-            RedisWorker(task_id).bundle_requested_recids = chunk
-            subtasks.append(run_test.subtask(args=(rule.filepath,
-                                                   redis_master.master_id,
-                                                   rule.name),
-                                             task_id=task_id,
-                                             link_error=[errback]))
+            subtasks = []
+            errback = handle_error.subtask(args=(master_id,))
+            for rule, rule_chunks in bundles.iteritems():
+                for chunk in rule_chunks:
+                    task_id = uuid()
+                    eliot_task_id = eliot_task.serialize_task_id()
+                    RedisWorker(task_id, eliot_task_id, chunk)
+                    subtasks.append(run_test.subtask(args=(rule.filepath,
+                                                           redis_master.master_id,
+                                                           task_id,
+                                                           rule.name),
+                                                     task_id=task_id,
+                                                     link_error=[errback]))
 
-    print 'Registering workers'
-    redis_master.workers = {subtask.id for subtask in subtasks}
-    redis_master.status = StatusMaster.waiting_for_results
+            with start_action(action_type='register subtasks'):
+                redis_master.workers = {subtask.id for subtask in subtasks}
 
-    header = subtasks
-    callback = handle_results.subtask()
-    my_chord = chord(header, track_started=True)
-
-    result = my_chord(callback)
-
+        with start_action(action_type='run chord'):
+            redis_master.status = StatusMaster.waiting_for_results
+            header = subtasks
+            callback = handle_results.subtask()
+            my_chord = chord(header, track_started=True)
+            result = my_chord(callback)
 
 @celery.task
 def handle_results(task_ids):
@@ -161,8 +178,13 @@ def handle_results(task_ids):
     :type task_ids: list of str
     :param task_ids: values returned by `run_test` instances
     """
-    print task_ids
-
+    master = RedisWorker(task_ids[0]).master
+    master_id = master.uuid
+    eliot_task_id = master.eliot_task_id
+    to_file(open(eliot_log_path + master_id, "ab"))
+    with Action.continue_task(task_id=eliot_task_id):
+        with start_action(action_type='handle results'):
+            print task_ids
 
 @celery.task
 def handle_error(failed_task_id, failed_master_id):
@@ -176,8 +198,7 @@ def handle_error(failed_task_id, failed_master_id):
 
 @celery.task
 @with_app_context()
-def run_test(filepath, master_id, rule_name):
-    task_id = run_test.request.id
+def run_test(filepath, master_id, task_id, rule_name):
     this_file_dir = os.path.dirname(os.path.realpath(__file__))
     conftest_file = os.path.join(this_file_dir, 'conftest2.ini')
     # We set `-c` so that our environment does not affect the test run.

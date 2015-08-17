@@ -14,8 +14,8 @@ import signal
 
 
 _prefix = 'invenio_checker'
-_prefix_worker = _prefix + ':worker:{task_id}'
-_prefix_master = _prefix + ':master:{master_id}'
+_prefix_worker = _prefix + ':worker:{uuid}'
+_prefix_master = _prefix + ':master:{uuid}'
 
 # Global
 master_examining_lock = _prefix + ':master:examine_lock'
@@ -33,8 +33,13 @@ worker_requested_recids = _prefix_worker + ':requested_recids'
 worker_status = _prefix_worker + ':status'
 worker_patches = _prefix_worker + ':patches'
 
-keys_master = {master_workers, master_all_recids, master_status}
-keys_worker = {worker_allowed_recids, worker_allowed_paths, worker_requested_recids, worker_status}
+# Common
+client_eliot_task_id = _prefix + ':{uuid}:eliot_task_id'
+
+# References
+keys_master = {master_workers, master_all_recids, master_status, client_eliot_task_id}
+keys_worker = {worker_allowed_recids, worker_allowed_paths, worker_requested_recids, worker_status, client_eliot_task_id}
+
 
 # config['CACHE_REDIS_URL']  # FIXME
 redis_uri_string = 'redis://localhost:6379/1'
@@ -55,7 +60,7 @@ def _get_all_masters(conn):
     :type conn: :py:class:`redis.client.StrictRedis`
     """
     return set([RedisMaster(master_worker.split(':')[2])
-                for master_worker in conn.scan_iter(master_workers.format(master_id='*'))])
+                for master_worker in conn.scan_iter(master_workers.format(uuid='*'))])
 
 
 def _get_lock_manager():
@@ -92,7 +97,7 @@ def get_things_in_redis(prefixes):
     conn = _get_redis_conn()
     ids = set()
     for pref in prefixes:
-        for field in conn.scan_iter(pref.format(master_id='*', task_id='*')):
+        for field in conn.scan_iter(pref.format(uuid='*')):
             id_ = field.split(':')[2]
             ids.add(id_)
     return ids
@@ -183,14 +188,29 @@ class Lock(object):
 
 
 class RedisClient(object):
-    def __init__(self):
+    def __init__(self, uuid, eliot_task_id=None):
         """Initialize a lock handle for a certain client."""
         self.conn = _get_redis_conn()
+        self.uuid = uuid
+        if eliot_task_id is not None:
+            self.eliot_task_id = eliot_task_id
 
     @property
-    def uuid(self):
-        """Coerce any given ID to this property."""
-        raise NotImplementedError
+    def eliot_task_id(self):
+        identifier = self.fmt(client_eliot_task_id)
+        return self.conn.get(identifier)
+
+    @eliot_task_id.setter
+    def eliot_task_id(self, eliot_task_id):
+        identifier = self.fmt(client_eliot_task_id)
+        return self.conn.set(identifier, eliot_task_id)
+
+    def fmt(self, string):
+        """Format a redis string with the current master_id.
+
+        :type string: str
+        """
+        return string.format(uuid=self.uuid)
 
     @property
     def result(self):
@@ -241,7 +261,7 @@ class StatusMaster(Enum):
 
 
 class RedisMaster(RedisClient):
-    def __init__(self, master_id):
+    def __init__(self, master_id, eliot_task_id=None):
         """Initialize a lock handle for a certain master.
 
         ..note::
@@ -250,18 +270,17 @@ class RedisMaster(RedisClient):
         :type master_id: str
         """
         from invenio_records.models import Record
-        super(RedisMaster, self).__init__()
+        super(RedisMaster, self).__init__(master_id, eliot_task_id)
 
-        self.master_id = master_id
         self.lock = Lock(self.master_id)
 
         if not RedisMaster._already_instnatiated(master_id):
             self.all_recids = Record.allids()  # __init__ is a good time for this.
-            self.status = StatusMaster.booting
+            self.status = StatusMaster.booting  # TODO: Not useful?
 
     @property
-    def uuid(self):
-        return self.master_id
+    def master_id(self):
+        return self.uuid
 
     @staticmethod
     def _already_instnatiated(master_id):
@@ -271,7 +290,7 @@ class RedisMaster(RedisClient):
         """
         conn = _get_redis_conn()
         for prefix in keys_master:
-            for field in conn.scan_iter(prefix.format(master_id='*', task_id='*')):
+            for field in conn.scan_iter(prefix.format(uuid='*')):
                 id_ = field.split(':')[2]
                 if id_ == master_id:
                     return True
@@ -297,12 +316,6 @@ class RedisMaster(RedisClient):
             self.conn.delete(self.fmt(key))
         # Release lock
         self.lock.release()
-
-    def fmt(self, string):
-        """Format a redis string with the current master_id.
-        :type string: str
-        """
-        return string.format(master_id=self.master_id)
 
     @property
     def workers(self):
@@ -331,16 +344,6 @@ class RedisMaster(RedisClient):
         :rtype: set of :py:class:`WorkerRedis`
         """
         return {RedisWorker(worker_id) for worker_id in self.workers}
-
-    def pub_to_worker(self, task_id, message):
-        """Publish a message to a certain worker.
-
-        :type task_id: str
-        :type message: str
-        """
-        assert message in ('run', )
-        return self.conn.publish(channel_where_worker_listens.format(task_id=task_id),
-                                 message)
 
     @property
     def all_recids(self):
@@ -391,17 +394,19 @@ class StatusWorker(Enum):
 
 
 class RedisWorker(RedisClient):
-    def __init__(self, task_id):
+    def __init__(self, task_id, eliot_task_id=None, bundle_requested_recids=None):
         """Instantiate a handle to all the manifestations of a worker.
 
         :type task_id: str
         """
-        super(RedisWorker, self).__init__()
-        self.task_id = task_id
+        # TODO: Split to .create()
+        super(RedisWorker, self).__init__(task_id, eliot_task_id)
+        if bundle_requested_recids:
+            self._bundle_requested_recids = bundle_requested_recids
 
     @property
-    def uuid(self):
-        return self.task_id
+    def task_id(self):
+        return self.uuid
 
     @property
     def master(self):
@@ -411,13 +416,6 @@ class RedisWorker(RedisClient):
                 return RedisMaster(master_id)
         else:
             raise Exception("Can't find master!")
-
-    def fmt(self, string):
-        """Format a redis string with the current master_id.
-
-        :type string: str
-        """
-        return string.format(task_id=self.task_id)
 
     def zap(self):
         """Zap this worker.
@@ -513,9 +511,12 @@ class RedisWorker(RedisClient):
             return None
         return intbitset(self.conn.get(identifier))
 
+    @property
+    def _bundle_requested_recids(self):
+        return self.bundle_requested_recids
 
-    @bundle_requested_recids.setter
-    def bundle_requested_recids(self, new_recids):
+    @_bundle_requested_recids.setter
+    def _bundle_requested_recids(self, new_recids):
         """Set the recids that this worker shall iterate over.
 
         :type new_recids: :py:class:`intbitset`
