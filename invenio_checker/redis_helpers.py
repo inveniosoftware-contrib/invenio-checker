@@ -5,7 +5,7 @@ import redis
 import redlock
 from celery import states
 from celery.result import AsyncResult
-from celery.task.control import inspect  # pylint: disable=no-name-in-module
+from celery.task.control import inspect  # pylint: disable=no-name-in-module, import-error
 from enum import Enum
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from six import string_types
@@ -19,12 +19,12 @@ _prefix_master = _prefix + ':master:{uuid}'
 
 # Global
 master_examining_lock = _prefix + ':master:examine_lock'
+lock_last_owner = _prefix_master + ':examine_lock'
 
 # Master
 master_workers = _prefix_master + ':workers'
 master_all_recids = _prefix_master + ':all_recids'
 master_status = _prefix_master + ':status'
-master_last_lock = _prefix_master + ':examine_lock'
 
 # Worker
 worker_allowed_recids = _prefix_worker + ':allowed_recids'
@@ -32,13 +32,26 @@ worker_allowed_paths = _prefix_worker + ':allowed_paths'
 worker_requested_recids = _prefix_worker + ':requested_recids'
 worker_status = _prefix_worker + ':status'
 worker_patches = _prefix_worker + ':patches'
+worker_retry_after_ids = _prefix_worker + ':retry_after_ids'
 
 # Common
 client_eliot_task_id = _prefix + ':{uuid}:eliot_task_id'
 
 # References
-keys_master = {master_workers, master_all_recids, master_status, client_eliot_task_id}
-keys_worker = {worker_allowed_recids, worker_allowed_paths, worker_requested_recids, worker_status, client_eliot_task_id}
+keys_master = {
+    master_workers,
+    master_all_recids,
+    master_status,
+    client_eliot_task_id
+}
+keys_worker = {
+    worker_allowed_recids,
+    worker_allowed_paths,
+    worker_requested_recids,
+    worker_status,
+    client_eliot_task_id,
+    worker_retry_after_ids,
+}
 
 
 # config['CACHE_REDIS_URL']  # FIXME
@@ -73,8 +86,6 @@ def get_workers_with_unprocessed_results():
     not been handled yet.
 
     ..note:: Must be in a lock.
-
-    :rtype: dict of {task_id:conflict_dict}
     """
     # cleanup_failed_runs()
     conn = _get_redis_conn()
@@ -142,7 +153,7 @@ class Lock(object):
     @property
     def _lock(self):
         """Redis representation of the lock object."""
-        ret = self.conn.hgetall(master_last_lock)
+        ret = self.conn.hgetall(lock_last_owner)
         return {
             'last_master_id': ret['last_master_id'],
             'tuple': redlock.Lock(
@@ -159,7 +170,7 @@ class Lock(object):
         :type tuple_: :py:class:`redlock.Lock`
         """
         self.conn.hmset(
-            master_last_lock,
+            lock_last_owner,
             {
                 'last_master_id': self.master_id,
                 'lock_validity': tuple_.validity,
@@ -171,10 +182,11 @@ class Lock(object):
     def get(self):
         """Block while trying to claim the lock to this master."""
         while True:
-            new_lock = self._lock_manager.lock(master_examining_lock, 100)
+            new_lock = self._lock_manager.lock(master_examining_lock, 1000)
             if new_lock:
                 assert self.conn.persist(master_examining_lock)
                 self._lock = new_lock
+                # print 'GOT LOCK!'
                 break
             else:
                 print 'Failed to get lock, trying again.'
@@ -183,7 +195,9 @@ class Lock(object):
     def release(self):
         """Release the lock if it belongs to this master."""
         if self._lock['last_master_id'] != self.master_id:
+            # print 'NOT MY LOCK'
             return
+        # print 'RELEASING LOCK!'
         self._lock_manager.unlock(self._lock['tuple'])
 
 
@@ -271,8 +285,6 @@ class RedisMaster(RedisClient):
         """
         from invenio_records.models import Record
         super(RedisMaster, self).__init__(master_id, eliot_task_id)
-
-        self.lock = Lock(self.master_id)
 
         if not RedisMaster._already_instnatiated(master_id):
             self.all_recids = Record.allids()  # __init__ is a good time for this.
@@ -387,10 +399,11 @@ class RedisMaster(RedisClient):
 
 
 class StatusWorker(Enum):
-    ready = 1
+    scheduled = 1
     booting = 2
-    running = 3
-    terminated = 4
+    ready = 3
+    running = 4
+    terminated = 5
 
 
 class RedisWorker(RedisClient):
@@ -400,9 +413,15 @@ class RedisWorker(RedisClient):
         :type task_id: str
         """
         # TODO: Split to .create()
+        assert (eliot_task_id and bundle_requested_recids) or (not eliot_task_id and not bundle_requested_recids)
+        initialization = eliot_task_id and bundle_requested_recids
+
         super(RedisWorker, self).__init__(task_id, eliot_task_id)
-        if bundle_requested_recids:
+        self.lock = Lock(self.task_id)
+
+        if initialization:
             self._bundle_requested_recids = bundle_requested_recids
+            self.status = StatusWorker.scheduled
 
     @property
     def task_id(self):
@@ -451,6 +470,39 @@ class RedisWorker(RedisClient):
         self.conn.set(identifier, intbitset(allowed_recids).fastdump())
 
     @property
+    def retry_after_ids(self):
+        """Get task IDs that must finish before we retry running this task."""
+        identifier = self.fmt(worker_retry_after_ids)
+        return self.conn.smembers(identifier)
+
+    @retry_after_ids.setter
+    def retry_after_ids(self, worker_ids):
+        """Set task IDs that must finish before we retry running this task.
+
+        ..note::
+            Must be executed in a lock.
+
+        :type worker_ids: list of str
+        """
+        identifier = self.fmt(worker_retry_after_ids)
+        self.conn.sadd(identifier, *worker_ids)
+
+    def retry_after_ids_pop(self, task_id_to_remove):
+        """Remove a task upon which the current task depends on.
+
+        :type task_id_to_remove: str
+        """
+        identifier = self.fmt(worker_retry_after_ids)
+        self.conn.srem(identifier, task_id_to_remove)
+
+    def _disappear_as_depender(self):
+        """Remove this task from being a dependency of all other tasks."""
+        self.lock.get()
+        for worker in get_workers_in_redis():
+            worker.retry_after_ids_pop(self.task_id)
+        self.lock.release()
+
+    @property
     def allowed_paths(self):
         """Get the dictionary paths that this worker is allowed to modify."""
         identifier = self.fmt(worker_allowed_paths)
@@ -476,18 +528,8 @@ class RedisWorker(RedisClient):
 
         :rtype: :py:class:`StatusWorker`"
         """
-        # Check for terminated
-        if self.result.state in states.READY_STATES:
-            self.status = StatusWorker.terminated
-
-        # Check for other statuses
         identifier = self.fmt(worker_status)
-        got = self.conn.get(identifier)
-        # TODO: No implicit?
-        if got is None:
-            self.status = StatusWorker.booting
-            return self.status
-        return StatusWorker(int(got))
+        return StatusWorker(int(self.conn.get(identifier)))
 
     @status.setter
     def status(self, new_status):
@@ -495,9 +537,15 @@ class RedisWorker(RedisClient):
 
         :type new_status: :py:class:`invenio_checker.redis_helpers.StatusWorker`
         """
+        # print 'SETTING STATUS {} ON {}'.format(new_status, self.task_id)
+
         assert new_status in StatusWorker
+
         identifier = self.fmt(worker_status)
         self.conn.set(identifier, new_status.value)
+
+        if new_status == StatusWorker.terminated:
+            self._disappear_as_depender()
 
     @property
     def bundle_requested_recids(self):
@@ -523,14 +571,3 @@ class RedisWorker(RedisClient):
         """
         identifier = self.fmt(worker_requested_recids)
         self.conn.set(identifier, intbitset(new_recids).fastdump())
-
-    @property
-    def conflict_dict(self):
-        """Dictionary for use with resolving conflicting workers.
-
-        :rtype: dict
-        """
-        return {
-            'allowed_paths': self.allowed_paths,
-            'allowed_recids': self.allowed_recids
-        }

@@ -31,10 +31,8 @@ import time
 import os
 
 from pytest import main
-from functools import wraps
 from celery.exceptions import TimeoutError
-from celery import chord, uuid, group, Task
-from frozendict import frozendict
+from celery import chord, uuid
 from six import reraise
 from invenio.celery import celery
 from invenio.base.helpers import with_app_context
@@ -46,17 +44,23 @@ from .redis_helpers import (
     StatusMaster,
     cleanup_failed_runs,
 )
-
-from eliot import Message, to_file, start_action, start_task, Message, Action
-
+from eliot import (
+    Message,
+    to_file,
+    start_action,
+    start_task,
+    Message,
+    Action,
+    Logger,
+)
 from flask import current_app
+
 app = current_app
 eliot_log_path = os.path.join(
     app.instance_path,
     app.config.get('CFG_LOGDIR', ''),
     'checker' + '.log.'
 )
-
 
 
 def _exclusive_paths(path1, path2):
@@ -114,6 +118,7 @@ def run_task(rule_names):
 
 @celery.task()
 def _run_task(rule_name, master_id):
+    del Logger._destinations._destinations[:]
     to_file(open(eliot_log_path + master_id, "ab"))
 
     with start_task(action_type="invenio_checker:supervisor:_run_task",
@@ -149,7 +154,7 @@ def _run_task(rule_name, master_id):
             bundles = rules_to_bundles(rules, redis_master.all_recids)
 
             subtasks = []
-            errback = handle_error.subtask(args=(master_id,))
+            errback = handle_error.subtask(args=tuple())
             for rule, rule_chunks in bundles.iteritems():
                 for chunk in rule_chunks:
                     task_id = uuid()
@@ -172,44 +177,68 @@ def _run_task(rule_name, master_id):
             my_chord = chord(header, track_started=True)
             result = my_chord(callback)
 
+
 @celery.task
 def handle_results(task_ids):
     """
     :type task_ids: list of str
     :param task_ids: values returned by `run_test` instances
     """
+    print task_ids
+    # Eliot
     master = RedisWorker(task_ids[0]).master
     master_id = master.uuid
     eliot_task_id = master.eliot_task_id
+
+    del Logger._destinations._destinations[:]
     to_file(open(eliot_log_path + master_id, "ab"))
+
     with Action.continue_task(task_id=eliot_task_id):
         with start_action(action_type='handle results'):
+    # /Eliot
             print task_ids
 
 @celery.task
-def handle_error(failed_task_id, failed_master_id):
+def handle_error(failed_task_id):
     """
     :type res: list of retvals or list of exception strings
     """
-    RedisMaster(failed_master_id).zap()
+    redis_worker = RedisWorker(failed_task_id)
+    redis_worker.status = StatusWorker.terminated
+
+    # TODO (zap things)
+    # from celery.contrib import rdb; rdb.set_trace()
+    # RedisMaster(failed_master_id).zap()
     # failed_result = AsyncResult(id=failed_task_id)
     # failed_result.maybe_reraise()
 
 
-@celery.task
+@celery.task(bind=True, max_retries=None, default_retry_delay=3)
 @with_app_context()
-def run_test(filepath, master_id, task_id, rule_name):
-    this_file_dir = os.path.dirname(os.path.realpath(__file__))
-    conftest_file = os.path.join(this_file_dir, 'conftest2.ini')
-    # We set `-c` so that our environment does not affect the test run.
-    retval = main(args=['-s', '-v', '--tb=long',
-                        '-p', 'invenio_checker.conftest2',
-                        '-c', conftest_file,
-                        '--invenio-rule', rule_name,
-                        '--invenio-task-id', task_id,
-                        '--invenio-master-id', master_id,
-                        filepath])
-    if retval != 0:
-        raise RuntimeError('pytest execution of task {} returned {}'
-                           .format(task_id, retval))
-    return task_id
+def run_test(self, filepath, master_id, task_id, rule_name):
+    redis_worker = RedisWorker(task_id)
+    redis_worker.status = StatusWorker.scheduled
+    # self.request.retries
+
+    if not redis_worker.retry_after_ids:
+
+        # We set `-c` so that our environment does not affect the test run.
+        this_file_dir = os.path.dirname(os.path.realpath(__file__))
+        conftest_file = os.path.join(this_file_dir, 'conftest2.ini')
+        retval = main(args=['-s', '-v', '--tb=long',
+                            '-p', 'invenio_checker.conftest2',
+                            '-c', conftest_file,
+                            '--invenio-rule', rule_name,
+                            '--invenio-task-id', task_id,
+                            '--invenio-master-id', master_id,
+                            filepath])
+
+    if redis_worker.retry_after_ids:
+        # print '{} WAITING ON {}'.format(redis_worker.task_id, redis_worker.retry_after_ids)
+        self.retry()
+    else:
+        redis_worker.status = StatusWorker.terminated
+        if retval != 0:
+            raise RuntimeError('pytest execution of task {} returned {}'
+                               .format(task_id, retval))
+        return task_id

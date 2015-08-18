@@ -28,18 +28,15 @@ import sys
 import re
 import traceback
 from contextlib import contextmanager
-import time
 from warnings import warn
 import signal
 from copy import deepcopy
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 
-import py
 import pytest
 from _pytest.runner import pytest_runtest_makereport as orig_pytest_runtest_makereport
 from _pytest.terminal import TerminalReporter
 from six import StringIO
-from py._io.terminalwriter import TerminalWriter
 
 import jsonpatch
 from functools import wraps, partial
@@ -55,14 +52,15 @@ from .redis_helpers import (
     StatusWorker,
     get_workers_with_unprocessed_results,
 )
+from .supervisor import _are_compatible
 
 from eliot import (
     Action,
     Message,
     start_action,
     to_file,
+    Logger,
 )
-from functools import wraps
 from .supervisor import eliot_log_path
 
 
@@ -104,8 +102,7 @@ def pytest_exception_interact(node, call, report):
     if isinstance(call.excinfo.value, SystemExit):
         redis_worker = node.config.option.redis_worker
         warn('Ending worker' + str(redis_worker.task_id))
-        redis_worker._cleanup()
-        raise node.session.Interrupted(True)
+        # redis_worker._cleanup() raise node.session.Interrupted(True)
 
 
 ################################################################################
@@ -114,7 +111,6 @@ def pytest_exception_interact(node, call, report):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
 
-to_file_set = False
 
 def start_action_dec(action_type, **dec_kwargs):
     def real_decorator(func):
@@ -122,11 +118,11 @@ def start_action_dec(action_type, **dec_kwargs):
         def wrapper(*args, **kwargs):
             redis_worker = Session.session.config.option.redis_worker
             eliot_task_id = redis_worker.eliot_task_id
-            print "~{} {}".format(eliot_task_id, action_type)
-            global to_file_set
-            if not to_file_set:
-                to_file(open(eliot_log_path + redis_worker.task_id, "ab"))
-                to_file_set = True
+            # print "~{} {}".format(eliot_task_id, action_type)
+
+            del Logger._destinations._destinations[:]
+            to_file(open(eliot_log_path + redis_worker.task_id, "ab"))
+
             eliot_task = Action.continue_task(task_id=eliot_task_id)
             with eliot_task:
                 with start_action(action_type=action_type,
@@ -157,6 +153,8 @@ def _pytest_collection_modifyitems(session, config, items):
     :type config: :py:class:_pytest.config.Config
     :type items: list
     """
+    redis_worker = config.option.redis_worker
+
     with start_action(action_type='get performance hints'):
         unique_functions_found = set((item.function for item in items))
         assert len(unique_functions_found) == 1,\
@@ -178,38 +176,35 @@ def _pytest_collection_modifyitems(session, config, items):
             else:
                 allowed_recids = batch_recids(session)
 
-    with start_action(action_type='ensure hints returned sane values'):
-        # We could be intersecting instead of raising, but we are evil.
-        if allowed_recids - all_recids(session):
-            raise Exception('Check requested recids that are not in the database!')
-        # TODO Must return jsonpointers (IETF RFC 6901)
+        with start_action(action_type='ensure hints returned sane values'):
+            # We could be intersecting instead of raising, but we are evil.
+            if allowed_recids - all_recids(session):
+                raise Exception('Check requested recids that are not in the database!')
+            # TODO Must return jsonpointers (IETF RFC 6901)
 
-    with start_action(action_type='store performance hints'):
-        redis_worker = config.option.redis_worker
-        redis_master = redis_worker.master
-        redis_worker.allowed_paths = allowed_paths
-        redis_worker.allowed_recids = allowed_recids
+        with start_action(action_type='store performance hints'):
+            redis_worker.allowed_paths = allowed_paths
+            redis_worker.allowed_recids = allowed_recids
 
     def worker_conflicts_with_currently_running(worker):
-        from .supervisor import _are_compatible
         foreign_running_workers = get_workers_with_unprocessed_results()
+        blockers = set()
         for foreign in foreign_running_workers:
             if not _are_compatible(worker, foreign):
-                print 'CONFLICT'
-                return True
-        return False
+                blockers.add(foreign)
+        return blockers
 
-    with start_action(action_type='wait for any conflicting tests to finish'):
-        while True:
-            redis_master.lock.get()
-            if not worker_conflicts_with_currently_running(redis_worker):
-                print 'RESUMING ' + str(redis_worker.task_id)
-                redis_worker.status = StatusWorker.running
-                redis_master.lock.release()
-                return
-            redis_master.lock.release()
-            time.sleep(1)
-
+    redis_worker.status = StatusWorker.ready
+    with start_action(action_type='checking for conflicting running workers'):
+        redis_worker.lock.get()
+        blockers = worker_conflicts_with_currently_running(redis_worker)
+        if blockers:
+            redis_worker.retry_after_ids = [bl.task_id for bl in blockers]
+            del items[:]
+        else:
+            print 'RESUMING ' + str(redis_worker.task_id)
+            redis_worker.status = StatusWorker.running
+        redis_worker.lock.release()
 
 
 ################################################################################
