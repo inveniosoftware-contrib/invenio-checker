@@ -180,23 +180,22 @@ def _run_task(rule_name, master_id):
 
 @celery.task
 def handle_results(task_ids):
-    """
+    """Commit patches.
+
     :type task_ids: list of str
     :param task_ids: values returned by `run_test` instances
     """
-    print task_ids
-    # Eliot
-    master = RedisWorker(task_ids[0]).master
-    master_id = master.uuid
-    eliot_task_id = master.eliot_task_id
+    def with_eliot():
+        master = RedisWorker(task_ids[0]).master
+        master_id = master.uuid
+        eliot_task_id = master.eliot_task_id
+        del Logger._destinations._destinations[:]
+        to_file(open(eliot_log_path + master_id, "ab"))
+        with Action.continue_task(task_id=eliot_task_id):
+            return start_action(action_type='handle results')
 
-    del Logger._destinations._destinations[:]
-    to_file(open(eliot_log_path + master_id, "ab"))
-
-    with Action.continue_task(task_id=eliot_task_id):
-        with start_action(action_type='handle results'):
-    # /Eliot
-            print task_ids
+    with with_eliot():
+        print task_ids
 
 @celery.task
 def handle_error(failed_task_id):
