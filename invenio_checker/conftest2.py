@@ -31,7 +31,6 @@ from contextlib import contextmanager
 from warnings import warn
 import signal
 from copy import deepcopy
-from collections import namedtuple
 
 import pytest
 from _pytest.runner import pytest_runtest_makereport as orig_pytest_runtest_makereport
@@ -46,14 +45,13 @@ from invenio.legacy.search_engine import perform_request_search as perform_reque
 from .models import CheckerRule
 from .recids import ids_from_input
 from intbitset import intbitset  # pylint: disable=no-name-in-module
-from orderedset import OrderedSet
 from .redis_helpers import (
     RedisWorker,
     StatusWorker,
     get_workers_with_unprocessed_results,
+    patch_to_redis,
+    make_fullpatch
 )
-from .supervisor import _are_compatible
-
 from eliot import (
     Action,
     Message,
@@ -61,7 +59,10 @@ from eliot import (
     to_file,
     Logger,
 )
-from .supervisor import eliot_log_path
+from .supervisor import (
+    eliot_log_path,
+    _are_compatible,
+)
 
 
 try:
@@ -261,6 +262,8 @@ def perform_request_search(request):
     """
     return perform_request_search_orig
 
+from .redis_helpers import get_record_orig_or_mem
+
 
 @pytest.fixture(scope="session")
 def get_record(request):
@@ -276,7 +279,7 @@ def get_record(request):
     def _get_record(recid):
         invenio_records = request.session.invenio_records
         if recid not in invenio_records['original']:
-            invenio_records['original'][recid] = get_record_orig(recid)
+            invenio_records['original'][recid] = get_record_orig_or_mem(recid)
 
         if recid not in invenio_records['modified']:
             invenio_records['modified'][recid] = deepcopy(invenio_records['original'][recid])
@@ -372,14 +375,13 @@ def pytest_sessionstart(session):
 
 def _pytest_sessionstart(session):
     session.invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
-    session.invenio_patches = OrderedSet()
     Session.session = session
 
 
 class Session(object):
     session = None
 
-FullPatch = namedtuple('FullPatch', ['recid', 'record_hash', 'patch'])
+
 
 def _patches_of_last_execution():
     """Get the full_patches generated during the last check.
@@ -389,6 +391,7 @@ def _patches_of_last_execution():
     """
     session = Session.session
     invenio_records = session.invenio_records
+    redis_worker = session.config.option.redis_worker
 
     def get_full_patches():
         """Return all the record patches resulting from the last run."""
@@ -396,7 +399,7 @@ def _patches_of_last_execution():
             original_record = invenio_records['original'][recid]
             patch = jsonpatch.make_patch(original_record, modified_record)
             if patch:
-                yield FullPatch(recid, hash(original_record), patch)
+                yield make_fullpatch(recid, hash(original_record), patch, redis_worker.task_id)
 
     for full_patch in get_full_patches():
         del invenio_records['temporary'][full_patch.recid]
@@ -472,13 +475,13 @@ def pytest_sessionfinish(session, exitstatus):
 def _pytest_sessionfinish(session, exitstatus):
     with start_action(action_type='moving added patches to redis'):
         invenio_records = session.invenio_records
+        redis_worker = session.config.option.redis_worker
 
         for recid, modified_record in invenio_records['modified'].items():
             original_record = invenio_records['original'][recid]
             patch = jsonpatch.make_patch(original_record, modified_record)
             if patch:
-                pass
-                # print FullPatch(recid, hash(original_record), patch)
+                patch_to_redis(make_fullpatch(recid, hash(original_record), patch, redis_worker.task_id))
 
 
 class LocationTuple(object):

@@ -1,5 +1,6 @@
 import time
 
+import jsonpatch
 import sys
 import redis
 import redlock
@@ -11,6 +12,7 @@ from intbitset import intbitset  # pylint: disable=no-name-in-module
 from six import string_types
 from warnings import warn
 import signal
+from invenio_records.api import get_record as get_record_orig
 
 
 _prefix = 'invenio_checker'
@@ -31,11 +33,11 @@ worker_allowed_recids = _prefix_worker + ':allowed_recids'
 worker_allowed_paths = _prefix_worker + ':allowed_paths'
 worker_requested_recids = _prefix_worker + ':requested_recids'
 worker_status = _prefix_worker + ':status'
-worker_patches = _prefix_worker + ':patches'
 worker_retry_after_ids = _prefix_worker + ':retry_after_ids'
 
 # Common
 client_eliot_task_id = _prefix + ':{uuid}:eliot_task_id'
+client_patches = _prefix + ':patches:{uuid}:{recid}:{record_hash}' # patch
 
 # References
 keys_master = {
@@ -98,28 +100,30 @@ def get_workers_with_unprocessed_results():
     return running_workers
 
 
-def get_things_in_redis(prefixes):
+def _get_things_in_redis(prefixes, **kwargs):
     """Return the IDs of all masters or workers in redis.
 
     :type prefixes: set
 
     :rtype: set
     """
+    if not kwargs:
+        kwargs = {'uuid': '*'}
     conn = _get_redis_conn()
     ids = set()
     for pref in prefixes:
-        for field in conn.scan_iter(pref.format(uuid='*')):
+        for field in conn.scan_iter(pref.format(**kwargs)):
             id_ = field.split(':')[2]
             ids.add(id_)
     return ids
 
 
 def get_masters_in_redis():
-    return set([RedisMaster(master_id) for master_id in get_things_in_redis(keys_master)])
+    return set([RedisMaster(master_id) for master_id in _get_things_in_redis(keys_master)])
 
 
 def get_workers_in_redis():
-    return set([RedisWorker(worker_id) for worker_id in get_things_in_redis(keys_worker)])
+    return set([RedisWorker(worker_id) for worker_id in _get_things_in_redis(keys_worker)])
 
 
 def cleanup_failed_runs():
@@ -413,7 +417,7 @@ class RedisWorker(RedisClient):
         :type task_id: str
         """
         # TODO: Split to .create()
-        assert (eliot_task_id and bundle_requested_recids) or (not eliot_task_id and not bundle_requested_recids)
+        assert (eliot_task_id is not None and bundle_requested_recids is not None) or (not eliot_task_id and not bundle_requested_recids)
         initialization = eliot_task_id and bundle_requested_recids
 
         super(RedisWorker, self).__init__(task_id, eliot_task_id)
@@ -571,3 +575,47 @@ class RedisWorker(RedisClient):
         """
         identifier = self.fmt(worker_requested_recids)
         self.conn.set(identifier, intbitset(new_recids).fastdump())
+
+    def clear_own_patches(self):
+        identifier = client_patches.format(uuid=self.task_id, recid='*')
+        for redis_patch in self.conn.scan_iter(identifier):
+            self.conn.delete(redis_patch)
+
+
+def make_fullpatch(recid, record_hash, patch, task_id):
+    return {
+        'recid': recid,
+        'record_hash': record_hash,
+        'patch': patch,
+        'task_id': task_id
+    }
+
+
+def patch_to_redis(fullpatch):
+    """
+    Called on session finish, once per recid."""
+    conn = _get_redis_conn()
+    identifier = client_patches.format(
+        uuid=fullpatch['task_id'],
+        recid=fullpatch['recid'],
+        record_hash=fullpatch['record_hash'],
+    )
+    assert not conn.get(identifier)
+    conn.sadd(identifier, fullpatch['patch'].to_string())
+    conn.expire(identifier, 365*86400)
+
+
+def get_record_orig_or_mem(recid):
+    conn = _get_redis_conn()
+    record = get_record_orig(recid)
+    identifier = client_patches.format(uuid='*', recid=recid, record_hash='*')
+    sorted_patchsets = sorted(
+        [conn.smembers(id_) for id_ in conn.scan_iter(identifier)],
+        key=conn.ttl
+    )
+
+    for patchset in sorted_patchsets:
+        for patch_str in patchset:
+            # TODO: Check record hash
+            jsonpatch.apply_patch(record, patch_str, in_place=True)
+    return record
