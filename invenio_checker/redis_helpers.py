@@ -84,19 +84,15 @@ def _get_lock_manager():
 
 
 def get_workers_with_unprocessed_results():
-    """Return all workers which have started processing, but their results have
-    not been handled yet.
+    """Return all workers in celery  which have started processing, but their
+    results have not been handled yet.
 
     ..note:: Must be in a lock.
     """
-    # cleanup_failed_runs()
-    conn = _get_redis_conn()
-    masters = _get_all_masters(conn)
     running_workers = set()
-    for master in masters:
-        for worker in [RedisWorker(worker) for worker in master.workers]:
-            if worker.status == StatusWorker.running:
-                running_workers.add(worker)
+    for worker in get_workers_in_redis():
+        if worker.in_celery and worker.status == StatusWorker.running:
+            running_workers.add(worker)
     return running_workers
 
 
@@ -127,20 +123,16 @@ def get_workers_in_redis():
 
 
 def cleanup_failed_runs():
-    slept = False
-    for master in get_masters_in_redis():
-        if not master.in_celery:
-            if not slept:
-                time.sleep(2)
-                slept = True
-            master.zap()
-    # We probably don't want to remove results from celery!
+    zapped_masters = set()
     for worker in get_workers_in_redis():
         if not worker.in_celery:
-            if not slept:
-                time.sleep(2)
-                slept = True
-            worker.zap()
+            try:
+                master = worker.master
+            except AttributeError:
+                worker.zap()
+            else:
+                zapped_masters.add(master)
+                master.zap()
 
 
 class Lock(object):
@@ -245,9 +237,14 @@ class RedisClient(object):
         """Return whether this client exists as a process in celery."""
         insp = inspect()
         active = insp.active()
-        for active_tasks in active.values():
-            for active_task in active_tasks:
-                if active_task['id'] == self.uuid:
+        scheduled = insp.scheduled()
+        while active is None:
+            active = insp.active()
+        while scheduled is None:
+            scheduled = insp.scheduled()
+        for alive_tasks in active.values() + scheduled.values():
+            for alive_task in alive_tasks:
+                if alive_task['id'] == self.uuid:
                     return True
         return False
 
@@ -407,7 +404,8 @@ class StatusWorker(Enum):
     booting = 2
     ready = 3
     running = 4
-    terminated = 5
+    failed = 5
+    committed = 6
 
 
 class RedisWorker(RedisClient):
@@ -438,7 +436,7 @@ class RedisWorker(RedisClient):
                 master_id = master.split(':')[2]
                 return RedisMaster(master_id)
         else:
-            raise Exception("Can't find master!")
+            raise AttributeError("Can't find master!")
 
     def zap(self):
         """Zap this worker.
@@ -446,8 +444,11 @@ class RedisWorker(RedisClient):
         This method is meant to be called from the master.
         """
         warn('Zapping worker' + str(self.task_id))
-        if not self.result.ready():
-            self.result.revoke(terminate=True, signal='TERM')
+
+        self.result.ready()
+        if self.result is not None:
+            if not self.result.ready():
+                self.result.revoke(terminate=True, signal='TERM')
         self._cleanup()
 
     def _cleanup(self):
@@ -548,7 +549,7 @@ class RedisWorker(RedisClient):
         identifier = self.fmt(worker_status)
         self.conn.set(identifier, new_status.value)
 
-        if new_status == StatusWorker.terminated:
+        if new_status in (StatusWorker.failed, StatusWorker.committed):
             self._disappear_as_depender()
 
     @property
@@ -565,6 +566,7 @@ class RedisWorker(RedisClient):
 
     @property
     def _bundle_requested_recids(self):
+        """Get the recids that this worker shall iterate over."""
         return self.bundle_requested_recids
 
     @_bundle_requested_recids.setter
@@ -577,10 +579,34 @@ class RedisWorker(RedisClient):
         self.conn.set(identifier, intbitset(new_recids).fastdump())
 
     def clear_own_patches(self):
-        identifier = client_patches.format(uuid=self.task_id, recid='*')
+        identifier = client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
         for redis_patch in self.conn.scan_iter(identifier):
             self.conn.delete(redis_patch)
 
+    def task_ids_of_patches_we_worked_ontop(self):
+        our_ttl = \
+            self.conn.ttl(
+                self.conn.scan_iter(
+                    client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
+                )[0]
+            )
+
+        identifier = client_patches.format(uuid='*', recid='*', record_hash='*')
+        dep_ids = set()
+        for client_patch_key in self.conn.scan_iter(identifier):
+            task_id = client_patch_key.split(':')[2]
+            if task_id != self.task_id:
+                dep_ids.add(task_id)
+        return dep_ids
+
+    def our_dependencies_have_committed_or_failed(self):
+        tiopwwo = self.task_ids_of_patches_we_worked_ontop()
+        for task_id in tiopwwo:
+            if RedisWorker(task_id).status not in (StatusWorker.committed, StatusWorker.failed):
+                break
+        else:
+            return False
+        return True
 
 def make_fullpatch(recid, record_hash, patch, task_id):
     return {

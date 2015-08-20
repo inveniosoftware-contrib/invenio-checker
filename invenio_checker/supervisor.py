@@ -124,9 +124,9 @@ def _run_task(rule_name, master_id):
     with start_task(action_type="invenio_checker:supervisor:_run_task",
                     master_id=master_id) as eliot_task:
         from .models import CheckerRule
+        cleanup_failed_runs()
 
         redis_master = None
-        group_result = None
 
         def cleanup_session():
             print 'Cleaning up'
@@ -139,7 +139,6 @@ def _run_task(rule_name, master_id):
         def except_hook(type_, value, tback):
             cleanup_session()
             reraise(type_, value, tback)
-
 
         signal.signal(signal.SIGINT, sigint_hook)
         # signal.signal(signal.SIGTERM, sigint_hook)
@@ -196,6 +195,9 @@ def handle_results(task_ids):
 
     with with_eliot():
         print task_ids
+        for task_id in task_ids:
+            redis_worker = RedisWorker(task_id)
+            redis_worker.status = StatusWorker.committed
 
 @celery.task
 def handle_error(failed_task_id):
@@ -203,7 +205,7 @@ def handle_error(failed_task_id):
     :type res: list of retvals or list of exception strings
     """
     redis_worker = RedisWorker(failed_task_id)
-    redis_worker.status = StatusWorker.terminated
+    redis_worker.status = StatusWorker.failed
 
     # TODO (zap things)
     # from celery.contrib import rdb; rdb.set_trace()
@@ -232,11 +234,9 @@ def run_test(self, filepath, master_id, task_id, rule_name):
                             '--invenio-master-id', master_id,
                             filepath])
 
-    if redis_worker.retry_after_ids:
-        # print '{} WAITING ON {}'.format(redis_worker.task_id, redis_worker.retry_after_ids)
-        self.retry()
-    else:
-        redis_worker.status = StatusWorker.terminated
+    if redis_worker.retry_after_ids or not redis_worker.our_dependencies_have_committed_or_failed:
+        print '{} WAITING ON {}'.format(redis_worker.task_id, redis_worker.retry_after_ids)
+        self.retry(exc=Exception('Workaround celery/celery#2560'))  # XXX `exc=None` breaks cleanup of workers that are in retry queue
         if retval != 0:
             raise RuntimeError('pytest execution of task {} returned {}'
                                .format(task_id, retval))
