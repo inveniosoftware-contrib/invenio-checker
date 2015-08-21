@@ -25,6 +25,8 @@
 
 """Manage checker module."""
 
+import sys
+
 from functools import wraps
 
 from .common import ALL
@@ -138,11 +140,134 @@ def run(rules, user_recids, queue, tickets, upload):
     """
 
     from .supervisor import run_task
-    rule_names =('enum','enum2')
+    rule_names =('enum', 'enum2')
     run_task(rule_names)
 
     # return bool(z)
 
+
+################################################################################
+
+from json_import import json2models
+
+
+@manager.option('--temporary', '-t', dest='temporary', action='store_true',
+                help='Whether the new rule is a temporary one')
+@manager.option('--filter-records', '-fr', dest='filter_records',
+                help='')
+@manager.option('--filter-pattern', '-fp', dest='filter_pattern',
+                help='The filter pattern string')
+@manager.option('--consider-deleted-records', '-cdr',
+                dest='option_consider_deleted_records', action='store_true',
+                help='Whether the new rule to consider deleted records')
+@manager.option('--holding-pen', '-hp', dest='option_holdingpen',
+                action='store_true',
+                help='Holdingpen option')
+@manager.option('--arguments', '-a', dest='arguments',
+                help='Any arguments you want the new rule to have')
+@manager.option('--plugin-file', '-pf', dest='plugin_file',
+                help='The plugin file of the new rule')
+@manager.option('--plugin-module', '-pm', dest='plugin_module',
+                help='The plugin module of the new rule')
+@manager.option('--name', '-n', dest='name',
+                help='The name (id) of the new rule')
+@change_command_name
+def create_rule(**kwargs):
+    """
+    Creates a new rule.
+    """
+    new_rule = CheckerRule(**kwargs)
+    print new_rule
+    db.session.add(new_rule)
+    db.session.commit()
+
+
+@manager.option('--temporary', '-t', dest='temporary', action='store_true',
+                help='Whether the rule is a temporary one')
+@manager.option('--filter-records', '-fr', dest='filter_records',
+                help='')
+@manager.option('--filter-pattern', '-fp', dest='filter_pattern',
+                help='The filter pattern string')
+@manager.option('--consider-deleted-records', '-cdr',
+                dest='option_consider_deleted_records', action='store_true',
+                help='Whether the rule to consider deleted records')
+@manager.option('--holding-pen', '-hp', dest='option_holdingpen',
+                action='store_true',
+                help='Holdingpen option')
+@manager.option('--arguments', '-a', dest='arguments',
+                help='Any arguments you want the rule to have')
+@manager.option('--plugin-file', '-pf', dest='plugin_file',
+                help='The plugin file of the new rule')
+@manager.option('--plugin-module', '-pm', dest='plugin_module',
+                help='The plugin module of the rule')
+@manager.option('--name', '-n', dest='name',
+                help='The name (id) of the rule you want to edit')
+@change_command_name
+def edit_rule(rule_uuid, **updates):
+    """
+    Edits an existing rule.
+    """
+    print rule_uuid
+    if 'name' in updates:
+        updates.pop('name', None)
+    rule = CheckerRule.query.filter(CheckerRule.name == rule_uuid).first()
+    # Check keys and update as needed.
+    for key, value in updates.iteritems():
+        if not str.isalpha(key[0]):
+            raise AttributeError(
+                "Invalid update attribute specified: {}".format(key)
+            )
+        rule.__setattr__(key, value)
+    db.session.commit()
+
+
+@manager.option('--name', '-n', dest='rule_uuid',
+                help='')
+@change_command_name
+def delete_rule(rule_uuid):
+    """
+    Deletes (and de-schedules) a rule.
+    """
+    rule = CheckerRule.query.filter(CheckerRule.name == rule_uuid).first()
+    db.session.delete(rule)
+    db.session.commit()
+
+
+@manager.option('--name', '-n', dest='rule_uuid',
+                help='')
+@change_command_name
+def display_rule(rule_uuid):
+    """
+    Displays (?) a rule.
+    """
+    rule = CheckerRule.query.filter(CheckerRule.name == rule_uuid).first()
+    # print rule
+    if rule is None:
+        print >>sys.stderr,\
+            "Sorry, no rule with id \"{}\" was found.".format(rule_uuid)
+    else:
+        print rule
+
+
+def start_rules(*rule_uuids):
+    """
+    Starts a rule.
+    """
+    # from .supervisor import run_task
+    # for rule_uuid in rule_uuids:
+    #     run_task(rule_uuid)
+
+
+def json_import(json_file):
+    """
+    Imports all models for the JSON files specified into the database.
+    """
+    # TODO: Fix hard-coded model name (CheckerRule)
+    db_objs = json2models(json_file, 'CheckerRule')
+    db.session.add_all(db_objs)
+
+
+################################################################################
 
 @rules_dec
 @change_command_name

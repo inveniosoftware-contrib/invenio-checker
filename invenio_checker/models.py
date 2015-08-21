@@ -76,6 +76,7 @@ class CheckerRule(db.Model):
     records = db.relationship('CheckerRecord', backref='checker_rule',
                               cascade='all, delete-orphan')
 
+    temporary = db.Column(db.Boolean, default=False)
 
     owner_id = db.Column(db.Integer(15, unsigned=True), db.ForeignKey('user.id'))
     owner = db.relationship('User', uselist=False,
@@ -193,6 +194,24 @@ class CheckerRule(db.Model):
         if len(rule_names) != len(ret):
             raise Exception('Not all requested rules were found in the database!')
         return ret
+
+    def __str__(self):
+        name_len = len(self.name)
+        trails = 61 - name_len
+        return '\n'.join((
+            '=== Checker Rule: {} {}'.format(self.name, trails * '='),
+            '* Name: {}'.format(self.name),
+            '* Plugin Module: {}'.format(self.plugin_module),
+            '* Plugin File: {}'.format(self.plugin_file),
+            '* Arguments: {}'.format(self.arguments),
+            '* Option - HoldingPen: {}'.format(self.option_holdingpen),
+            '* Option - Consider deleted records: {}'.format(
+                self.option_consider_deleted_records),
+            '* Filter Pattern: {}'.format(self.filter_pattern),
+            '* Filter Records: {}'.format(self.filter_records),
+            # '* Temporary: {}'.format(self.temporary),
+            '{}'.format(80 * '='),
+        ))
 
 
 class CheckerRecord(db.Model):
