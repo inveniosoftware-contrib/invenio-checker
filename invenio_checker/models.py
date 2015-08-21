@@ -76,10 +76,6 @@ class CheckerRule(db.Model):
     records = db.relationship('CheckerRecord', backref='checker_rule',
                               cascade='all, delete-orphan')
 
-    @orm.reconstructor
-    def init_on_load(self):
-        if self.pluginspec not in plugin_files:
-            raise PluginMissing(self.pluginspec, self.name)
 
     owner_id = db.Column(db.Integer(15, unsigned=True), db.ForeignKey('user.id'))
     owner = db.relationship('User', uselist=False,
