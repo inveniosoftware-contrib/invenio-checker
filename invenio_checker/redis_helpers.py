@@ -64,6 +64,17 @@ redis_uri_string = 'redis://localhost:6379/1'
 #     redis_conn = redis.StrictRedis.from_url(redis_uri_string)
 
 
+def get_all_values_in_celery():
+    insp = inspect()
+    active = None
+    scheduled = None
+    while active is None:
+        active = insp.active()
+    while scheduled is None:
+        scheduled = insp.scheduled()
+    return active.values() + scheduled.values()
+
+
 def _get_redis_conn():
     # return RedisConn.redis_conn
     return redis.StrictRedis.from_url(redis_uri_string)
@@ -122,15 +133,14 @@ def get_workers_in_redis():
 
 
 def cleanup_failed_runs():
-    zapped_masters = set()
+    all_values_in_celery = get_all_values_in_celery()
     for worker in get_workers_in_redis():
-        if not worker.in_celery:
+        if not worker.in_celery(all_values_in_celery):
             try:
                 master = worker.master
             except AttributeError:
                 worker.zap()
             else:
-                zapped_masters.add(master)
                 master.zap()
 
 
@@ -231,17 +241,9 @@ class RedisClient(object):
         """
         return AsyncResult(id=self.uuid)
 
-    @property
-    def in_celery(self):
+    def in_celery(self, values_in_celery):
         """Return whether this client exists as a process in celery."""
-        insp = inspect()
-        active = insp.active()
-        scheduled = insp.scheduled()
-        while active is None:
-            active = insp.active()
-        while scheduled is None:
-            scheduled = insp.scheduled()
-        for alive_tasks in active.values() + scheduled.values():
+        for alive_tasks in values_in_celery:
             for alive_task in alive_tasks:
                 if alive_task['id'] == self.uuid:
                     return True
