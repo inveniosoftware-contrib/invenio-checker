@@ -44,14 +44,14 @@ keys_master = {
     master_workers,
     master_all_recids,
     master_status,
-    client_eliot_task_id
+    #client_eliot_task_id
 }
 keys_worker = {
     worker_allowed_recids,
     worker_allowed_paths,
     worker_requested_recids,
     worker_status,
-    client_eliot_task_id,
+    #client_eliot_task_id,
     worker_retry_after_ids,
 }
 
@@ -83,7 +83,7 @@ def _get_lock_manager():
     return redlock.Redlock([redis_uri_string])
 
 
-def get_workers_with_unprocessed_results():
+def get_workers_with_unprocessed_results():  # FIXME: Name
     """Return all workers in celery  which have started processing, but their
     results have not been handled yet.
 
@@ -91,20 +91,19 @@ def get_workers_with_unprocessed_results():
     """
     running_workers = set()
     for worker in get_workers_in_redis():
-        if worker.in_celery and worker.status == StatusWorker.running:
+        if worker.in_celery and worker.status in (StatusWorker.running, ):
             running_workers.add(worker)
     return running_workers
 
 
-def _get_things_in_redis(prefixes, **kwargs):
+def _get_things_in_redis(prefixes):
     """Return the IDs of all masters or workers in redis.
 
     :type prefixes: set
 
     :rtype: set
     """
-    if not kwargs:
-        kwargs = {'uuid': '*'}
+    kwargs = {'uuid': '*'}
     conn = _get_redis_conn()
     ids = set()
     for pref in prefixes:
@@ -211,9 +210,9 @@ class RedisClient(object):
         return self.conn.get(identifier)
 
     @eliot_task_id.setter
-    def eliot_task_id(self, eliot_task_id):
+    def eliot_task_id(self, new_id):
         identifier = self.fmt(client_eliot_task_id)
-        return self.conn.set(identifier, eliot_task_id)
+        return self.conn.set(identifier, new_id)
 
     def fmt(self, string):
         """Format a redis string with the current master_id.
@@ -268,6 +267,9 @@ class RedisClient(object):
 
     def __hash__(self):
         return hash(self.uuid)
+
+    def __repr__(self):
+        return "{}: {}".format(self.__class__, self.uuid)
 
 
 class StatusMaster(Enum):
@@ -400,12 +402,15 @@ class RedisMaster(RedisClient):
 
 
 class StatusWorker(Enum):
+    dead_parrot = 0
     scheduled = 1
     booting = 2
     ready = 3
     running = 4
-    failed = 5
-    committed = 6
+    ran = 5
+    # want_to_commit = 6
+    failed = 6
+    committed = 7
 
 
 class RedisWorker(RedisClient):
@@ -415,7 +420,8 @@ class RedisWorker(RedisClient):
         :type task_id: str
         """
         # TODO: Split to .create()
-        assert (eliot_task_id is not None and bundle_requested_recids is not None) or (not eliot_task_id and not bundle_requested_recids)
+        assert (eliot_task_id is not None and bundle_requested_recids is not None)\
+            or (not eliot_task_id and not bundle_requested_recids)
         initialization = eliot_task_id and bundle_requested_recids
 
         super(RedisWorker, self).__init__(task_id, eliot_task_id)
@@ -431,12 +437,11 @@ class RedisWorker(RedisClient):
 
     @property
     def master(self):
-        for master in self.conn.scan_iter('invenio_checker:master:*:workers'):
+        for master in self.conn.scan_iter(master_workers.format(uuid='*')):
             if self.conn.sismember(master, self.task_id):
                 master_id = master.split(':')[2]
                 return RedisMaster(master_id)
-        else:
-            raise AttributeError("Can't find master!")
+        raise AttributeError("Can't find master!")
 
     def zap(self):
         """Zap this worker.
@@ -534,7 +539,11 @@ class RedisWorker(RedisClient):
         :rtype: :py:class:`StatusWorker`"
         """
         identifier = self.fmt(worker_status)
-        return StatusWorker(int(self.conn.get(identifier)))
+        try:
+            return StatusWorker(int(self.conn.get(identifier)))
+        except TypeError:
+            return StatusWorker.dead_parrot
+
 
     @status.setter
     def status(self, new_status):
@@ -549,7 +558,7 @@ class RedisWorker(RedisClient):
         identifier = self.fmt(worker_status)
         self.conn.set(identifier, new_status.value)
 
-        if new_status in (StatusWorker.failed, StatusWorker.committed):
+        if new_status in (StatusWorker.ran, StatusWorker.failed):
             self._disappear_as_depender()
 
     @property
@@ -578,35 +587,76 @@ class RedisWorker(RedisClient):
         identifier = self.fmt(worker_requested_recids)
         self.conn.set(identifier, intbitset(new_recids).fastdump())
 
+    # FIXME: Do during cleanup
     def clear_own_patches(self):
         identifier = client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
         for redis_patch in self.conn.scan_iter(identifier):
             self.conn.delete(redis_patch)
 
+    @property
+    def ttl_of_one_of_our_patches(self):
+        """
+        returns: None if no patch found, else ttl
+        """
+        iterator = self.conn.scan_iter(client_patches.format(uuid=self.task_id, recid='*', record_hash='*'))
+        try:
+            ttl = self.conn.ttl(next(iterator))
+        except StopIteration:
+            # No patches
+            ttl = None
+        assert ttl is None or ttl >= 0
+        return ttl
+
+    @property
+    def ids_we_made_patches_for(self):
+        our_identifier = client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
+        our_ids = set()
+        for client_patch_key in self.conn.scan_iter(our_identifier):
+            recid = client_patch_key.split(':')[3]
+            our_ids.add(recid)
+        return our_ids
+
+    @property
     def task_ids_of_patches_we_worked_ontop(self):
-        our_ttl = \
-            self.conn.ttl(
-                self.conn.scan_iter(
-                    client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
-                )[0]
-            )
+        # Our patches could have a single TTL, but this is good enough, because
+        # the TTL of any dependency is always going to be higher than the TTL of
+        # any of our patches.
+        our_ttl = self.ttl_of_one_of_our_patches
+        print 'TTL of {}: {}'.format(self.task_id, our_ttl)
+        if our_ttl is None:
+            # We didn't make any patches, so we are not depending on anything
+            return set()
+
+        ids_we_made_patches_for = self.ids_we_made_patches_for
+        print 'PATCHES IDS from {}: {}'.format(self.task_id, ids_we_made_patches_for)
 
         identifier = client_patches.format(uuid='*', recid='*', record_hash='*')
         dep_ids = set()
         for client_patch_key in self.conn.scan_iter(identifier):
             task_id = client_patch_key.split(':')[2]
-            if task_id != self.task_id:
+            recid = client_patch_key.split(':')[3]
+            ttl = self.conn.ttl(client_patch_key)
+            if task_id != self.task_id and recid in ids_we_made_patches_for and ttl < our_ttl:
                 dep_ids.add(task_id)
         return dep_ids
 
-    def our_dependencies_have_committed_or_failed(self):
-        tiopwwo = self.task_ids_of_patches_we_worked_ontop()
+    @property
+    def our_used_dependencies_have_committed(self):
+        tiopwwo = self.task_ids_of_patches_we_worked_ontop
         for task_id in tiopwwo:
-            if RedisWorker(task_id).status not in (StatusWorker.committed, StatusWorker.failed):
-                break
-        else:
-            return False
+            if RedisWorker(task_id).status != StatusWorker.committed:
+                return False
         return True
+
+    @property
+    def a_used_dependency_of_ours_has_failed(self):
+        # from celery.contrib import rdb; rdb.set_trace()
+        tiopwwo = self.task_ids_of_patches_we_worked_ontop
+        for task_id in tiopwwo:
+            if RedisWorker(task_id).status == StatusWorker.failed:
+                return True
+        return False
+
 
 def make_fullpatch(recid, record_hash, patch, task_id):
     return {
@@ -632,6 +682,7 @@ def patch_to_redis(fullpatch):
 
 
 def get_record_orig_or_mem(recid):
+    # We upload patches at the end, so we're not picking up our own patches here
     conn = _get_redis_conn()
     record = get_record_orig(recid)
     identifier = client_patches.format(uuid='*', recid=recid, record_hash='*')

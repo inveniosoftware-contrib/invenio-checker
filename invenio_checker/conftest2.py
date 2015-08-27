@@ -195,17 +195,20 @@ def _pytest_collection_modifyitems(session, config, items):
                 blockers.add(foreign)
         return blockers
 
-    redis_worker.status = StatusWorker.ready
+    redis_worker.status = StatusWorker.ready  # unused?
     with start_action(action_type='checking for conflicting running workers'):
         redis_worker.lock.get()
-        blockers = worker_conflicts_with_currently_running(redis_worker)
-        if blockers:
-            redis_worker.retry_after_ids = [bl.task_id for bl in blockers]
-            del items[:]
-        else:
-            print 'RESUMING ' + str(redis_worker.task_id)
-            redis_worker.status = StatusWorker.running
-        redis_worker.lock.release()
+        try:
+            blockers = worker_conflicts_with_currently_running(redis_worker)
+            if blockers:
+                print 'CONFLICT {} {}'.format(redis_worker.task_id, blockers)
+                redis_worker.retry_after_ids = {bl.task_id for bl in blockers}
+                del items[:]
+            else:
+                print 'RESUMING ' + str(redis_worker.task_id)
+                redis_worker.status = StatusWorker.running
+        finally:
+            redis_worker.lock.release()
 
 
 ################################################################################
@@ -403,7 +406,7 @@ def _patches_of_last_execution():
                 yield make_fullpatch(recid, hash(original_record), patch, redis_worker.task_id)
 
     for full_patch in get_full_patches():
-        del invenio_records['temporary'][full_patch.recid]
+        del invenio_records['temporary'][full_patch['recid']]
         yield full_patch
 
 
@@ -412,7 +415,7 @@ def pytest_runtest_logreport(report):
     """
     TODO
     """
-    return _pytest_runtest_logreport
+    return _pytest_runtest_logreport(report)
 
 
 @start_action_dec(action_type='invenio_checker:conftest2:pytest_runtest_logreport')

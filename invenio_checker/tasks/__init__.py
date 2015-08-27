@@ -25,39 +25,22 @@
 """Workflow tasks for checker module."""
 
 import os
-import tempfile
-import time
+# import tempfile
+# import time
 from functools import wraps
+import traceback
 
-from datetime import datetime
-from dictdiffer import diff
-from invenio.base.globals import cfg
-from invenio.base.helpers import with_app_context
+# from datetime import datetime
+# from dictdiffer import diff
+# from invenio.base.globals import cfg
 from invenio.celery import celery
-from invenio.ext.sqlalchemy import db
+from celery.result import AsyncResult
+# from invenio.ext.sqlalchemy import db
 # from invenio.legacy.bibsched.bibtask import task_low_level_submission
 # from invenio_records.api import get_record, Record
 
-from ..supervisor import run_task
 
-@celery.task
-@with_app_context()
-def run_test(filepath, master_id, rule_name):
-    # We set `-c` so that our environment does not affect the test run.
-    from pytest import main
-    import os
-    import random
-
-    task_id = run_test.request.id
-    this_file_dir = os.path.dirname(os.path.realpath(__file__))
-    return main(args=['-s', '-v', '--tb=long',
-                              '-p', 'invenio_checker.conftest2',
-                              '-c', os.path.join(this_file_dir, '..', 'conftest2.ini'),
-                              '--invenio-rule', rule_name,
-                              '--invenio-task-id', task_id,
-                              '--invenio-master-id', master_id,
-                              filepath])
-
+from ..supervisor import run_task, handle_results, handle_error, handle_errors #, zzz
 
 def _set_done(obj, eng, rule_names, recids):
     """Update the database that a rule run has completed."""
