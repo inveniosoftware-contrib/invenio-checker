@@ -27,9 +27,9 @@
 import inspect
 
 import sqlalchemy.types as types
-from intbitset import intbitset
+from intbitset import intbitset  # pylint: disable=no-name-in-module
 from invenio.ext.sqlalchemy import db
-from invenio.modules.search.api import Query
+from invenio_search.api import Query
 from invenio_records.models import Record as Bibrec
 from sqlalchemy import orm
 

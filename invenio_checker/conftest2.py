@@ -41,7 +41,7 @@ import jsonpatch
 from functools import wraps, partial
 from invenio.ext.sqlalchemy import db as invenio_db
 from invenio_records.api import get_record as get_record_orig
-from invenio.legacy.search_engine import perform_request_search as perform_request_search_orig
+from invenio_search.api import Query
 from .models import CheckerRule
 from .recids import ids_from_input
 from intbitset import intbitset  # pylint: disable=no-name-in-module
@@ -173,7 +173,7 @@ def _pytest_collection_modifyitems(session, config, items):
                 allowed_recids = item.cls.allowed_recids(config.option.invenio_rule.arguments,
                                                          batch_recids(session),
                                                          all_recids(session),
-                                                         perform_request_search(session))
+                                                         search(session))
             else:
                 allowed_recids = batch_recids(session)
 
@@ -249,18 +249,19 @@ def _request_to_config(request_or_config):
 
 
 @pytest.fixture(scope="session")
-def db():
-    """Wrap the invenio db instance."""
-    return invenio_db
-
-
-@pytest.fixture(scope="session")
-def perform_request_search(request):
-    """Wrap `perform_request_search`.
+def search(request):
+    """Wrap `Query(request).search()`.
 
     :type request: :py:class:_pytest.python.SubRequest
     """
-    return perform_request_search_orig
+    def _query(query):
+        """
+        :type query: str
+        """
+        ret = Query(query).search()
+        ret.records = (get_record(request)(recid) for recid in ret.recids)
+        return ret
+    return _query
 
 from .redis_helpers import get_record_orig_or_mem
 
