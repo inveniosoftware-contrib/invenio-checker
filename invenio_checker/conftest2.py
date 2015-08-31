@@ -49,7 +49,6 @@ from .redis_helpers import (
     RedisWorker,
     StatusWorker,
     get_workers_with_unprocessed_results,
-    patch_to_redis,
     make_fullpatch
 )
 from eliot import (
@@ -266,8 +265,6 @@ def search(request):
         return ret
     return _query
 
-from .redis_helpers import get_record_orig_or_mem
-
 
 @pytest.fixture(scope="session")
 def get_record(request):
@@ -281,9 +278,10 @@ def get_record(request):
     :type request: :py:class:`_pytest.python.SubRequest`
     """
     def _get_record(recid):
+        redis_worker = request.session.config.option.redis_worker
         invenio_records = request.session.invenio_records
         if recid not in invenio_records['original']:
-            invenio_records['original'][recid] = get_record_orig_or_mem(recid)
+            invenio_records['original'][recid] = redis_worker.get_record_orig_or_mem(recid)
 
         if recid not in invenio_records['modified']:
             invenio_records['modified'][recid] = deepcopy(invenio_records['original'][recid])
@@ -378,7 +376,9 @@ def pytest_sessionstart(session):
 
 
 def _pytest_sessionstart(session):
+    assert not hasattr(session, 'invenio_records')
     session.invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
+    # Modified actually means "pull out"
     Session.session = session
 
 
@@ -418,7 +418,7 @@ def pytest_runtest_logreport(report):
     return _pytest_runtest_logreport(report)
 
 
-@start_action_dec(action_type='invenio_checker:conftest2:pytest_runtest_logreport')
+# @start_action_dec(action_type='invenio_checker:conftest2:pytest_runtest_logreport')
 def _pytest_runtest_logreport(report):
     session = Session.session
     invenio_records = session.invenio_records

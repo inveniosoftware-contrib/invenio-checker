@@ -94,13 +94,16 @@ def _are_compatible(worker1, worker2):
 
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
-    for i in xrange(0, len(l), n):
-        yield l[i:i+n]
+    if n == 0:
+        yield []
+    else:
+        for i in xrange(0, len(l), n):
+            yield l[i:i+n]
 
 
 def rules_to_bundles(rules, all_recids):
     max_chunk_size = 1000
-    max_chunks = 10
+    max_chunks = 1
     rule_bundles = {}
     for rule in rules:
         modified_requested_recids = rule.modified_requested_recids
@@ -273,18 +276,18 @@ def run_test(self, filepath, master_id, task_id, rule_name, retval=None):
         # We are looking to commit below this line
         redis_worker.status = StatusWorker.ran
         if redis_worker.a_used_dependency_of_ours_has_failed:
-            # redis_worker.zap()
+            redis_worker.on_others_failure()
             raise CustomRetry('A used dependency of ours has failed, so we want to run again', False)
+        if not redis_worker.our_used_dependencies_have_committed:
+            import time; time.sleep(10)
+            raise CustomRetry('Waiting for dependencies to commit', True)
     except CustomRetry as exc:
         if exc.countdown is not None:
             self.retry = partial(self.retry, countdown=exc.countdown)
         if exc.last_run_still_valid:
             self.request.kwargs.update(retval=retval)
+        else:
+            self.request.kwargs.pop('retval', None)
         self.retry(exc=exc, kwargs=self.request.kwargs)
 
-    if redis_worker.our_used_dependencies_have_committed:
-        return task_id
-    else:
-        self.retry(
-            exc=CustomRetry('Waiting for dependencies to commit', True)
-        )
+    return task_id

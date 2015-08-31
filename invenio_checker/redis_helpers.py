@@ -34,6 +34,7 @@ worker_allowed_paths = _prefix_worker + ':allowed_paths'
 worker_requested_recids = _prefix_worker + ':requested_recids'
 worker_status = _prefix_worker + ':status'
 worker_retry_after_ids = _prefix_worker + ':retry_after_ids'
+worker_patches_we_applied = _prefix_worker + ':patches_we_applied'  # contains client_patches
 
 # Common
 client_eliot_task_id = _prefix + ':{uuid}:eliot_task_id'
@@ -102,7 +103,7 @@ def get_workers_with_unprocessed_results():  # FIXME: Name
     """
     running_workers = set()
     for worker in get_workers_in_redis():
-        if worker.in_celery and worker.status in (StatusWorker.running, ):
+        if worker.in_celery and worker.status in (StatusWorker.running, StatusWorker.ran):
             running_workers.add(worker)
     return running_workers
 
@@ -327,13 +328,7 @@ class RedisMaster(RedisClient):
         warn('Zapping master ' + str(self.master_id))
         self._cleanup()
 
-    def _cleanup(self):
-        """Clear this master from redis."""
-        for key in keys_master:
-            self.conn.delete(self.fmt(key))
-        # Release lock
-        self.lock.release()
-
+    # TODO: Return actual workers (redis_workers)
     @property
     def workers(self):
         """Get all the worker IDs associated with this master.
@@ -410,7 +405,6 @@ class StatusWorker(Enum):
     ready = 3
     running = 4
     ran = 5
-    # want_to_commit = 6
     failed = 6
     committed = 7
 
@@ -445,23 +439,19 @@ class RedisWorker(RedisClient):
                 return RedisMaster(master_id)
         raise AttributeError("Can't find master!")
 
+    # FIXME
     def zap(self):
         """Zap this worker.
 
         This method is meant to be called from the master.
         """
-        warn('Zapping worker' + str(self.task_id))
+        warn('Zapping worker ' + str(self.task_id))
 
-        self.result.ready()
+        # self.result.ready()
         if self.result is not None:
             if not self.result.ready():
                 self.result.revoke(terminate=True, signal='TERM')
         self._cleanup()
-
-    def _cleanup(self):
-        """Remove this worker from redis."""
-        for key in keys_worker:
-            self.conn.delete(self.fmt(key))
 
     @property
     def allowed_recids(self):
@@ -480,6 +470,8 @@ class RedisWorker(RedisClient):
         """
         identifier = self.fmt(worker_allowed_recids)
         self.conn.set(identifier, intbitset(allowed_recids).fastdump())
+
+    ############################################################################
 
     @property
     def retry_after_ids(self):
@@ -507,12 +499,7 @@ class RedisWorker(RedisClient):
         identifier = self.fmt(worker_retry_after_ids)
         self.conn.srem(identifier, task_id_to_remove)
 
-    def _disappear_as_depender(self):
-        """Remove this task from being a dependency of all other tasks."""
-        self.lock.get()
-        for worker in get_workers_in_redis():
-            worker.retry_after_ids_pop(self.task_id)
-        self.lock.release()
+    ############################################################################
 
     @property
     def allowed_paths(self):
@@ -533,6 +520,8 @@ class RedisWorker(RedisClient):
         self.conn.delete(identifier)
         if allowed_paths:
             self.conn.sadd(identifier, *allowed_paths)
+
+    ############################################################################
 
     @property
     def status(self):
@@ -560,8 +549,55 @@ class RedisWorker(RedisClient):
         identifier = self.fmt(worker_status)
         self.conn.set(identifier, new_status.value)
 
-        if new_status in (StatusWorker.ran, StatusWorker.failed):
+        if new_status == StatusWorker.ran:
+            self._on_ran()
+        elif new_status == StatusWorker.failed:
+            self._on_own_failure()
+        elif new_status == StatusWorker.running:
+            self.patches_we_applied_clear()
+
+    def _on_own_failure(self):
+        self.lock.get()
+        try:
             self._disappear_as_depender()
+            self._clear_own_patches()
+        finally:
+            self.lock.release()
+        # self._clear_from_memory()
+
+    def _on_ran(self):
+        self.lock.get()
+        try:
+            self._disappear_as_depender()
+        finally:
+            self.lock.release()
+
+    def on_others_failure(self):
+        self.lock.get()
+        try:
+            self._disappear_as_depender()
+            self._clear_own_patches()
+        finally:
+            self.lock.release()
+
+    def _disappear_as_depender(self):
+        """Remove this task from being a dependency of all other tasks."""
+        for worker in get_workers_in_redis():
+            worker.retry_after_ids_pop(self.task_id)
+
+    def _clear_own_patches(self):
+        identifier = client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
+        for redis_patch in self.conn.scan_iter(identifier):
+            self.conn.delete(redis_patch)
+
+    def _cleanup(self):
+        """Remove this worker from redis."""
+        for key in keys_worker:
+            self.conn.delete(self.fmt(key))
+        # Release lock
+        # self.lock.release()
+
+    ############################################################################
 
     @property
     def bundle_requested_recids(self):
@@ -589,58 +625,16 @@ class RedisWorker(RedisClient):
         identifier = self.fmt(worker_requested_recids)
         self.conn.set(identifier, intbitset(new_recids).fastdump())
 
-    # FIXME: Do during cleanup
-    def clear_own_patches(self):
-        identifier = client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
-        for redis_patch in self.conn.scan_iter(identifier):
-            self.conn.delete(redis_patch)
-
-    @property
-    def ttl_of_one_of_our_patches(self):
-        """
-        returns: None if no patch found, else ttl
-        """
-        iterator = self.conn.scan_iter(client_patches.format(uuid=self.task_id, recid='*', record_hash='*'))
-        try:
-            ttl = self.conn.ttl(next(iterator))
-        except StopIteration:
-            # No patches
-            ttl = None
-        assert ttl is None or ttl >= 0
-        return ttl
-
-    @property
-    def ids_we_made_patches_for(self):
-        our_identifier = client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
-        our_ids = set()
-        for client_patch_key in self.conn.scan_iter(our_identifier):
-            recid = client_patch_key.split(':')[3]
-            our_ids.add(recid)
-        return our_ids
+    ############################################################################
 
     @property
     def task_ids_of_patches_we_worked_ontop(self):
-        # Our patches could have a single TTL, but this is good enough, because
-        # the TTL of any dependency is always going to be higher than the TTL of
-        # any of our patches.
-        our_ttl = self.ttl_of_one_of_our_patches
-        print 'TTL of {}: {}'.format(self.task_id, our_ttl)
-        if our_ttl is None:
-            # We didn't make any patches, so we are not depending on anything
-            return set()
-
-        ids_we_made_patches_for = self.ids_we_made_patches_for
-        print 'PATCHES IDS from {}: {}'.format(self.task_id, ids_we_made_patches_for)
-
-        identifier = client_patches.format(uuid='*', recid='*', record_hash='*')
-        dep_ids = set()
-        for client_patch_key in self.conn.scan_iter(identifier):
-            task_id = client_patch_key.split(':')[2]
-            recid = client_patch_key.split(':')[3]
-            ttl = self.conn.ttl(client_patch_key)
-            if task_id != self.task_id and recid in ids_we_made_patches_for and ttl < our_ttl:
-                dep_ids.add(task_id)
-        return dep_ids
+        # Unordered
+        remote_ids = set()
+        for patch_id in self.patches_we_applied:
+            remote_id = patch_id.split(':')[2]
+            remote_ids.add(remote_id)
+        return remote_ids
 
     @property
     def our_used_dependencies_have_committed(self):
@@ -652,13 +646,83 @@ class RedisWorker(RedisClient):
 
     @property
     def a_used_dependency_of_ours_has_failed(self):
-        # from celery.contrib import rdb; rdb.set_trace()
-        tiopwwo = self.task_ids_of_patches_we_worked_ontop
-        for task_id in tiopwwo:
-            if RedisWorker(task_id).status == StatusWorker.failed:
-                return True
-        return False
+        # Could speed up XXX
+        identifier = client_patches.format(uuid='*', recid='*', record_hash='*')
+        patch_ids_in_memory = set()
+        for patchlist_id in self.conn.scan_iter(identifier):
+            # for id_ in self.conn.smembers(patchlist_id):
+            patch_ids_in_memory.add(patchlist_id)
+        if self.patches_we_applied <= patch_ids_in_memory:
+            return False
+        return True
 
+        # tiopwwo = self.task_ids_of_patches_we_worked_ontop
+        # for task_id in tiopwwo:
+        #     if RedisWorker(task_id).status == StatusWorker.failed:
+        #         return True
+        # return False
+
+    ############################################################################
+
+    @property
+    def patches_we_applied(self):
+        identifier = worker_patches_we_applied.format(uuid=self.task_id)
+        return self.conn.smembers(identifier)
+
+    def patches_we_applied_add(self, fullpatch):
+        identifier = worker_patches_we_applied.format(uuid=self.task_id)
+        id_ = fullpatch_to_id(fullpatch)
+        return self.conn.sadd(identifier, id_)
+
+    def patches_we_applied_clear(self):
+        identifier = worker_patches_we_applied.format(uuid=self.task_id)
+        for redis_patch in self.conn.scan_iter(identifier):
+            self.conn.delete(redis_patch)
+
+    ############################################################################
+
+    def get_record_orig_or_mem(self, recid):
+        # We upload patches at the end, so we're not picking up our own patches here
+
+        # XXX Could put a lock around this but ugh.
+        record = get_record_orig(recid)
+        record_hash = hash(record)
+        # from invenio.ext.sqlalchemy import db; db.session.commit()
+        # record = {'yes': 'i am record'}
+        # record_hash = 123
+        sorted_fullpatches = get_fullpatches(recid)
+
+        for fullpatch in sorted_fullpatches:
+            # FIXME: Check record hash? Or check in `get_fullpatches`?  see conftest2.py:408
+            # assert fullpatch['record_hash'] == record_hash
+            self.patches_we_applied_add(fullpatch)
+            jsonpatch.apply_patch(record, fullpatch['patch'], in_place=True)
+        return record
+
+    def patch_to_redis(self, fullpatch):
+        """
+        Called on session finish, once per recid."""
+        # XXX This should terminate the test
+        if self.a_used_dependency_of_ours_has_failed:
+            self.on_others_failure()
+            return
+        conn = _get_redis_conn()
+        identifier = client_patches.format(
+            uuid=fullpatch['task_id'],
+            recid=fullpatch['recid'],
+            record_hash=fullpatch['record_hash'],
+        )
+        # assert not conn.get(identifier)
+        # print 'patching {} from {}'.format(fullpatch['recid'], fullpatch['task_id'])
+        conn.rpush(identifier, fullpatch['patch'].to_string())
+        conn.expire(identifier, 365*86400)
+
+# client_patches = _prefix + ':patches:{uuid}:{recid}:{record_hash}' # patch
+
+def fullpatch_to_id(fullpatch):
+    return client_patches.format(uuid=fullpatch['task_id'],
+                                 recid=fullpatch['recid'],
+                                 record_hash=fullpatch['record_hash'])
 
 def make_fullpatch(recid, record_hash, patch, task_id):
     return {
@@ -669,32 +733,37 @@ def make_fullpatch(recid, record_hash, patch, task_id):
     }
 
 
-def patch_to_redis(fullpatch):
+def id_to_fullpatch(id_, patch):
+    spl = id_.split(':')
+    task_id = spl[2]
+    recid_ = int(spl[3])
+    record_hash = int(spl[4])
+    return make_fullpatch(recid_, record_hash, patch, task_id)
+
+
+def get_fullpatches(recid):
+    """Get sorted fullpatches from workers that have not failed.
+
+    :param recid: recid to get patches for
     """
-    Called on session finish, once per recid."""
-    conn = _get_redis_conn()
-    identifier = client_patches.format(
-        uuid=fullpatch['task_id'],
-        recid=fullpatch['recid'],
-        record_hash=fullpatch['record_hash'],
-    )
-    assert not conn.get(identifier)
-    conn.sadd(identifier, fullpatch['patch'].to_string())
-    conn.expire(identifier, 365*86400)
 
-
-def get_record_orig_or_mem(recid):
-    # We upload patches at the end, so we're not picking up our own patches here
     conn = _get_redis_conn()
-    record = get_record_orig(recid)
     identifier = client_patches.format(uuid='*', recid=recid, record_hash='*')
-    sorted_patchsets = sorted(
-        [conn.smembers(id_) for id_ in conn.scan_iter(identifier)],
-        key=conn.ttl
-    )
+    # FIXME Workers should vanish instead of us filtering here. We should do correct failure propagation.
+    # XXX: Should be getting the lock here..?
+    patchlists = [
+        (conn.ttl(id_), conn.lrange(id_, 0, -1), id_) for id_ in conn.scan_iter(identifier)
+        if not RedisWorker(id_.split(':')[2]).a_used_dependency_of_ours_has_failed
+        # or RedisWorker(id_.split(':')[2]).status == StatusWorker.failed
+    ]
 
-    for patchset in sorted_patchsets:
-        for patch_str in patchset:
-            # TODO: Check record hash
-            jsonpatch.apply_patch(record, patch_str, in_place=True)
-    return record
+    # sorted_patchets: [[patch_str, patch_str], [patch_str, patch_str]]
+    # [set(['[{"path": "/d", "value": "a", "op": "replace"}]'])]
+
+    sorted_fullpatches = []
+    from operator import itemgetter
+    for ttl, patchlist, id_ in sorted(patchlists, key=itemgetter(0)):
+        for patch in patchlist:
+            fullpatch = id_to_fullpatch(id_, patch)
+            sorted_fullpatches.append(fullpatch)
+    return sorted_fullpatches
