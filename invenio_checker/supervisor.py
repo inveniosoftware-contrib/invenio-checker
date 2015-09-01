@@ -30,6 +30,7 @@ import sys
 import time
 import os
 
+import jsonpatch
 from pytest import main
 from celery.exceptions import TimeoutError
 from celery import chord, uuid
@@ -37,6 +38,7 @@ from six import reraise
 from invenio.celery import celery
 from invenio.base.helpers import with_app_context
 from functools import partial
+from invenio_records.api import get_record as get_record_orig
 
 from .redis_helpers import (
     RedisMaster,
@@ -150,7 +152,7 @@ def _run_task(rule_name, master_id):
 
         with start_action(action_type='create master'):
             eliot_task_id = eliot_task.serialize_task_id()
-            redis_master = RedisMaster(master_id, eliot_task_id)
+            redis_master = RedisMaster(master_id, eliot_task_id, rule_name)
 
         with start_action(action_type='create subtasks'):
             rules = CheckerRule.from_ids((rule_name,))
@@ -181,7 +183,7 @@ def _run_task(rule_name, master_id):
             result = my_chord(callback)
 
 
-def with_eliot(master_id=None, worker_id=None):
+def with_eliot(action_type, master_id=None, worker_id=None):
     assert master_id or worker_id
     if worker_id:
         # print "WITH {}".format(worker_id)
@@ -191,7 +193,7 @@ def with_eliot(master_id=None, worker_id=None):
     del Logger._destinations._destinations[:]
     to_file(open(eliot_log_path + master_id, "ab"))
     with Action.continue_task(task_id=eliot_task_id):
-        return start_action(action_type='handle results')
+        return start_action(action_type=action_type)
 
 
 @celery.task
@@ -201,17 +203,21 @@ def handle_results(task_ids):
     :type task_ids: list of str
     :param task_ids: values returned by `run_test` instances
     """
-    with with_eliot(worker_id=task_ids[0]):
-        print 'COMMITTING {}'.format(task_ids); import time; time.sleep(10)
+    with with_eliot(action_type='handle results', worker_id=task_ids[0]):
         for task_id in task_ids:
             redis_worker = RedisWorker(task_id)
+            for recid, patches in redis_worker.all_patches.items():
+                record = get_record_orig(recid)
+                for patch in patches:
+                    jsonpatch.apply_patch(record, patch, in_place=True)
+                record.commit()
+            redis_worker.master.rule.mark_recids_as_checked(redis_worker.bundle_requested_recids)
             redis_worker.status = StatusWorker.committed
-        print 'COMMITTED {}'.format(task_ids)
 
 
 @celery.task
 def handle_errors(_, failed_master_id):
-    with with_eliot(master_id=failed_master_id):
+    with with_eliot('handle errors', master_id=failed_master_id):
         for redis_worker in RedisMaster(failed_master_id).redis_workers:
             redis_worker = RedisWorker(redis_worker.task_id)
             redis_worker.status = StatusWorker.failed
@@ -279,7 +285,6 @@ def run_test(self, filepath, master_id, task_id, rule_name, retval=None):
             redis_worker.on_others_failure()
             raise CustomRetry('A used dependency of ours has failed, so we want to run again', False)
         if not redis_worker.our_used_dependencies_have_committed:
-            import time; time.sleep(10)
             raise CustomRetry('Waiting for dependencies to commit', True)
     except CustomRetry as exc:
         if exc.countdown is not None:
@@ -290,4 +295,5 @@ def run_test(self, filepath, master_id, task_id, rule_name, retval=None):
             self.request.kwargs.pop('retval', None)
         self.retry(exc=exc, kwargs=self.request.kwargs)
 
+    print 'RETURNING {} {}'.format(task_id, master_id)
     return task_id

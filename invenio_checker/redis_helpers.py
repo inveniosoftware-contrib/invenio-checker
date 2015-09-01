@@ -13,7 +13,8 @@ from six import string_types
 from warnings import warn
 import signal
 from invenio_records.api import get_record as get_record_orig
-
+from collections import defaultdict
+from operator import itemgetter
 
 _prefix = 'invenio_checker'
 _prefix_worker = _prefix + ':worker:{uuid}'
@@ -27,6 +28,7 @@ lock_last_owner = _prefix_master + ':examine_lock'
 master_workers = _prefix_master + ':workers'
 master_all_recids = _prefix_master + ':all_recids'
 master_status = _prefix_master + ':status'
+master_rule_name = _prefix_master + ':rule_name'
 
 # Worker
 worker_allowed_recids = _prefix_worker + ':allowed_recids'
@@ -45,7 +47,8 @@ keys_master = {
     master_workers,
     master_all_recids,
     master_status,
-    #client_eliot_task_id
+    #client_eliot_task_id,
+    master_rule_name,
 }
 keys_worker = {
     worker_allowed_recids,
@@ -281,7 +284,7 @@ class StatusMaster(Enum):
 
 
 class RedisMaster(RedisClient):
-    def __init__(self, master_id, eliot_task_id=None):
+    def __init__(self, master_id, eliot_task_id=None, rule_name=None):
         """Initialize a lock handle for a certain master.
 
         ..note::
@@ -294,7 +297,8 @@ class RedisMaster(RedisClient):
 
         if not RedisMaster._already_instnatiated(master_id):
             self.all_recids = Record.allids()  # __init__ is a good time for this.
-            self.status = StatusMaster.booting  # TODO: Not useful?
+            self.status = StatusMaster.booting
+            self._rule_name = rule_name
 
     @property
     def master_id(self):
@@ -396,6 +400,25 @@ class RedisMaster(RedisClient):
         assert new_status in StatusMaster
         identifier = self.fmt(master_status)
         self.conn.set(identifier, new_status.name)
+
+    @property
+    def rule_name(self):
+        identifier = self.fmt(master_rule_name)
+        return self.conn.get(identifier)
+
+    @property
+    def _rule_name(self):
+        return self.rule_name
+
+    @_rule_name.setter
+    def _rule_name(self, new_rule_name):
+        identifier = self.fmt(master_rule_name)
+        self.conn.set(identifier, new_rule_name)
+
+    @property
+    def rule(self):
+        from .models import CheckerRule
+        return CheckerRule(self.rule_name)
 
 
 class StatusWorker(Enum):
@@ -687,9 +710,6 @@ class RedisWorker(RedisClient):
         # XXX Could put a lock around this but ugh.
         record = get_record_orig(recid)
         record_hash = hash(record)
-        # from invenio.ext.sqlalchemy import db; db.session.commit()
-        # record = {'yes': 'i am record'}
-        # record_hash = 123
         sorted_fullpatches = get_fullpatches(recid)
 
         for fullpatch in sorted_fullpatches:
@@ -716,6 +736,17 @@ class RedisWorker(RedisClient):
         # print 'patching {} from {}'.format(fullpatch['recid'], fullpatch['task_id'])
         conn.rpush(identifier, fullpatch['patch'].to_string())
         conn.expire(identifier, 365*86400)
+
+    @property
+    def all_patches(self):
+        identifier = client_patches.format(uuid=self.uuid, recid='*', record_hash='*')
+        patches = defaultdict(list)
+        for sub_id in self.conn.scan_iter(identifier):
+            for patch in self.conn.lrange(sub_id, 0, -1):
+                recid = sub_id.split(':')[3]
+                patches[recid].append(patch)
+        return patches
+
 
 # client_patches = _prefix + ':patches:{uuid}:{recid}:{record_hash}' # patch
 

@@ -32,6 +32,8 @@ from invenio.ext.sqlalchemy import db
 from invenio_search.api import Query
 from invenio_records.models import Record as Bibrec
 from sqlalchemy import orm
+from invenio.ext.sqlalchemy.utils import session_manager
+from datetime import datetime
 
 from .common import ALL
 from .errors import PluginMissing
@@ -130,10 +132,6 @@ class CheckerRule(db.Model):
                         db.or_(
                             CheckerRecord.last_run == None,
                             CheckerRecord.last_run < Bibrec.modification_date,
-                            db.and_(
-                                CheckerRecord.last_run >= Bibrec.modification_date,
-                                CheckerRecord.expecting_modification == True
-                            )
                         )
                     )
                 )
@@ -141,6 +139,21 @@ class CheckerRule(db.Model):
         except IndexError:
             recids = {}
         return intbitset(recids)
+
+    @session_manager
+    def mark_recids_as_checked(self, recids):
+        now = datetime.now()
+        db.session.query(CheckerRecord).filter(
+            db.and_(
+                CheckerRecord.id_bibrec == recids,
+                CheckerRecord.name_checker_rule == self.name,
+            )
+        ).update(
+            {
+                "last_run": now,
+            },
+            synchronize_session=False
+        )
 
     @db.hybrid_property
     def requested_recids(self):
@@ -196,8 +209,6 @@ class CheckerRecord(db.Model):
                                   db.ForeignKey('checker_rule.name'),
                                   nullable=False, index=True,
                                   primary_key=True)
-
-    expecting_modification = db.Column(db.Boolean, nullable=False, default=False)
 
     last_run = db.Column(db.DateTime, nullable=True, server_default=None, index=True)
 
