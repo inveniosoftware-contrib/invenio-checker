@@ -40,13 +40,9 @@ from invenio.base.helpers import with_app_context
 from functools import partial
 from invenio_records.api import get_record as get_record_orig
 
-from .redis_helpers import (
-    RedisMaster,
-    RedisWorker,
-    StatusWorker,
-    StatusMaster,
-    cleanup_failed_runs,
-)
+from .master import RedisMaster, StatusMaster
+from .worker import RedisWorker, StatusWorker
+from .redis_helpers import cleanup_failed_runs
 from eliot import (
     Message,
     to_file,

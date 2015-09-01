@@ -39,17 +39,13 @@ from six import StringIO
 
 import jsonpatch
 from functools import wraps, partial
-from invenio.ext.sqlalchemy import db as invenio_db
-from invenio_records.api import get_record as get_record_orig
 from invenio_search.api import Query
 from .models import CheckerRule
-from .recids import ids_from_input
-from intbitset import intbitset  # pylint: disable=no-name-in-module
-from .redis_helpers import (
+from .worker import (
     RedisWorker,
     StatusWorker,
+    make_fullpatch,
     get_workers_with_unprocessed_results,
-    make_fullpatch
 )
 from eliot import (
     Action,
