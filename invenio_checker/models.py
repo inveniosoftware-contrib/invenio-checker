@@ -138,7 +138,7 @@ class CheckerRule(db.Model):
                 )
             )[0]
         except IndexError:
-            recids = {}
+            recids = set()
         return intbitset(recids)
 
     @session_manager
