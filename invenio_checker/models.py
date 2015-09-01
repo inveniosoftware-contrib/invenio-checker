@@ -81,6 +81,10 @@ class CheckerRule(db.Model):
         if self.pluginspec not in plugin_files:
             raise PluginMissing(self.pluginspec, self.name)
 
+    owner_id = db.Column(db.Integer(15, unsigned=True), db.ForeignKey('user.id'))
+    owner = db.relationship('User', uselist=False,
+                            backref=db.backref('checker_rule', uselist=False))
+
     @db.hybrid_property
     def pluginspec(self):
         """Resolve checkspec of the rule's check."""
