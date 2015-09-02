@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 
 from flask import Blueprint
 from flask.json import jsonify
-# from flask import request
+from flask import request
 from flask_breadcrumbs import register_breadcrumb
 from flask_login import login_required
 
@@ -57,6 +57,7 @@ def index():
     """Index."""
     pass
 
+# Tasks
 
 @blueprint.route('/api/tasks/get/header', methods=['POST'])
 @login_required
@@ -94,6 +95,7 @@ def get_tasks_data():
         row_list.append(dict(rule))
     return jsonify(rows)
 
+# Checks
 
 @blueprint.route('/api/checks/get/header', methods=['POST'])
 @login_required
@@ -125,3 +127,12 @@ def get_checks_data():
 def create_task():
     """Index."""
     pass
+
+
+@blueprint.route('/translate', methods=['GET'])
+@login_required
+@permission_required(WEBACCESSACTION)
+def translate():
+    """Returns the columns of the checks table."""
+    from invenio.base.i18n import _
+    return str(_(request.args['english']))

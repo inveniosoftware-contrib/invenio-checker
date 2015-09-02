@@ -25,13 +25,22 @@ define(
 
     "use strict";
 
-    $('#load_tasks').on('click', function() {
-      loadTable('tasks');
+    $(document).ready(function () {
+      switchTo('tasks');
     });
 
-    $('#load_checks').on('click', function() {
-      loadTable('checks');
+    $('#load_tasks').on('click', function() {
+      switchTo('tasks');
     });
+    });
+    $('#load_checks').on('click', function() {
+      switchTo('checks');
+    });
+
+    function switchTo(page_name) {
+      updateSubTitle(page_name);
+      loadTable(page_name);
+    }
 
     function getTaskColumns(table_name) {
       return $.ajax({
@@ -61,7 +70,6 @@ define(
           rows: rows,
           cols: cols
         },
-        dataBind: true,
         filter: true,
         types: {
           string: {
@@ -76,5 +84,23 @@ define(
         }
       });
     }
+
+    function updateSubTitle(name) {
+      var subtitles = {
+        tasks: 'Tasks view',
+        checks: 'Checks view',
+        logs: 'Logs view'
+      };
+      var subtitle_en = subtitles[name];
+      $.ajax({
+        type: "GET",
+        url: "/admin/checker/translate",
+        data: {english: subtitle_en},
+        success: function(data) {
+          $('#subtitle').text(data);
+        }
+      });
+    }
+
   }
 );
