@@ -27,3 +27,7 @@
     float: left;
     width: 100%;
 }
+
+.watable.table {
+    width: 100% !important;
+}

@@ -32,8 +32,12 @@ from invenio.base.i18n import _
 from invenio.ext.principal import permission_required
 
 from invenio_checker.models import CheckerRule
-from invenio_checker.views.config import checker_rule_mapping
+from invenio_checker.views.config import (
+    task_mapping,
+    check_mapping,
+)
 
+from ..registry import plugin_files
 # from invenio.modules.access.local_config import \
 # FIXME
 WEBACCESSACTION = 'cfgwebaccess'
@@ -63,9 +67,9 @@ def get_tasks_header():
     For security reasons, a list cannot be JSON-ified, so it has to be wrapped
     within a dictionary.
     """
-    header = {"columns": {}}
-    column_list = header["columns"]
-    for mapping_key, mapping_value in checker_rule_mapping.items():
+    header = {"cols": {}}
+    column_list = header["cols"]
+    for mapping_key, mapping_value in task_mapping.items():
         if not mapping_value["hidden"]:
             column_list[mapping_key] = mapping_value
     return jsonify(header)
@@ -84,9 +88,33 @@ def get_tasks_data():
     row_list = rows["rows"]
     rules = CheckerRule.query.all()
     for rule in rules:
+        rule = dict(rule)
+        rule['arguments'] = str(rule['arguments'])
+        rule['plugin'] = '.'.join([rule['plugin_module'], rule['plugin_file']])
         row_list.append(dict(rule))
-        row_list[-1]['arguments'] = str(row_list[-1]['arguments'])
     return jsonify(rows)
+
+
+@blueprint.route('/api/checks/get/header', methods=['POST'])
+@login_required
+@permission_required(WEBACCESSACTION)
+def get_checks_header():
+    """Returns the header of the checks table."""
+    return jsonify({"cols": check_mapping})
+
+
+@blueprint.route('/api/checks/get/data', methods=['POST'])
+@login_required
+@permission_required(WEBACCESSACTION)
+def get_checks_data():
+    """Returns the columns of the checks table."""
+    checks = []
+    for name, plugin in plugin_files.items():
+        checks.append({
+            'name': name,  # FIXME: This is fully qualified name, not human readable
+            'description': plugin.__doc__,
+        })
+    return jsonify({"rows": checks})
 
 
 @blueprint.route('/create_task', methods=['GET', 'POST'])

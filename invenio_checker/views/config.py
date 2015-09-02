@@ -62,7 +62,7 @@ Some basic explanation of the available options.
     Enables or disables sorting.
 """
 
-checker_rule_mapping = {
+task_mapping = {
     "name": {
         "hidden": False,
         "index": 1,
@@ -142,4 +142,23 @@ checker_rule_mapping = {
         "friendly": "Owner",
         "placeHolder": "Enter filter",
     }
+}
+
+check_mapping = {
+    "name": {
+        "hidden": False,
+        "index": 1,
+        "type": "string",
+        "friendly": "Name",
+        "unique": True,
+        "placeHolder": "Enter filter",
+    },
+    "description": {
+        "hidden": False,
+        "index": 2,
+        "type": "string",
+        "friendly": "Description",
+        "unique": False,
+        "placeHolder": "Enter filter",
+    },
 }
