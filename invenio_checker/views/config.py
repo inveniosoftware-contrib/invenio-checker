@@ -128,4 +128,11 @@ checker_rule_mapping = {
         "friendly": "Temporary",
         "placeHolder": "Enter filter",
     },
+    "owner_id": {
+        "hidden": False,
+        "index": 10,
+        "type": "string",
+        "friendly": "Owner",
+        "placeHolder": "Enter filter",
+    }
 }
