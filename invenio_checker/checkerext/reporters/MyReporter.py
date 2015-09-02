@@ -24,5 +24,5 @@ class MyReporter(object):
             print patches
             print '~~~5'
 
-def get_reporter(foo):
+def get_reporter(name=None):
     return MyReporter()

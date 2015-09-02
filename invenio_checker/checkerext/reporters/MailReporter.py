@@ -41,5 +41,5 @@ class MailReporter(object):
         pass
 
 # TODO make reporter load correct settings from DB on initialization basing on name taken from task
-def get_reporter(foo):
+def get_reporter(name=None):
     return MailReporter()

@@ -55,8 +55,8 @@ from invenio.ext.sqlalchemy import db
 #     )
 #     db.session.add(new_rule)
 #     db.session.commit()
-# except Exception as e:
-#     raise e
+# except Exception:
+#     pass
 # try:
 #     new_rule = CheckerRule(
 #         name='enum2',

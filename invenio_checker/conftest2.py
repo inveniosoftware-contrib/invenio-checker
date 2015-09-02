@@ -219,7 +219,7 @@ def _pytest_collection_modifyitems(session, config, items):
 def get_reporters(invenio_rule):
     from .registry import reporters_files
     registered_reporters = [reporter.plugin_file for reporter in invenio_rule.reporters]
-    return [reporter[1].get_reporter('a') for reporter in reporters_files.iteritems() if reporter[0].split('.')[-1] in registered_reporters]
+    return [reporter[1].get_reporter() for reporter in reporters_files.iteritems() if reporter[0].split('.')[-1] in registered_reporters]
 
 
 def _warn_if_empty(func):
