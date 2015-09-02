@@ -63,17 +63,11 @@ def get_tasks_header():
     For security reasons, a list cannot be JSON-ified, so it has to be wrapped
     within a dictionary.
     """
-    cols = CheckerRule.__table__.columns
-    print cols
     header = {"columns": {}}
     column_list = header["columns"]
-    for col in cols:
-        try:
-            mapping = checker_rule_mapping[col.name]
-            if not mapping["hidden"]:
-                column_list[col.name] = mapping
-        except KeyError:
-            pass  # TODO: Log event
+    for mapping_key, mapping_value in checker_rule_mapping.items():
+        if not mapping_value["hidden"]:
+            column_list[mapping_key] = mapping_value
     return jsonify(header)
 
 
