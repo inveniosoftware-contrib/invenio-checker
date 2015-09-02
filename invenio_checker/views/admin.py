@@ -85,6 +85,7 @@ def get_tasks_data():
     rules = CheckerRule.query.all()
     for rule in rules:
         row_list.append(dict(rule))
+        row_list[-1]['arguments'] = str(row_list[-1]['arguments'])
     return jsonify(rows)
 
 
