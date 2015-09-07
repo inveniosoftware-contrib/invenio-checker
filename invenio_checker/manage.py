@@ -38,8 +38,8 @@ from invenio.ext.script import Manager, change_command_name
 from invenio.ext.sqlalchemy import db
 
 ################################################################################
-from invenio_checker.models import CheckerRule, CheckerRecord, CheckerReporter
-from invenio.ext.sqlalchemy import db
+# from invenio_checker.models import CheckerRule, CheckerRecord, CheckerReporter
+# from invenio.ext.sqlalchemy import db
 # CheckerRecord.query.delete()
 # CheckerRule.query.delete()
 # try:

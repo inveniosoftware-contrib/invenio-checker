@@ -23,23 +23,51 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 from invenio.ext.email import send_email
+from invenio_checker.models import CheckerReporter, CheckerRule
+from invenio.base.config import CFG_SITE_ADMIN_EMAIL
 
 
 class MailReporter(object):
-    def __init__(self):
-        self.email = "wziolek@cern.ch"
+    def __init__(self, reporter_name):
+        self.reporter_name = reporter_name
+        self.admin_email = CFG_SITE_ADMIN_EMAIL
+        self.email = None
+        if reporter_name:
+            self.reporter = CheckerReporter.query.filter_by(name=reporter_name).first()
+        else:
+            print "Missing or wrong reporter name!"
+            raise Exception
+        if self.reporter:
+            self.settings = self.reporter.arguments
+            check = CheckerRule.query.filter_by(name=self.reporter.rule_name).first()
+            if check.owner:
+                self.email = check.owner.email
+        if not self.email:
+            self.email = self.admin_email
 
     def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None):
-        print "Sending email ex"
-        send_email(self.email, self.email, "Error test", "This is error body: %s, %s, %s, %s" % (when, outrep_summary, location_tuple, formatted_exception))
+        print self.reporter_name
+        print self.settings
+        send_email(self.admin_email,
+                   self.email,
+                   "CHECKER EXCEPTION - rule: %s raised exception" % (self.reporter.rule_name,),
+                   "%s\n %s\n %s\n %s" % (when, outrep_summary, location_tuple, formatted_exception))
 
-    def report(self, when, outrep_summary, location_tuple, formatted_exception=None):
-        print "Sending email"
-        send_email(self.email, self.email, "Error test", "This is error body: %s, %s, %s, %s" % (when, outrep_summary, location_tuple, formatted_exception))
+    def report(self, user_readable_msg, location_tuple=None):
+        print "bla"
+        print self.reporter_name
+        print self.settings
+        print self.admin_email
+        print self.email
+        send_email(self.admin_email,
+                   self.email,
+                   "CHECKER LOG - rule: %s logging" % (self.reporter.rule_name,),
+                   "%s\n %s" % (user_readable_msg, location_tuple))
 
     def finalize(self):
         pass
 
 # TODO make reporter load correct settings from DB on initialization basing on name taken from task
-def get_reporter(name=None):
-    return MailReporter()
+def get_reporter(name):
+    print "Initializing reporter %s" % (name,)
+    return MailReporter(name)

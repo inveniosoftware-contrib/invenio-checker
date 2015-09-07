@@ -1,8 +1,8 @@
 class MyReporter(object):
-    def __init__(self):
+    def __init__(self, name):
         pass
 
-    def report(self, user_readable_msg, location_tuple):
+    def report(self, user_readable_msg, location_tuple=None):
         print user_readable_msg
         print '1'
 
@@ -24,5 +24,6 @@ class MyReporter(object):
             print patches
             print '~~~5'
 
-def get_reporter(name=None):
-    return MyReporter()
+def get_reporter(name):
+    print "Initializing reporter %s" % (name,)
+    return MyReporter(name)
