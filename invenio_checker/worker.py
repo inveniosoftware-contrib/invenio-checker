@@ -24,7 +24,6 @@
 
 import jsonpatch
 import redis
-from enum import Enum
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from six import string_types
 from warnings import warn
@@ -39,6 +38,8 @@ from .redis_helpers import (
     get_redis_conn,
 )
 from .master import master_workers
+from .enums import StatusWorker
+
 
 _prefix = 'invenio_checker'
 _prefix_worker = _prefix + ':worker:{uuid}'
@@ -77,7 +78,6 @@ def get_workers_with_unprocessed_results():  # FIXME: Name
     ..note:: Must be in a lock.
     """
     # conn = get_redis_conn()
-    from .worker import StatusWorker
     running_workers = set()
     for worker in get_workers_in_redis():
         if worker.in_celery and worker.status in (StatusWorker.running, StatusWorker.ran):  # XXX Do we want .ran here?
@@ -136,18 +136,6 @@ def get_fullpatches(recid):
     return sorted_fullpatches
 
 
-
-class StatusWorker(Enum):
-    dead_parrot = 0
-    scheduled = 1
-    booting = 2
-    ready = 3
-    running = 4
-    ran = 5
-    failed = 6
-    committed = 7
-
-
 class HasPatches(object):
 
     @property
@@ -198,19 +186,16 @@ class RedisWorker(RedisClient, HasPatches):
                 return RedisMaster(master_id)
         raise AttributeError("Can't find master!")
 
-    # FIXME
     def zap(self):
         """Zap this worker.
 
         This method is meant to be called from the master.
         """
         warn('Zapping worker ' + str(self.task_id))
-
-        # self.result.ready()
+        self.status = StatusWorker.failed
         if self.result is not None:
             if not self.result.ready():
                 self.result.revoke(terminate=True, signal='TERM')
-        self._cleanup()
 
     @property
     def allowed_recids(self):
@@ -307,6 +292,8 @@ class RedisWorker(RedisClient, HasPatches):
         identifier = self.fmt(worker_status)
         self.conn.set(identifier, new_status.value)
 
+        self.master.worker_status_changed()
+
         if new_status == StatusWorker.ran:
             self._on_ran()
         elif new_status == StatusWorker.failed:
@@ -319,6 +306,7 @@ class RedisWorker(RedisClient, HasPatches):
         try:
             self._disappear_as_depender()
             self._clear_own_patches()
+            self._cleanup()
         finally:
             self.lock.release()
 
@@ -326,6 +314,7 @@ class RedisWorker(RedisClient, HasPatches):
         self.lock.get()
         try:
             self._disappear_as_depender()
+            self._cleanup()
         finally:
             self.lock.release()
 
@@ -334,6 +323,7 @@ class RedisWorker(RedisClient, HasPatches):
         try:
             self._disappear_as_depender()
             self._clear_own_patches()
+            self._cleanup()
         finally:
             self.lock.release()
 
@@ -363,8 +353,8 @@ class RedisWorker(RedisClient, HasPatches):
         identifier = self.fmt(worker_requested_recids)
         recids = self.conn.get(identifier)
         if recids is None:
-            return None
-        return intbitset(self.conn.get(identifier))
+            recids = set()
+        return intbitset(recids)
 
     @property
     def _bundle_requested_recids(self):

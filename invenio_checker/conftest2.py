@@ -55,10 +55,11 @@ from eliot import (
     Logger,
 )
 from .supervisor import (
-    eliot_log_path,
-    _are_compatible,
+    _are_compatible
 )
+from .config import get_eliot_log_path
 
+eliot_log_path = get_eliot_log_path()
 
 try:
     from functools import lru_cache
@@ -117,7 +118,7 @@ def start_action_dec(action_type, **dec_kwargs):
             # print "~{} {}".format(eliot_task_id, action_type)
 
             del Logger._destinations._destinations[:]
-            to_file(open(eliot_log_path + redis_worker.task_id, "ab"))
+            to_file(open(os.path.join(eliot_log_path, redis_worker.master.uuid + '.' + redis_worker.task_id), "ab"))
 
             eliot_task = Action.continue_task(task_id=eliot_task_id)
             with eliot_task:
@@ -172,15 +173,15 @@ def _pytest_collection_modifyitems(session, config, items):
             else:
                 allowed_recids = batch_recids(session)
 
-        with start_action(action_type='ensure hints returned sane values'):
-            # We could be intersecting instead of raising, but we are evil.
-            if allowed_recids - all_recids(session):
-                raise Exception('Check requested recids that are not in the database!')
-            # TODO Must return jsonpointers (IETF RFC 6901)
+        Message.log(message_type='ensure hints returned sane values')
+        # We could be intersecting instead of raising, but we are evil.
+        if allowed_recids - all_recids(session):
+            raise Exception('Check requested recids that are not in the database!')
+        # TODO Must return jsonpointers (IETF RFC 6901)
 
-        with start_action(action_type='store performance hints'):
-            redis_worker.allowed_paths = allowed_paths
-            redis_worker.allowed_recids = allowed_recids
+        Message.log(message_type='store performance hints')
+        redis_worker.allowed_paths = allowed_paths
+        redis_worker.allowed_recids = allowed_recids
 
     def worker_conflicts_with_currently_running(worker):
         foreign_running_workers = get_workers_with_unprocessed_results()
@@ -196,6 +197,7 @@ def _pytest_collection_modifyitems(session, config, items):
         try:
             blockers = worker_conflicts_with_currently_running(redis_worker)
             if blockers:
+                Message.log(message_type='found conflicting workers', value=str(blockers))
                 print 'CONFLICT {} {}'.format(redis_worker.task_id, blockers)
                 redis_worker.retry_after_ids = {bl.task_id for bl in blockers}
                 del items[:]
@@ -285,7 +287,6 @@ def get_record(request):
         if recid not in invenio_records['temporary']:
             invenio_records['temporary'][recid] = invenio_records['modified'][recid]
         return invenio_records['temporary'][recid]
-
     return _get_record
 
 
@@ -421,8 +422,6 @@ def _pytest_runtest_logreport(report):
 
     if report.when == 'teardown' and report.outcome == 'passed':
         temp_keys = invenio_records['temporary'].keys()
-        if temp_keys:
-            Message.log(action='adding patches to list of requested ones')
         for recid in temp_keys:
             invenio_records['modified'][recid] = invenio_records['temporary'].pop(recid)
 
@@ -481,7 +480,12 @@ def _pytest_sessionfinish(session, exitstatus):
             original_record = invenio_records['original'][recid]
             patch = jsonpatch.make_patch(original_record, modified_record)
             if patch:
-                patch_to_redis(make_fullpatch(recid, hash(original_record), patch, redis_worker.task_id))
+                # FIXME: Hash is wrong
+                redis_worker.patch_to_redis(
+                    make_fullpatch(
+                        recid, hash(original_record),
+                        patch, redis_worker.task_id)
+                )
 
 
 class LocationTuple(object):
@@ -585,7 +589,7 @@ class InvenioReporter(TerminalReporter):
             self.report_failure(report)
         else:
             pass
-            # TODO: record checked records to DB
+            # TODO: record checked records to DB. No, don't do this before commit.
 
     def pytest_runtest_logstart(self, nodeid, location):
         """No-op terminal-specific prints."""
@@ -664,10 +668,6 @@ def pytest_configure(config):
 
     :type config: :py:class:`_pytest.config.Config`
     """
-    if hasattr(config, 'slaveinput'):
-        return  # xdist slave, we are already active on the master
-
-    # Reporters
     # @lru_cache(maxsize=2)
     def get_reporters(invenio_rule):
         """

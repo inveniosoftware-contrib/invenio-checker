@@ -20,6 +20,18 @@
 """ Bibcheck plugin to check fields have one of a defined set of values """
 
 
+# Type must be specified
+# Key may not start with 'arg_'
+argument_schema = {
+    'astring': {'type': 'string'},
+    'anumber': {'type': 'float'},
+    'adt': {'type': 'datetime'},
+    'atext': {'type': 'text'},
+    'adate': {'type': 'date'},
+    'abool': {'type': 'boolean'},
+}
+
+
 class CheckWhatever(object):
 
     # @staticmethod

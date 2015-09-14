@@ -31,3 +31,17 @@
 .watable.table {
     width: 100% !important;
 }
+
+.monospace {
+    font-family: Monospace;
+    font-size: 10px;
+    white-space: pre;
+}
+
+.switchable {
+    display: none;
+}
+
+.validation-error {
+    /* TODO */
+}

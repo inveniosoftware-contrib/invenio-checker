@@ -24,7 +24,8 @@ require(
       "bootstrap",
       "bootstrap-datepicker-eyecon",
       "watable",
-      "js/checker/admin/watable"
+      "js/checker/admin/watable",
+      "bootstrap-datetimepicker"
     ],
 
     function() {

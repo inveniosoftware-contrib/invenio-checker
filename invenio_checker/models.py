@@ -25,8 +25,9 @@
 """Database models for Checker module."""
 
 import inspect
+import json
 
-import sqlalchemy.types as types
+from sqlalchemy import types
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from invenio.ext.sqlalchemy import db
 from invenio_search.api import Query
@@ -34,23 +35,50 @@ from invenio_records.models import Record as Bibrec
 from sqlalchemy import orm
 from invenio.ext.sqlalchemy.utils import session_manager
 from datetime import datetime
+from invenio_accounts.models import User
 
 from .common import ALL
 from .errors import PluginMissing
 from .registry import plugin_files
 
+from sqlalchemy_utils.types.choice import ChoiceType
+from .master import StatusMaster
 
-class PickleIntBitSet(types.TypeDecorator):
-    '''Prefixes Unicode values with "PREFIX:" on the way in and
-    strips it off on the way out.
-    '''
+from sqlalchemy.ext import mutable
 
-    impl = db.PickleType
+
+
+class JsonEncodedDict(db.TypeDecorator):
+    """Enables JSON storage by encoding and decoding on the fly."""
+    impl = db.String
 
     def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        return intbitset(value)
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        return json.loads(value)
+
+
+mutable.MutableDict.associate_with(JsonEncodedDict)
+
+
+def IntBitSetType(*args, **kwargs):
+
+    class _IntBitSetType(types.TypeDecorator):
+
+        impl = db.Unicode
+
+        def process_bind_param(self, value, dialect):
+            if value is None:
+                return None
+            return intbitset(value).fastdump()
+
+        def process_result_value(self, value, dialect):
+            if value is None:
+                return None
+            return intbitset(value)
+
+    return _IntBitSetType(*args, **kwargs)
 
 
 class CheckerRule(db.Model):
@@ -64,28 +92,29 @@ class CheckerRule(db.Model):
     plugin_module = db.Column(db.String(50), nullable=False)
     plugin_file = db.Column(db.String(50), nullable=False)
 
-    arguments = db.Column(db.PickleType, default={})
+    arguments = db.Column(JsonEncodedDict(1024), default={})
 
     option_holdingpen = db.Column(db.Boolean, nullable=False, default=True)
     option_consider_deleted_records = db.Column(db.Boolean, nullable=True,
                                                  default=False)
 
     filter_pattern = db.Column(db.String(255), nullable=True)
-    filter_records = db.Column(PickleIntBitSet, nullable=True)
+    filter_records = db.Column(IntBitSetType(1024), nullable=True)
 
-    records = db.relationship('CheckerRecord', backref='checker_rule',
+    records = db.relationship('CheckerRecord', backref='rule',
                               cascade='all, delete-orphan')
 
     temporary = db.Column(db.Boolean, default=False)
-
-    owner_id = db.Column(db.Integer(15, unsigned=True), db.ForeignKey('user.id'))
-    owner = db.relationship('User', uselist=False,
-                            backref=db.backref('checker_rule', uselist=False))
 
     @db.hybrid_property
     def pluginspec(self):
         """Resolve checkspec of the rule's check."""
         return '{module}.checkerext.checks.{file}'\
+            .format(module=self.plugin_module, file=self.plugin_file)
+
+    @db.hybrid_property
+    def plugin(self):
+        return '{module}.{file}'\
             .format(module=self.plugin_module, file=self.plugin_file)
 
     @db.hybrid_property
@@ -214,6 +243,82 @@ class CheckerRule(db.Model):
         ))
 
 
+class CheckerRuleExecution(db.Model):
+
+    __tablename__ = 'checker_rule_execution'
+
+    uuid = db.Column(
+        db.String(36),
+        primary_key=True,
+    )
+
+    id_owner = db.Column(
+        db.Integer(15, unsigned=True),
+        db.ForeignKey('user.id'),
+        nullable=False,
+        server_default='0'
+    )
+    owner = db.relationship(
+        'User'
+    )
+
+    id_rule = db.Column(
+        db.String(50),
+        db.ForeignKey('checker_rule.name')
+    )
+    rule = db.relationship(
+        'CheckerRule'
+    )
+
+    _status = db.Column(
+        ChoiceType(StatusMaster, impl=db.Integer()),
+        default=StatusMaster.unknown,
+    )
+
+    status_update_date = db.Column(
+        db.DateTime(),
+        nullable=False,
+        server_default='1900-01-01 00:00:00',
+    )
+
+    start_date = db.Column(
+        db.DateTime(),
+        nullable=False,
+        server_default='1900-01-01 00:00:00',
+    )
+
+    @db.hybrid_property
+    def status(self):
+        return self._status
+
+    @status.setter
+    @session_manager
+    def status(self, new_status):
+        self._status = new_status
+        self.status_update_date = datetime.utcnow()
+
+    def read_logs(self):
+        import os
+        from glob import glob
+        import subprocess
+        from .config import get_eliot_log_path
+
+        eliot_log_path = get_eliot_log_path()
+
+        filenames = glob(os.path.join(eliot_log_path, self.uuid + "*"))
+
+        eliottree_subp = subprocess.Popen(['eliot-tree'],
+                                          stdout=subprocess.PIPE,
+                                          stdin=subprocess.PIPE)
+        with eliottree_subp.stdin:
+            for filename in filenames:
+                with open(filename, 'r') as file_:
+                    eliottree_subp.stdin.write(file_.read())
+        with eliottree_subp.stdout:
+            for line in eliottree_subp.stdout:
+                yield line
+
+
 class CheckerRecord(db.Model):
 
     """Connect checks with their executions on records."""
@@ -232,4 +337,4 @@ class CheckerRecord(db.Model):
     last_run = db.Column(db.DateTime, nullable=True, server_default=None, index=True)
 
 
-__all__ = ('CheckerRule', 'CheckerRecord', )
+__all__ = ('CheckerRule', 'CheckerRecord', 'CheckerRuleExecution')

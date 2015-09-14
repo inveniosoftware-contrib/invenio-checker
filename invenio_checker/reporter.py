@@ -6,7 +6,7 @@ class MyReporter(object):
         print '1'
 
     # def report_exception(self, when, outrep_summary, location_tuple, exc_info, formatted_exception):
-    def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None):
+    def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None, patches=None):
         print '~~~0'
         print when
         print '~~~1'

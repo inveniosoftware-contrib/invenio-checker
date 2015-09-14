@@ -17,50 +17,99 @@
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #}
 
+<script> var requested_page = '{{ page_name }}'; </script>
+
+{% import 'checker/admin/macros_bootstrap.html' as bt %}
 {% extends "page.html" %}
+
 {% set title = _("Checker Admin") %}
 {% block title %}
 <div class="page-header">
-  <h1>{{ title }} <small>{{ _('Task view') }}</small></h1>
+    <h1>{{ title }} <small id='subtitle'></small></h1>
 </div>
 {% endblock title %}
 
 {% block header %}
-  {{ super() }}
-  {% bundles "checker.css", "checker_task_view.js" %}
+{{ super() }}
+{% bundles "checker.css", "checker_task_view.js" %}
 {% endblock header %}
 
 {% block body %}
 
-<div id="header-row">
-  <div class="btn-group" role="group" aria-label="...">
-    <div class="btn-group" role="group">
-      <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-        Available
-        <span class="caret"></span>
-      </button>
-      <ul class="dropdown-menu">
-        <li><a href="#" id='load_tasks'>Tasks</a></li>
-        <li><a href="#" id='load_checks'>Checks</a></li>
-      </ul>
+{# Header #}
+<nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+        <a class="navbar-brand" href="#">
+            <img alt="Checker" src="/admin/checker/static/img/logo.svg">
+        </a>
     </div>
-      <button type="button" class="btn btn-default" id='load_logs'>Log</button>
-  </div>
-  <div style="float:right">
-    <button type="button" class="btn btn-default">Create new</button>
-  </div>
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+        </ul>
+        <ul class="nav navbar-nav navbar-left">
+            <li><a href="{{url_for('.view', page_name='tasks')}}" id='load_tasks'>{{ _("Tasks") }}</a></li>
+            <li><a href="{{url_for('.view', page_name='checks')}}" id='load_checks'>{{ _("Checks") }}</a></li>
+            <li><a href="{{url_for('.view', page_name='executions')}}" id='load_logs'>{{ _("Executions") }}</a></li>
+        </ul>
+        <ul class="nav navbar-nav navbar-right">
+            <a href="{{url_for('.view', page_name='create_task')}}" type="button" class="btn btn-default navbar-btn" id="create_task">
+                {{ _("Create task") }}
+            </a>
+        </ul>
+    </div><!-- /.navbar-collapse -->
+</div><!-- /.container-fluid -->
+</nav>
+
+{# Tables #}
+<div class="switchable" id="table-container"> </div>
+
+{# Creation #}
+<div class="switchable" id="creation" class="panel panel-default" style="width:75%;margin:auto;">
+    <div class="panel-heading">
+        <h3 class="panel-title">{{ _('Please enter the new task details') }}</h3>
+    </div>
+    <div class="panel-body">
+
+        <div id="new-task-form">
+            {{ bt.render_form(new_task_form, action_url=url_for(".submit_task"), action_text='Submit Form', id_='new_task_form', class_='form-horizontal') }}
+        </div>
+
+        {#
+        {% call bt.render_form(form, action_url=url_for('login_view'), action_text='Login',
+                                    class_='login-form') %}
+            {{ bt.render_field(form.email, label_visible=false, placeholder='Email', type='email') }}
+            {{ bt.render_field(form.password, label_visible=false, placeholder='Password', type='password') }}
+            {{ bt.render_checkbox_field(form.remember_me) }}
+        {% endcall %}
+        <span>
+            <p style="display:inline;">Name</p>
+            <input type="text" class="form-control" style="width:50%;display:inline;float:right" aria-describedby="basic-addon1">
+        </span>
+        #}
+
+    </div>
 </div>
 
-<div id="table-container">
-  <!--<table class="watable table table-bordered">-->
-    <!--<thead>-->
-      <!--<tr class="sort">-->
-        <!--{% for col in cols %}-->
-          <!--<th><a class="pull-left" href="#">{{ col["meta"]["display-name"] }}</a></th>-->
-        <!--{% endfor %}-->
-      <!--</tr>-->
-    <!--</thead>-->
-  <!--</table>-->
+{# Modal #}
+<div class="modal fade" id="dialogModal" tabindex="-1" role="dialog" aria-labelledby="dialogModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="myModalLabel">Executions</h4>
+            </div>
+            <div class="modal-body monospace">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">{{ _("Dismiss") }}</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock body %}

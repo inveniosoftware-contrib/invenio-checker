@@ -35,6 +35,7 @@ from .registry import plugin_files
 from .models import CheckerRule, CheckerRecord
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
+from invenio.ext.sqlalchemy import db
 
 ################################################################################
 # from invenio_checker.models import CheckerRule, CheckerRecord
@@ -140,7 +141,7 @@ def run(rules, user_recids, queue, tickets, upload):
     """
 
     from .supervisor import run_task
-    rule_names =('enum', 'enum2')
+    rule_names = (rule.name for rule in rules)
     run_task(rule_names)
 
     # return bool(z)

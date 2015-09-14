@@ -23,7 +23,6 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 import signal
-from enum import Enum
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from .redis_helpers import (
     RedisClient,
@@ -31,6 +30,9 @@ from .redis_helpers import (
     prefix_master,
 )
 from warnings import warn
+from .enums import StatusMaster, StatusWorker
+
+from invenio.ext.sqlalchemy import db
 
 # Master
 master_all_recids = prefix_master + ':all_recids'
@@ -46,10 +48,6 @@ keys_master = {
     master_status,
     master_rule_name,
 }
-
-class StatusMaster(Enum):
-    booting = 1
-    waiting_for_results = 2
 
 
 class HasWorkers(object):
@@ -83,7 +81,19 @@ class HasWorkers(object):
         from .worker import RedisWorker
         return {RedisWorker(worker_id) for worker_id in self.workers}
 
+    def workers_append(self, worker_id):
+        identifier = self.fmt(master_workers)
+        self.conn.sadd(identifier, worker_id)
+
+    def worker_status_changed(self):
+        if any(w.status == StatusWorker.failed for w in self.redis_workers):
+            self.status = StatusMaster.failed
+        elif all(w.status == StatusWorker.committed for w in self.redis_workers):
+            self.status = StatusMaster.completed
+
+
 class HasAllRecids(object):
+
     @property
     def all_recids(self):
         """Get all recids that are assumed to exist by tasks of this master."""
@@ -105,7 +115,9 @@ class HasAllRecids(object):
             identifier = self.fmt(master_all_recids)
             self.conn.set(identifier, intbitset(recids).fastdump())
 
+
 class HasStatusMaster(object):
+
     @property
     def status(self):
         """Get the status of the master.
@@ -124,6 +136,16 @@ class HasStatusMaster(object):
         assert new_status in StatusMaster
         identifier = self.fmt(master_status)
         self.conn.set(identifier, new_status.name)
+
+        execution = self.get_execution()
+        execution.status = self.status
+        db.session.add(execution)
+        db.session.commit()
+
+    def get_execution(self):
+        from .models import CheckerRuleExecution
+        return CheckerRuleExecution.query.get(self.uuid)
+
 
 class HasRuleName(object):
 
@@ -182,7 +204,11 @@ class RedisMaster(RedisClient, HasRuleName, HasWorkers, HasAllRecids, HasStatusM
                     return True
         return False
 
-    # FIXME
+    def _cleanup(self):
+        """Remove this worker from redis."""
+        for key in keys_master:
+            self.conn.delete(self.fmt(key))
+
     def zap(self):
         """Zap this master and its workers.
 
@@ -195,4 +221,4 @@ class RedisMaster(RedisClient, HasRuleName, HasWorkers, HasAllRecids, HasStatusM
         for redis_worker in self.redis_workers:
             redis_worker.zap()
         warn('Zapping master ' + str(self.master_id))
-        # self._cleanup()
+        self._cleanup()

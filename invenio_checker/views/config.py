@@ -64,101 +64,102 @@ Some basic explanation of the available options.
 
 task_mapping = {
     "name": {
-        "hidden": False,
         "index": 1,
         "type": "string",
         "friendly": "Name",
         "format": "<a href='#' target='_blank'>{0}</a>",
         "unique": True,
-        "placeHolder": "Enter filter",
     },
     "plugin": {
-        "hidden": False,
         "index": 2,
         "type": "string",
         "friendly": "Plugin",
-        "placeHolder": "Enter filter",
-    },
-    "plugin_module": {
-        "hidden": True,
-        "index": 3,
-        "type": "string",
-        "friendly": "Plugin Module",
-        "placeHolder": "Enter filter",
-    },
-    "plugin_file": {
-        "hidden": True,
-        "index": 4,
-        "type": "string",
-        "friendly": "Plugin File",
-        "placeHolder": "Enter filter",
     },
     "arguments": {
-        "hidden": False,
-        "index": 5,
+        "index": 3,
         "type": "string",
         "friendly": "Arguments",
-        "placeHolder": "Enter filter",
     },
     "option_holdingpen": {
-        "hidden": False,
-        "index": 6,
+        "index": 4,
         "type": "bool",
         "friendly": "HoldingPen",
-        "placeHolder": "Enter filter",
     },
     "option_consider_deleted_records": {
-        "hidden": False,
-        "index": 7,
+        "index": 5,
         "type": "bool",
         "friendly": "Consider deleted records",
-        "placeHolder": "Enter filter",
     },
     "filter_pattern": {
-        "hidden": False,
-        "index": 8,
+        "index": 6,
         "type": "string",
         "friendly": "Filter pattern",
-        "placeHolder": "Enter filter",
     },
     "filter_records": {
-        "hidden": False,
-        "index": 9,
+        "index": 7,
         "type": "string",
         "friendly": "Filter records",
-        "placeHolder": "Enter filter",
     },
     "temporary": {
-        "hidden": False,
-        "index": 10,
+        "index": 8,
         "type": "bool",
         "friendly": "Temporary",
-        "placeHolder": "Enter filter",
     },
-    "owner_id": {
-        "hidden": False,
-        "index": 11,
-        "type": "string",
-        "friendly": "Owner",
-        "placeHolder": "Enter filter",
-    }
 }
 
 check_mapping = {
     "name": {
-        "hidden": False,
         "index": 1,
         "type": "string",
         "friendly": "Name",
         "unique": True,
-        "placeHolder": "Enter filter",
     },
     "description": {
-        "hidden": False,
         "index": 2,
         "type": "string",
         "friendly": "Description",
-        "unique": False,
-        "placeHolder": "Enter filter",
     },
+}
+
+log_mapping = {
+    "task": {
+        "index": 1,
+        "type": "string",
+        "friendly": "Task",
+    },
+    "start_date": {
+        "index": 2,
+        "type": "date",
+        "friendly": "Start date",
+        "sorting": True,
+        "sortOrder": "desc",
+    },
+    "status_update_date": {
+        "index": 3,
+        "type": "date",
+        "friendly": "Last status change",
+    },
+    "status": {
+        "index": 4,
+        "type": "string",
+        "friendly": "Status",
+    },
+    "owner": {
+        "index": 5,
+        "type": "string",
+        "friendly": "Owner",
+    },
+    "owner_id": {
+        "index": 6,
+        "hidden": True,
+        "type": "number",
+        "friendly": "Owner ID",
+    },
+    "uuid": {
+        "index": 7,
+        "friendly": "UUID",
+        "type": "string",
+        "format": '<div class="monospace">{0}</a>',
+        "unique": True,
+    }
 }

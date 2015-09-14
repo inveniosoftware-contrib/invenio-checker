@@ -37,15 +37,14 @@ history = open('CHANGES.rst').read()
 
 requirements = [
     'Flask>=0.10.1',
-    'six>=1.7.2',
+    'six>=1.9.0',
     'Invenio>=2.0.3',
     'pytest==2.7.2',
-    'six>=1.9.0',
     'redis>=2.10.3',
     'intbitset>=2.1.1',
-    'frozendict>=0.4',
-    'redlock-py=>1.0.5',
+    'redlock-py>=1.0.5',
     'eliot>=0.8.0',
+    'eliot-tree>=15.2.0',
 ]
 
 if platform.python_version_tuple() < ('3', '2'):

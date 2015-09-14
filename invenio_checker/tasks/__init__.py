@@ -42,29 +42,6 @@ from celery.result import AsyncResult
 
 from ..supervisor import run_task, handle_results, handle_error, handle_errors #, zzz
 
-def _set_done(obj, eng, rule_names, recids):
-    """Update the database that a rule run has completed."""
-    from ..models import CheckerRecord
-    # FIXME: Don't re-get extra data. It was already pulled out before this
-    # funciton call
-    extra_data = obj.get_extra_data()
-    now = datetime.now()
-    for recid in recids:
-        record = _load_record(extra_data, recid)
-        expecting_modification = _record_has_changed(obj, eng, record, extra_data)
-        db.session.query(CheckerRecord).filter(
-            db.and_(
-                CheckerRecord.id_bibrec == recids,
-                CheckerRecord.name_checker_rule.in_((rule_names))
-            )
-        ).update(
-            {
-                "last_run": now,
-                "expecting_modification": expecting_modification
-            },
-            synchronize_session=False)
-        db.session.commit()
-
 
 def _ensure_key(key, dict_):
     if key not in dict_:

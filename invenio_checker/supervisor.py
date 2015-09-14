@@ -48,18 +48,11 @@ from eliot import (
     to_file,
     start_action,
     start_task,
-    Message,
     Action,
     Logger,
 )
-from flask import current_app
-
-app = current_app
-eliot_log_path = os.path.join(
-    app.instance_path,
-    app.config.get('CFG_LOGDIR', ''),
-    'checker' + '.log.'
-)
+from .config import get_eliot_log_path
+eliot_log_path = get_eliot_log_path()
 
 
 def _exclusive_paths(path1, path2):
@@ -109,19 +102,41 @@ def rules_to_bundles(rules, all_recids):
         if chunk_size > max_chunk_size:
             chunk_size = max_chunk_size
         rule_bundles[rule] = chunks(modified_requested_recids, chunk_size)
+    # assert len(rule_bundles) == max_chunks
     return rule_bundles
 
 
-def run_task(rule_names):
+def run_task(rule_names):  # task_names
+    from .models import CheckerRuleExecution
+    from invenio.ext.sqlalchemy import db
+    from datetime import datetime
+    from flask_login import current_user
+    from invenio_accounts.models import User
+
+    cur_user_id = current_user.get_id()
+    owner = User.query.get(cur_user_id)
+    if owner is None:
+        owner = User.query.filter(User.nickname=='admin').one()
+
     for rule_name in rule_names:
         master_id = uuid()
+        new_exec = CheckerRuleExecution(
+            uuid=master_id,
+            id_rule=rule_name,
+            start_date=datetime.utcnow(),
+            status=StatusMaster.booting,
+            owner=owner,
+        )
+        db.session.add(new_exec)
+        db.session.commit()
+
         _run_task.apply_async(args=(rule_name, master_id), task_id=master_id)
 
 
 @celery.task()
 def _run_task(rule_name, master_id):
     del Logger._destinations._destinations[:]
-    to_file(open(eliot_log_path + master_id, "ab"))
+    to_file(open(os.path.join(eliot_log_path, master_id), "ab"))
 
     with start_task(action_type="invenio_checker:supervisor:_run_task",
                     master_id=master_id) as eliot_task:
@@ -143,7 +158,7 @@ def _run_task(rule_name, master_id):
             reraise(type_, value, tback)
 
         signal.signal(signal.SIGINT, sigint_hook)
-        # signal.signal(signal.SIGTERM, sigint_hook)
+        signal.signal(signal.SIGTERM, sigint_hook)
         sys.excepthook = except_hook
 
         with start_action(action_type='create master'):
@@ -159,6 +174,7 @@ def _run_task(rule_name, master_id):
             for rule, rule_chunks in bundles.iteritems():
                 for chunk in rule_chunks:
                     task_id = uuid()
+                    redis_master.workers_append(task_id)
                     eliot_task_id = eliot_task.serialize_task_id()
                     RedisWorker(task_id, eliot_task_id, chunk)  # TODO: Split to function
                     subtasks.append(run_test.subtask(args=(rule.filepath,
@@ -168,15 +184,15 @@ def _run_task(rule_name, master_id):
                                                      task_id=task_id,
                                                      link_error=[errback]))
 
-            with start_action(action_type='register subtasks'):
-                redis_master.workers = {subtask.id for subtask in subtasks}
+            Message.log(message_type='registered subtasks', value=str(redis_master.workers))
 
         with start_action(action_type='run chord'):
-            redis_master.status = StatusMaster.waiting_for_results
+            redis_master.status = StatusMaster.running
             header = subtasks
             callback = handle_results.subtask(link_error=[handle_errors.s(redis_master.master_id)])
             my_chord = chord(header)
             result = my_chord(callback)
+            redis_master.status = StatusMaster.running
 
 
 def with_eliot(action_type, master_id=None, worker_id=None):
@@ -268,18 +284,23 @@ def run_test(self, filepath, master_id, task_id, rule_name, retval=None):
                             filepath])
 
 
+    # TODO: Check retval?
 
     # Always pass `exc != None` to `self.retry`, because `None` breaks cleanup
     # of workers that are in retry queue (celery/celery#2560)
     try:
         retry_after_ids = redis_worker.retry_after_ids
         if retry_after_ids:
-            raise CustomRetry('Waiting for conflicting checks to complete before running: {}'.format(retry_after_ids), False)
+            raise CustomRetry(
+                'Waiting for conflicting checks to finish before running: {}'.\
+                format(retry_after_ids), False)
         # We are looking to commit below this line
         redis_worker.status = StatusWorker.ran
         if redis_worker.a_used_dependency_of_ours_has_failed:
             redis_worker.on_others_failure()
-            raise CustomRetry('A used dependency of ours has failed, so we want to run again', False)
+            raise CustomRetry(
+                'A used dependency of ours failed, so we want to run again',
+                False)
         if not redis_worker.our_used_dependencies_have_committed:
             raise CustomRetry('Waiting for dependencies to commit', True)
     except CustomRetry as exc:
