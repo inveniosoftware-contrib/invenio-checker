@@ -123,7 +123,7 @@ def run_task(rule_names):  # task_names
         new_exec = CheckerRuleExecution(
             uuid=master_id,
             id_rule=rule_name,
-            start_date=datetime.utcnow(),
+            start_date=datetime.now(),
             status=StatusMaster.booting,
             owner=owner,
         )

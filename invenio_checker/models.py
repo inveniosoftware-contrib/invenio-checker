@@ -291,7 +291,7 @@ class CheckerRuleExecution(db.Model):
     @session_manager
     def status(self, new_status):
         self._status = new_status
-        self.status_update_date = datetime.utcnow()
+        self.status_update_date = datetime.now()
 
     def read_logs(self):
         import os
