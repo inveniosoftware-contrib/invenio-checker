@@ -62,23 +62,19 @@ class JsonEncodedDict(db.TypeDecorator):
 mutable.MutableDict.associate_with(JsonEncodedDict)
 
 
-def IntBitSetType(*args, **kwargs):
+class IntBitSetType(types.TypeDecorator):
 
-    class _IntBitSetType(types.TypeDecorator):
+    impl = types.BLOB
 
-        impl = db.Unicode
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return intbitset(value).fastdump()
 
-        def process_bind_param(self, value, dialect):
-            if value is None:
-                return None
-            return intbitset(value).fastdump()
-
-        def process_result_value(self, value, dialect):
-            if value is None:
-                return None
-            return intbitset(value)
-
-    return _IntBitSetType(*args, **kwargs)
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return intbitset(value)
 
 
 class CheckerRule(db.Model):
