@@ -45,4 +45,4 @@ def ids_from_input(ids_input, all_repr=ALL):
         return all_repr
     else:
         from invenio.utils.shell import split_cli_ids_arg
-        return intbitset(split_cli_ids_arg(ids_input))
+        return intbitset(split_cli_ids_arg(ids_input), sanity_checks=True)

@@ -34,6 +34,7 @@ define(
       plugJqueryForms();
       plugDatePickers();
       switchTo(requested_page);
+      renderPeriodic();
     });
 
     // Page switching
@@ -81,24 +82,37 @@ define(
 
       function handleResponse(response, statusText, xhr, $form) {
         if (response.success === false) {
-          $(".validation-error").html(function() {
-            var field_id = $(this).data('field-id');
-            if (field_id in response.errors) {
-              $(this).html(response.errors[field_id]);
-            }
-          });
+          switch (response.failure_type) {
+            case 'validation':
+              $(".validation-error").html(function() {
+                var field_id = $(this).data('field-id');
+                if (field_id in response.errors) {
+                  $(this).html(response.errors[field_id]);
+                }
+              });
+              break;
+            case 'commit':
+              $("#task-insertion-failure").html('<strong>Failed to commit to the database:</strong> ' + response.errors);
+              $("#task-insertion-failure").show();
+              break;
+            default:
+              $("#task-insertion-failure").
+              text('<strong>Bad reply:</strong> Missing failure type');
+              $("#task-insertion-failure").show();
+          }
         }
         else {
-          // TODO
+          // TODO: Forward to newly created rule
         }
       }
 
       function beforeSubmit(formData, jqForm, options) {
+        $("#task-insertion-failure").hide();
         $(".validation-error").html('');
       }
 
       var options = {
-        beforeSubmit:  beforeSubmit,
+        beforeSubmit: beforeSubmit,
         success: handleResponse,
         dataType: 'json',
         resetForm: false,
@@ -111,6 +125,14 @@ define(
           return false; // prevent standard browser behaviour
       });
 
+      // Prepare periodic checks
+      $("#periodic").after("<div id='cronexp' style='display: inline;'></div>");
+      $("#periodic").attr('checked', false);
+      $("#cronexp").hide();
+
+      // Hide previously displayed failure
+      $("#task-insertion-failure").hide();
+
     }
 
     function createNewTask(check_blueprint, task_blueprint) {
@@ -121,6 +143,7 @@ define(
         // TODO: Load blueprint
       }
       updateCreationArguments();
+      $("#schedule").closest(".row").css("display", "none");
       $("#creation").show();
     }
 
@@ -146,6 +169,38 @@ define(
           $(arg_rows).remove();
           $(plugin_row).after(data);
           plugDatePickers();
+        }
+      });
+    }
+
+    // Periodic
+    $('#periodic').bind('change', function(e) {
+      var cur_input = $(this);
+      if (cur_input.is(':checked')) {
+        $("#cronexp").show();
+      } else {
+        $("#cronexp").hide();
+      }
+    });
+
+    function renderPeriodic() {
+      $('#cronexp').jqCron({
+        enabled_minute: true,
+        multiple_dom: true,
+        multiple_month: true,
+        multiple_mins: true,
+        multiple_dow: true,
+        multiple_time_hours: true,
+        multiple_time_minutes: true,
+        default_period: 'month',
+        default_value: '0 0 1 * *',
+        no_reset_button: false,
+        lang: 'en',
+        bind_to: $('#schedule'),
+        bind_method: {
+          set: function($element, value) {
+            $element.val(value);
+          }
         }
       });
     }

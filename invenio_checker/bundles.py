@@ -35,6 +35,7 @@ js = Bundle(
         "bootstrap-datepicker-eyecon": "latest",
         "watable": "latest",
         "flight": "latest",
+        "jqcron": "https://github.com/arnapou/jqcron.git",
     }
 )
 
@@ -43,6 +44,7 @@ css = Bundle(
     'vendors/bootstrap-datepicker-eyecon/css/datepicker.css',
     'vendors/watable/watable.css',
     'css/checker/admin/style.css',
+    'vendors/jqcron/src/jqCron.css',
     filters=CleanCSSFilter(),
     output='checker.css',
     weight=30,

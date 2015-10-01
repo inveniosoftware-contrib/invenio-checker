@@ -100,12 +100,18 @@ task_mapping = {
         "type": "string",
         "friendly": "Filter records",
     },
-    "temporary": {
+    "schedule": {
         "index": 8,
+        "type": "string",
+        "friendly": "Schedule",
+    },
+    "temporary": {
+        "index": 9,
         "type": "bool",
         "friendly": "Temporary",
     },
 }
+# TODO: add last_run
 
 check_mapping = {
     "name": {

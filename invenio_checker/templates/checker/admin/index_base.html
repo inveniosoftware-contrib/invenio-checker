@@ -1,6 +1,6 @@
 {#
 # This file is part of Invenio.
-# Copyright (C) 2012, 2014 CERN.
+# Copyright (C) 2015 CERN.
 #
 # Invenio is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -50,8 +50,8 @@
         <ul class="nav navbar-nav">
         </ul>
         <ul class="nav navbar-nav navbar-left">
-            <li><a href="{{url_for('.view', page_name='tasks')}}" id='load_tasks'>{{ _("Tasks") }}</a></li>
             <li><a href="{{url_for('.view', page_name='checks')}}" id='load_checks'>{{ _("Checks") }}</a></li>
+            <li><a href="{{url_for('.view', page_name='tasks')}}" id='load_tasks'>{{ _("Tasks") }}</a></li>
             <li><a href="{{url_for('.view', page_name='executions')}}" id='load_logs'>{{ _("Executions") }}</a></li>
         </ul>
         <ul class="nav navbar-nav navbar-right">
@@ -76,6 +76,7 @@
         <div id="new-task-form">
             {{ bt.render_form(new_task_form, action_url=url_for(".submit_task"), action_text='Submit Form', id_='new_task_form', class_='form-horizontal') }}
         </div>
+        <div id='task-insertion-failure' class="alert alert-danger" style="display: none;"></div>
 
         {#
         {% call bt.render_form(form, action_url=url_for('login_view'), action_text='Login',

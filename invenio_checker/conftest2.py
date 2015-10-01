@@ -265,6 +265,12 @@ def search(request):
 
 
 @pytest.fixture(scope="session")
+def arguments(request):
+    """Get the user-set arguments from the database."""
+    return request.config.option.invenio_rule.arguments
+
+
+@pytest.fixture(scope="session")
 def get_record(request):
     """Wrap `get_record` for record patch generation.
 
@@ -383,7 +389,6 @@ class Session(object):
     session = None
 
 
-
 def _patches_of_last_execution():
     """Get the full_patches generated during the last check.
 
@@ -447,8 +452,6 @@ def pytest_addoption(parser):
 
     :type parser: :py:class:`_pytest.config.Parser`
     """
-    parser.addoption("--invenio-rule", action="store", type=_load_rule_from_db,
-                     help="get rule", dest='invenio_rule')
     parser.addoption("--invenio-task-id", action="store", type=RedisWorker,
                      help="get task id", dest='redis_worker')
     parser.addoption("--invenio-master-id", action="store", type=str,
@@ -636,23 +639,7 @@ class InvenioReporter(TerminalReporter):
             if patches:
                 report_exception(patches=patches)
             else:
-                report_exception(patches=patches)
-
-    # def pytest_internalerror(self, excrepr):
-    #     return 0
-
-# def pytest_internalerror(excrepr, excinfo):
-#     when = 'internal'
-#     stack = inspect.getinnerframes(excinfo.tb)
-#     location_tuple = LocationTuple.from_stack(stack[1])
-#     formatted_exception = ''.join(traceback.format_exception(*excinfo._excinfo))
-#     summary = excrepr.reprcrash.message
-
-#     if hasattr(pytest.config.option, 'invenio_reporters'):
-#         for reporter in pytest.config.option.invenio_reporters:
-#             # reporter.report_exception(when, summary, location_tuple, excinfo._excinfo, formatted_exception)
-#             reporter.report_exception(when, summary, location_tuple, formatted_exception=formatted_exception)
-#     return 1
+                report_exception()
 
 
 ################################################################################
@@ -668,7 +655,6 @@ def pytest_configure(config):
 
     :type config: :py:class:`_pytest.config.Config`
     """
-    # @lru_cache(maxsize=2)
     def get_reporters(invenio_rule):
         """
         :type invenio_rule: :py:class:`invenio_checker.models.CheckerRule`
@@ -678,6 +664,11 @@ def pytest_configure(config):
         #         for reporter in checker_rule.reporters]
         from reporter import get_by_name
         return [get_by_name(1)]
+
+    config.option.invenio_execution = \
+        config.option.redis_worker.master.get_execution()
+
+    config.option.invenio_rule = config.option.invenio_execution.rule
 
     config.option.invenio_reporters = get_reporters(config.option.invenio_rule)
 

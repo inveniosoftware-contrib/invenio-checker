@@ -83,7 +83,7 @@ def _get_all_masters(conn):
                 for master_worker in conn.scan_iter(master_workers.format(uuid='*'))])
 
 
-def _get_lock_manager():
+def get_lock_manager():
     """Get an instance of redlock for the configured redis servers."""
     return redlock.Redlock([redis_uri_string])
 
@@ -136,7 +136,7 @@ class Lock(object):
         """
         self.conn = get_redis_conn()
         self.master_id = master_id
-        self._lock_manager = _get_lock_manager()
+        self._lock_manager = get_lock_manager()
 
     @property
     def _lock(self):

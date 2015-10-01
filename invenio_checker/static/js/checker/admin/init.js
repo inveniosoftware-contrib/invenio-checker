@@ -24,8 +24,10 @@ require(
       "bootstrap",
       "bootstrap-datepicker-eyecon",
       "watable",
+      "bootstrap-datetimepicker",
+      "jqcron",
+      "jqcron.en",
       "js/checker/admin/watable",
-      "bootstrap-datetimepicker"
     ],
 
     function() {

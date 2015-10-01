@@ -25,7 +25,8 @@
 """Database models for Checker module."""
 
 import inspect
-import json
+import simplejson as json
+from enum import Enum
 
 from sqlalchemy import types
 from intbitset import intbitset  # pylint: disable=no-name-in-module
@@ -34,7 +35,8 @@ from invenio_search.api import Query
 from invenio_records.models import Record as Bibrec
 from sqlalchemy import orm
 from invenio.ext.sqlalchemy.utils import session_manager
-from datetime import datetime
+from datetime import datetime, date
+from bson import json_util  # included in `pymongo`, not `bson`
 from invenio_accounts.models import User
 
 from .common import ALL
@@ -47,16 +49,38 @@ from .master import StatusMaster
 from sqlalchemy.ext import mutable
 
 
+class SendEmail(Enum):
+    on_failure = 0
+    always = 1
+    never = 2
+
+
+def default_date(obj):
+    try:
+        return json_util.default(obj)
+    except TypeError:
+        if isinstance(obj, date):
+            return {"$date_only": obj.isoformat()}
+    raise TypeError("%r is not JSON serializable" % obj)
+
+
+def object_hook_date(dct):
+    if "$date_only" in dct:
+        isoformatted = dct["$date_only"]
+        return date(*(int(i) for i in isoformatted.split('-')))
+    else:
+        return json_util.object_hook(dct)
+
 
 class JsonEncodedDict(db.TypeDecorator):
     """Enables JSON storage by encoding and decoding on the fly."""
     impl = db.String
 
     def process_bind_param(self, value, dialect):
-        return json.dumps(value)
+        return json.dumps(value, default=default_date)
 
     def process_result_value(self, value, dialect):
-        return json.loads(value)
+        return json.loads(value, object_hook=object_hook_date)
 
 
 mutable.MutableDict.associate_with(JsonEncodedDict)
@@ -83,40 +107,44 @@ class CheckerRule(db.Model):
 
     __tablename__ = 'checker_rule'
 
-    name = db.Column(db.String(50), primary_key=True)
+    name = db.Column(db.String(127), primary_key=True)
 
-    plugin_module = db.Column(db.String(50), nullable=False)
-    plugin_file = db.Column(db.String(50), nullable=False)
+    plugin = db.Column(db.String(127), nullable=False)
 
-    arguments = db.Column(JsonEncodedDict(1024), default={})
+    arguments = db.Column(JsonEncodedDict(1023), default={})
 
-    option_holdingpen = db.Column(db.Boolean, nullable=False, default=True)
-    option_consider_deleted_records = db.Column(db.Boolean, nullable=True,
-                                                 default=False)
+    holdingpen = db.Column(db.Boolean, nullable=False, default=True)
+
+    consider_deleted_records = db.Column(db.Boolean, nullable=True,
+                                         default=False)
 
     filter_pattern = db.Column(db.String(255), nullable=True)
-    filter_records = db.Column(IntBitSetType(1024), nullable=True)
+
+    filter_records = db.Column(IntBitSetType(1023), nullable=True)
 
     records = db.relationship('CheckerRecord', backref='rule',
                               cascade='all, delete-orphan')
 
-    temporary = db.Column(db.Boolean, default=False)
+    last_run = db.Column(
+        db.DateTime(),
+        nullable=False,
+    )
 
-    @db.hybrid_property
-    def pluginspec(self):
-        """Resolve checkspec of the rule's check."""
-        return '{module}.checkerext.checks.{file}'\
-            .format(module=self.plugin_module, file=self.plugin_file)
+    schedule = db.Column(db.String(255), nullable=True)
 
-    @db.hybrid_property
-    def plugin(self):
-        return '{module}.{file}'\
-            .format(module=self.plugin_module, file=self.plugin_file)
+    temporary = db.Column(db.Boolean, default=False)  # TODO: what do we do with this
+
+    force_run_on_unmodified_records = db.Column(db.Boolean, default=False)  # TODO: USE THIS IN BUSINESS LOGIC
+
+    send_email = db.Column(
+        ChoiceType(SendEmail, impl=db.Integer()),
+        default=SendEmail.on_failure,
+    )
 
     @db.hybrid_property
     def filepath(self):
         """Resolve a the filepath of this rule's plugin."""
-        path = inspect.getfile(plugin_files[self.pluginspec])
+        path = inspect.getfile(plugin_files[self.plugin])
         if path.endswith('.pyc'):
             path = path[:-1]
         return path
@@ -130,7 +158,7 @@ class CheckerRule(db.Model):
                 *db.session
                 .query(CheckerRecord.id_bibrec)
                 .filter(
-                    CheckerRecord.name_checker_rule==self.name
+                    CheckerRecord.name_checker_rule == self.name
                 ).all()
             )[0])
         except IndexError:
@@ -152,13 +180,14 @@ class CheckerRule(db.Model):
                 .query(CheckerRecord.id_bibrec)
                 .outerjoin(Bibrec)
                 .filter(
-                    db.and_(
-                        CheckerRecord.id_bibrec.in_(requested_ids),
-                        CheckerRecord.name_checker_rule == self.name,
+                    CheckerRecord.id_bibrec.in_(requested_ids),
+                    CheckerRecord.name_checker_rule == self.name,
+                    db.or_(
+                        self.force_run_on_unmodified_records,
                         db.or_(
                             CheckerRecord.last_run == None,
                             CheckerRecord.last_run < Bibrec.modification_date,
-                        )
+                        ),
                     )
                 )
             )[0]
@@ -226,12 +255,11 @@ class CheckerRule(db.Model):
         return '\n'.join((
             '=== Checker Rule: {} {}'.format(self.name, trails * '='),
             '* Name: {}'.format(self.name),
-            '* Plugin Module: {}'.format(self.plugin_module),
-            '* Plugin File: {}'.format(self.plugin_file),
+            '* Plugin: {}'.format(self.plugin),
             '* Arguments: {}'.format(self.arguments),
-            '* Option - HoldingPen: {}'.format(self.option_holdingpen),
-            '* Option - Consider deleted records: {}'.format(
-                self.option_consider_deleted_records),
+            '* HoldingPen: {}'.format(self.holdingpen),
+            '* Consider deleted records: {}'.format(
+                self.consider_deleted_records),
             '* Filter Pattern: {}'.format(self.filter_pattern),
             '* Filter Records: {}'.format(self.filter_records),
             # '* Temporary: {}'.format(self.temporary),

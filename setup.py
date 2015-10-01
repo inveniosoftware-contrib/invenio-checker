@@ -36,22 +36,40 @@ readme = open('README.rst').read()
 history = open('CHANGES.rst').read()
 
 requirements = [
+    # General dependencies
     'Flask>=0.10.1',
     'six>=1.9.0',
     'Invenio>=2.0.3',
+    # Used for running checks
     'pytest==2.7.2',
+    # Internal communication of check runners
     'redis>=2.10.3',
+    # For passing required records around
     'intbitset>=2.1.1',
+    # Lock for the check runners and celery beat
     'redlock-py>=1.0.5',
+    # Logging and log presentation
     'eliot>=0.8.0',
     'eliot-tree>=15.2.0',
+    # Enum type
+    'enum34>=1.0.4',
+    'SQLAlchemy-Utils>=0.30.17',
+    # Serialize Decimal and friends
+    'simplejson>=3.8.0',
+    # Serialize datetime
+    'pymongo>=3.0.3',
+    # Scheduled tasks
+    'croniter>=0.3.8',
+    # Figuring out users who own tasks
+    'flask-login>=0.3.1',
+    'invenio-accounts>=0.1.2',
 ]
 
 if platform.python_version_tuple() < ('3', '2'):
     requirements.append('backports.functools_lru_cache>=1.0.1')
 
 test_requirements = [
-    'pytest>=2.7.0',
+    'pytest==2.7.2',
     'pytest-cov>=1.8.0',
     'pytest-pep8>=1.0.6',
     'coverage>=3.7.1',

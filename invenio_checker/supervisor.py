@@ -106,7 +106,7 @@ def rules_to_bundles(rules, all_recids):
     return rule_bundles
 
 
-def run_task(rule_names):  # task_names
+def run_task(task_name):
     from .models import CheckerRuleExecution
     from invenio.ext.sqlalchemy import db
     from datetime import datetime
@@ -118,19 +118,22 @@ def run_task(rule_names):  # task_names
     if owner is None:
         owner = User.query.filter(User.nickname=='admin').one()
 
-    for rule_name in rule_names:
-        master_id = uuid()
+    master_id = uuid()
+    try:
         new_exec = CheckerRuleExecution(
             uuid=master_id,
-            id_rule=rule_name,
+            id_rule=task_name,
             start_date=datetime.now(),
             status=StatusMaster.booting,
             owner=owner,
         )
         db.session.add(new_exec)
         db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
 
-        _run_task.apply_async(args=(rule_name, master_id), task_id=master_id)
+    _run_task.apply_async(args=(task_name, master_id), task_id=master_id)
 
 
 @celery.task()
@@ -176,11 +179,10 @@ def _run_task(rule_name, master_id):
                     task_id = uuid()
                     redis_master.workers_append(task_id)
                     eliot_task_id = eliot_task.serialize_task_id()
-                    RedisWorker(task_id, eliot_task_id, chunk)  # TODO: Split to function
+                    RedisWorker(task_id, eliot_task_id, chunk)
                     subtasks.append(run_test.subtask(args=(rule.filepath,
                                                            redis_master.master_id,
-                                                           task_id,
-                                                           rule.name),
+                                                           task_id),
                                                      task_id=task_id,
                                                      link_error=[errback]))
 
@@ -264,7 +266,7 @@ class CustomRetry(Exception):
 
 @celery.task(bind=True, max_retries=None, default_retry_delay=5)
 @with_app_context()
-def run_test(self, filepath, master_id, task_id, rule_name, retval=None):
+def run_test(self, filepath, master_id, task_id, retval=None):
     redis_worker = RedisWorker(task_id)
     print 'ENTER {} of GROUP {}'.format(task_id, redis_worker.master.uuid)
     # import faulthandler; faulthandler.enable()
@@ -278,7 +280,6 @@ def run_test(self, filepath, master_id, task_id, rule_name, retval=None):
         retval = main(args=['-s', '-v', '--tb=long',
                             '-p', 'invenio_checker.conftest2',
                             '-c', conftest_file,
-                            '--invenio-rule', rule_name,
                             '--invenio-task-id', task_id,
                             '--invenio-master-id', master_id,
                             filepath])
@@ -314,3 +315,31 @@ def run_test(self, filepath, master_id, task_id, rule_name, retval=None):
 
     print 'RETURNING {} {}'.format(task_id, master_id)
     return task_id
+
+
+@celery.task
+def beat():
+    from invenio.ext.sqlalchemy import db
+    from .models import CheckerRule as CR
+    from croniter import croniter
+    from datetime import datetime
+    from .redis_helpers import get_lock_manager
+
+    lock_manager = get_lock_manager()
+    my_lock = lock_manager.lock("invenio_checker:beat_lock", 30000)
+    if not my_lock:
+        return
+    try:
+        for rule in CR.query.filter(CR.schedule != None).all():
+            iterator = croniter(rule.schedule, rule.last_run)
+            next_run = iterator.get_next(datetime)
+            now = datetime.now()
+            if next_run <= now:
+                run_task(rule.name)
+                rule.last_run = now
+                db.session.add(rule)
+                db.session.commit()
+    except Exception:
+        db.session.rollback()
+        lock_manager.unlock(my_lock)
+        raise

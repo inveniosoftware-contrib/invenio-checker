@@ -19,6 +19,9 @@ class MyReporter(object):
         if formatted_exception is not None:
             print formatted_exception
             print '~~~5'
+        if patches is not None:
+            print patches
+            print '~~~5'
 
 def get_by_name(foo):
     return MyReporter()

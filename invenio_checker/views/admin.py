@@ -23,7 +23,9 @@ from __future__ import unicode_literals
 from importlib import import_module
 from itertools import chain
 from collections import defaultdict
+from intbitset import intbitset
 
+from six import reraise
 from cerberus import Validator
 
 from flask import (
@@ -38,15 +40,18 @@ from flask import (
 from flask.json import jsonify
 from flask_breadcrumbs import register_breadcrumb
 from flask_login import login_required
+from datetime import datetime
 
 from wtforms import (  # pylint: disable=no-name-in-module
     Form,
     fields,
     validators,
+    ValidationError,
 )
 from wtforms.widgets import TextInput
 from wtforms.ext.appengine.db import model_form
 
+from invenio.ext.sqlalchemy import db
 from invenio.base.decorators import templated
 from invenio.base.i18n import _
 from invenio.ext.principal import permission_required
@@ -63,6 +68,10 @@ from invenio_checker.views.config import (
 
 from ..registry import plugin_files
 
+from ..common import ALL
+from ..recids import ids_from_input
+import sys
+from croniter import croniter
 
 # from invenio.modules.access.local_config import \
 # FIXME
@@ -75,15 +84,17 @@ blueprint = Blueprint('checker_admin', __name__,
 
 def get_NewTaskForm(*args, **kwargs):
 
+    from ..models import SendEmail
+
     class NewTaskForm(Form):
-        name = fields.TextField(
+        name = fields.StringField(
             'Task name',
-            validators=[validators.required()],
+            validators=[validators.InputRequired()],
         )
         plugin = fields.SelectField(
             'Plugin',
-            choices=[(pf, pf) for pf in plugin_files],
-            validators=[validators.required()],
+            choices=[(plugin, plugin) for plugin in plugin_files],
+            validators=[validators.InputRequired()],
         )
         send_email = fields.SelectField(
             'Send email',
@@ -96,20 +107,55 @@ def get_NewTaskForm(*args, **kwargs):
         consider_deleted_records = fields.BooleanField(
             'Consider deleted records',
         )
-        filter_pattern = fields.TextField(
+        force_run_on_unmodified_records = fields.BooleanField(
+            'Force run on unmodified records',
+        )
+        filter_pattern = fields.StringField(
             'Search pattern',
         )
-        filter_records = fields.TextField(
+        filter_records = fields.StringField(
             'Record IDs',
-            # validators=[validator_recids()],  # TODO
         )
+        periodic = fields.BooleanField(
+            'Run this rule periodically',
+        )
+        schedule = fields.StringField(
+            'Schedule',
+        )
+
+        def validate_filter_records(self, field):
+            """Ensure that `filter_records` can be parsed by intbitset."""
+            if not field.data:
+                field.data = intbitset(trailing_bits=True)
+            else:
+                try:
+                    field.data = ids_from_input(field.data)
+                except TypeError:
+                    etype, evalue, etb = sys.exc_info()
+                    reraise(ValidationError, evalue, etb)
+
+        def validate_schedule(self, field):
+            """Ensure that `schedule` is accepted by `croniter`."""
+            if not field.data:
+                return
+            try:
+                croniter(field.data)
+            except Exception:
+                # May be TypeError/KeyError/AttributeError, who knows what else
+                # Let's play it safe.
+                reraise(ValidationError, *sys.exc_info()[1:])
+
+        def validate_send_email(self, field):
+            field.data = SendEmail[field.data]
 
     return NewTaskForm(*args, **kwargs)
 
 
 @blueprint.route('/')
 def index():
+    """Redirect to the tasks view."""
     return redirect(url_for('.view', page_name='tasks'))
+
 
 @blueprint.route('/view/<page_name>')
 @login_required
@@ -117,8 +163,7 @@ def index():
 @templated('checker/admin/index.html')
 @register_breadcrumb(blueprint, 'admin.checker_admin', _('Checker'))
 def view(page_name):
-    """Index."""
-
+    """Have javascript load the correct page."""
     return {
         'page_name': page_name,
         'new_task_form': get_NewTaskForm()
@@ -131,7 +176,8 @@ def view(page_name):
 @permission_required(WEBACCESSACTION)
 def get_tasks_header():
     """
-    Returns a JSON representation of the CheckerRule schema.
+    Return a JSON representation of the CheckerRule schema.
+
     For security reasons, a list cannot be JSON-ified, so it has to be wrapped
     within a dictionary.
     """
@@ -147,7 +193,8 @@ def get_tasks_header():
 @permission_required(WEBACCESSACTION)
 def get_tasks_data():
     """
-    Returns a JSON representation of the CheckerRule data.
+    Return a JSON representation of the CheckerRule data.
+
     For security reasons, a list cannot be JSON-ified, so it has to be wrapped
     within a dictionary.
     """
@@ -155,11 +202,19 @@ def get_tasks_data():
     row_list = rows["rows"]
     rules = CheckerRule.query.all()
     for rule in rules:
-        rule_d = dict(rule)
+        rule_d = rule.__dict__  # Work around inveniosoftware/invenio-ext#16
+        rule_d = {key: val for key, val in rule_d.items()
+                  if not key.startswith('_')}
         rule_d['arguments'] = str(rule_d['arguments'])
         rule_d['plugin'] = rule.plugin,
+        if rule_d['filter_records'].is_infinite():
+            rule_d['filter_records'] = '' # Infinite is not serializable
+        else:
+            rule_d['filter_records'] = list(rule_d['filter_records'])
+        rule_d['send_email'] = rule_d['send_email'].name
         row_list.append(rule_d)
     return jsonify(rows)
+
 
 # Checks
 
@@ -179,7 +234,7 @@ def get_checks_data():
     checks = []
     for name, plugin in plugin_files.items():
         checks.append({
-            'name': name,  # FIXME: This is fully qualified name, not human readable
+            'name': name,
             'description': plugin.__doc__,
         })
     return jsonify({"rows": checks})
@@ -187,7 +242,7 @@ def get_checks_data():
 
 @blueprint.route('/api/checks/stream_check/<pluginspec>', methods=['GET'])
 @login_required
-@permission_required(WEBACCESSACTION)  # TODO: Admin permission?
+@permission_required(WEBACCESSACTION)  # FIXME: Admin permission?
 def stream_check(pluginspec):
     """
     TODO
@@ -284,11 +339,11 @@ from functools import partial
 from invenio.utils import forms
 
 type_to_wtforms = {
-    "string": fields.TextField,
-    "text": fields.TextAreaField,
-    "integer": fields.IntegerField,
-    "float": fields.DecimalField,
-    "decimal": fields.DecimalField,
+    "string": partial(fields.StringField, validators=[validators.InputRequired()]),
+    "text": partial(fields.TextAreaField, validators=[validators.InputRequired()]),
+    "integer": partial(fields.IntegerField, validators=[validators.InputRequired()]),
+    "float": partial(fields.DecimalField, validators=[validators.InputRequired()]),
+    "decimal": partial(fields.DecimalField, validators=[validators.InputRequired()]),
     "boolean": fields.BooleanField,
 
     "datetime": partial(fields.DateTimeField, widget=forms.DateTimePickerWidget()),
@@ -305,7 +360,11 @@ def get_ArgForm(plugin_name, *args, **kwargs):
     arguments_schema = {"arg_" + k: v for k, v
                         in get_schema_for_plugin(plugin_name).items()}
     for key, spec in arguments_schema.items():
-        setattr(ArgForm, key, type_to_wtforms[spec['type']]())
+        setattr(
+            ArgForm,
+            key,
+            type_to_wtforms[spec['type']]()
+        )
 
     return ArgForm(*args, **kwargs)
 
@@ -318,8 +377,24 @@ def submit_task():
     form_origin = get_NewTaskForm(request.form)
     form_plugin = get_ArgForm(request.form['plugin'], request.form)
 
+    from celery.contrib import rdb; rdb.set_trace()
     if form_origin.validate() & form_plugin.validate():
-        # TODO: Commit (and run)
+        form_for_db = form_origin.data.copy()  # pylint: disable=no-member
+        periodic = form_for_db.pop('periodic', False)
+        if not periodic:
+            form_for_db['schedule'] = None
+        form_for_db['last_run'] = datetime.now()
+        try:
+            rule = CheckerRule(
+                arguments=form_plugin.data,  # pylint: disable=no-member
+                **form_for_db  # pylint: disable=no-member
+            )
+            db.session.add(rule)
+            db.session.commit()
+        except Exception as e:
+            return {'success': False,
+                    'failure_type': 'commit',
+                    'errors': str(e)}
         return {'success': True}
     else:
         all_errors = defaultdict(list)
@@ -329,10 +404,9 @@ def submit_task():
         ):
             all_errors[field].extend(errors)
         return {'success': False,
+                'failure_type': 'validation',
                 'errors': all_errors}
 
-
-# Translate
 
 @blueprint.route('/translate', methods=['GET'])
 @login_required

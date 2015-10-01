@@ -141,8 +141,8 @@ def run(rules, user_recids, queue, tickets, upload):
     """
 
     from .supervisor import run_task
-    rule_names = (rule.name for rule in rules)
-    run_task(rule_names)
+    for rule in rules:
+        run_task(rule.name)
 
     # return bool(z)
 
