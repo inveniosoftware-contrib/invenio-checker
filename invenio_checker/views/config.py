@@ -110,8 +110,13 @@ task_mapping = {
         "type": "bool",
         "friendly": "Temporary",
     },
+    "force_run_on_unmodified_records": {
+        "index": 10,
+        "type": "bool",
+        "friendly": "Force run on unmodified records",
+    },
 }
-# TODO: add last_run
+# TODO: add last_run? But it's not for users.. But it's useful. FIXME.
 
 check_mapping = {
     "name": {

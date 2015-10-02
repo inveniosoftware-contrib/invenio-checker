@@ -136,7 +136,7 @@ class CheckerRule(db.Model):
 
     temporary = db.Column(db.Boolean, default=False)  # TODO: what do we do with this
 
-    force_run_on_unmodified_records = db.Column(db.Boolean, default=False)  # TODO: USE THIS IN BUSINESS LOGIC
+    force_run_on_unmodified_records = db.Column(db.Boolean, default=False)
 
     send_email = db.Column(
         ChoiceType(SendEmail, impl=db.Integer()),
