@@ -179,25 +179,7 @@ def view(page_name):
     }
 
 # Tasks
-
-@blueprint.route('/api/tasks/get/header', methods=['POST'])
-@login_required
-@permission_required(WEBACCESSACTION)
-def get_tasks_header():
-    """
-    Return a JSON representation of the CheckerRule schema.
-
-    For security reasons, a list cannot be JSON-ified, so it has to be wrapped
-    within a dictionary.
-    """
-    header = {"cols": {}}
-    column_list = header["cols"]
-    for mapping_key, mapping_value in task_mapping.items():
-        column_list[mapping_key] = mapping_value
-    return jsonify(header)
-
-
-@blueprint.route('/api/tasks/get/data', methods=['POST'])
+@blueprint.route('/api/tasks/get/data', methods=['GET'])
 @login_required
 @permission_required(WEBACCESSACTION)
 def get_tasks_data():
@@ -207,8 +189,11 @@ def get_tasks_data():
     For security reasons, a list cannot be JSON-ified, so it has to be wrapped
     within a dictionary.
     """
-    rows = {"rows": []}
-    row_list = rows["rows"]
+    column_list = {}
+    for mapping_key, mapping_value in task_mapping.items():
+        column_list[mapping_key] = mapping_value
+
+    row_list = []
     rules = CheckerRule.query.all()
     for rule in rules:
         rule_d = rule.__dict__  # Work around inveniosoftware/invenio-ext#16
@@ -222,20 +207,11 @@ def get_tasks_data():
             rule_d['filter_records'] = list(rule_d['filter_records'])
         rule_d['send_email'] = rule_d['send_email'].name
         row_list.append(rule_d)
-    return jsonify(rows)
+    return jsonify({'rows': row_list, 'cols': column_list})
 
 
 # Checks
-
-@blueprint.route('/api/checks/get/header', methods=['POST'])
-@login_required
-@permission_required(WEBACCESSACTION)
-def get_checks_header():
-    """Returns the header of the checks table."""
-    return jsonify({"cols": check_mapping})
-
-
-@blueprint.route('/api/checks/get/data', methods=['POST'])
+@blueprint.route('/api/checks/get/data', methods=['GET'])
 @login_required
 @permission_required(WEBACCESSACTION)
 def get_checks_data():
@@ -246,7 +222,7 @@ def get_checks_data():
             'name': name,
             'description': plugin.__doc__,
         })
-    return jsonify({"rows": checks})
+    return jsonify({'rows': checks, 'cols': check_mapping})
 
 
 @blueprint.route('/api/checks/stream_check/<pluginspec>', methods=['GET'])
@@ -265,16 +241,7 @@ def stream_check(pluginspec):
 
 
 # executions
-
-@blueprint.route('/api/executions/get/header', methods=['POST'])
-@login_required
-@permission_required(WEBACCESSACTION)
-def get_logs_header():
-    """Returns the header of the checks table."""
-    return jsonify({"cols": log_mapping})
-
-
-@blueprint.route('/api/executions/get/data', methods=['POST'])
+@blueprint.route('/api/executions/get/data', methods=['GET'])
 @login_required
 @permission_required(WEBACCESSACTION)
 def get_logs_data():
@@ -307,7 +274,7 @@ def get_logs_data():
             'uuid':
             execution.uuid,
         })
-    return jsonify({"rows": loglist})
+    return jsonify({"rows": loglist, "cols": log_mapping})
 
 
 @blueprint.route('/api/executions/stream_structured/<uuid>', methods=['GET'])

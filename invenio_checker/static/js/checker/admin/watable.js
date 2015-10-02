@@ -29,9 +29,12 @@ define(
 
     var current_page = "";
     var last_pressed_button = "";
+    var tbl = null;
+    var floater = null;
 
     // Default page
     $(document).ready(function () {
+      floater = $("#side-floater");
       plugJqueryForms();
       plugDatePickers();
       switchTo(requested_page);
@@ -235,65 +238,85 @@ define(
     }
 
     // Display tables
-    function getTaskColumns(table_name) {
-      return $.ajax({
-        type: "POST",
-        dataType: "json",
-        url: "/admin/checker/api/" + table_name + "/get/header"
-      });
-    }
-
-    function getTaskRows(table_name) {
-      return $.ajax({
-        type: "POST",
-        url: "/admin/checker/api/" + table_name + "/get/data",
-      });
-    }
-
     function loadTable(table_name) {
-      $.when(
-        getTaskRows(table_name),
-        getTaskColumns(table_name)
-      )
-      .done(function(rows, cols) {
-        renderTable(rows[0].rows, cols[0].cols);
-      });
-      $("#table-container").show();
+      $('div#table-container').url = '/admin/checker/api/'+table_name+'/get/data';
+      if (tbl === null) {
+        tbl = $('div#table-container').WATable({
+          url: '/admin/checker/api/'+table_name+'/get/data',
+          pageSize: 30,
+          preFill: false,
+          filter: true,
+          hidePagerOnEmpty: true,
+          checkboxes: true,
+          columnPicker: true,
+          types: {
+            string: {
+              placeHolder: "Filter"
+            },
+            number: {
+              decimals: 2
+            },
+            date: {
+              utc: false,
+              datePicker: false
+            }
+          },
+          rowClicked: function(data) {
+            if (table_name === 'executions') {
+              data.event.preventDefault();
+              showLog(data.row.uuid);
+            }
+            else if (table_name === 'checks') {
+              data.event.preventDefault();
+              showFile(data.row.name);
+            }
+          },
+          tableCreated: function(data) {
+            bindCheckboxes(table_name);
+            refreshFloater(table_name);
+          }
+        }).data('WATable');
+      } else {
+       tbl.option('url', '/admin/checker/api/'+table_name+'/get/data');
+       tbl.update(function() {
+         bindCheckboxes(table_name);
+         refreshFloater(table_name);
+       });
+      }
+      $('div#table-container').show();
     }
 
-    function renderTable(rows, cols) {
-      $('div#table-container').empty();
-      var tbl = $('div#table-container').WATable({
-        data: {
-          rows: rows,
-          cols: cols
-        },
-        pageSize: 25,
-        preFill: true,
-        filter: true,
-        types: {
-          string: {
-            placeHolder: "Filter"
-          },
-          number: {
-            decimals: 1
-          },
-          date: {
-            utc: false,
-            datePicker: false
-          }
-        },
-        rowClicked: function(data) {
-          if (current_page === 'executions') {
-            data.event.preventDefault();
-            showLog(data.row.uuid);
-          }
-          else if (current_page === 'checks') {
-            data.event.preventDefault();
-            showFile(data.row.name);
-          }
+    function bindCheckboxes(table_name) {
+      $('.watable-col-cbunique :checkbox, #table-container .checkToggle').on('change', function() {
+        refreshFloater(table_name);
+      });
+    }
+
+    function refreshFloater(table_name){
+      // Reset
+      $("#side-floater").hide();  // hide is faster than remove, removes flicker
+
+      // Don't rely on WATable's .getData(true) to get checked rows as it is
+      // not updated mid-check.
+      var selected_rows_len = $(".watable-col-cbunique :checkbox:checked").length;
+
+      if (table_name === 'tasks') {
+        $("#table-container tfoot .btn-toolbar").append(floater);
+
+        // Prepare
+        $(".table-action-btn").addClass("disabled");
+        $(".table-action-multi > .badge").text(selected_rows_len);
+        // Enable supported actions
+        switch (selected_rows_len) {
+          case 0:
+            break;
+          case 1:
+            $(".table-action-single").removeClass("disabled");
+          default:
+            $(".table-action-multi").removeClass("disabled");
         }
-      }).data('WATable');
+        $("#side-floater").show();
+      }
     }
 
     // Components and state

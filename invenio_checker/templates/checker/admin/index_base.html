@@ -59,22 +59,32 @@
                 {{ _("Create task") }}
             </a>
         </ul>
+
     </div><!-- /.navbar-collapse -->
 </div><!-- /.container-fluid -->
 </nav>
 
 {# Tables #}
 <div class="switchable" id="table-container"> </div>
+<div id="side-floater">
+    <div class="list-group-horizontal">
+        <a href="#" class="list-group-item list-group-item-success table-action-btn table-action-multi table-action-signle">Run <span class="badge">0</span></a>
+        <a href="#" class="list-group-item list-group-item-danger table-action-btn table-action-multi table-action-signle">Delete <span class="badge">0</span></a>
+      <a href="#" class="list-group-item list-group-item-warning table-action-btn table-action-single">Modify</a>
+      <a href="#" class="list-group-item list-group-item-info table-action-btn table-action-single">Use as template</a>
+    </div>
+</div>
+
 
 {# Creation #}
-<div class="switchable" id="creation" class="panel panel-default" style="width:75%;margin:auto;">
+<div class="switchable" id="creation" class="panel panel-default">
     <div class="panel-heading">
         <h3 class="panel-title">{{ _('Please enter the new task details') }}</h3>
     </div>
     <div class="panel-body">
 
         <div id="new-task-form">
-            {{ bt.render_form(new_task_form, action_url=url_for(".submit_task"), action_text='Submit Form', id_='new_task_form', class_='form-horizontal') }}
+            {{ bt.render_form(new_task_form, action_url=url_for(".submit_task"), action_text='Save task', id_='new_task_form', class_='form-horizontal') }}
         </div>
         <div id='task-insertion-failure' class="alert alert-danger" style="display: none;"></div>
 
@@ -99,7 +109,7 @@
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <button type="button" class="btn close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
                 <h4 class="modal-title" id="myModalLabel">Executions</h4>
