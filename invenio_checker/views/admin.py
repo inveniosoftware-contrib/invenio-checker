@@ -122,6 +122,15 @@ def get_NewTaskForm(*args, **kwargs):
         schedule = fields.StringField(
             'Schedule',
         )
+        requested_action = fields.SelectField(
+            'Requested action',
+            choices=[
+                ('submit_save',) * 2,
+                ('submit_run_and_schedule',) * 2,
+                ('submit_schedule',) * 2,
+                ('submit_run',) * 2,
+            ]
+        )
 
         def validate_filter_records(self, field):
             """Ensure that `filter_records` can be parsed by intbitset."""
@@ -374,38 +383,51 @@ def get_ArgForm(plugin_name, *args, **kwargs):
 @permission_required(WEBACCESSACTION)
 @templated('checker/admin/create_task.html')
 def submit_task():
+    from ..supervisor import run_task
+
+    def failure(type_, errors):
+        assert type_ in ('general', 'validation')
+        return {'success': False,
+                'failure_type': type_,
+                'errors': errors}
+
+    def success():
+        return {'success': True}
+
     form_origin = get_NewTaskForm(request.form)
     form_plugin = get_ArgForm(request.form['plugin'], request.form)
 
-    from celery.contrib import rdb; rdb.set_trace()
     if form_origin.validate() & form_plugin.validate():
-        form_for_db = form_origin.data.copy()  # pylint: disable=no-member
+
+        # Prepare form to its final form
+        form_for_db = form_origin.data.copy()
         periodic = form_for_db.pop('periodic', False)
         if not periodic:
             form_for_db['schedule'] = None
         form_for_db['last_run'] = datetime.now()
+
         try:
-            rule = CheckerRule(
-                arguments=form_plugin.data,  # pylint: disable=no-member
-                **form_for_db  # pylint: disable=no-member
+            # Save
+            task = CheckerRule(
+                arguments=form_plugin.data,
+                **form_for_db
             )
-            db.session.add(rule)
+            db.session.add(task)
             db.session.commit()
+            if form_origin['requested_action'].startswith('submit_run'):
+                run_task(task.name)
         except Exception as e:
-            return {'success': False,
-                    'failure_type': 'commit',
-                    'errors': str(e)}
-        return {'success': True}
+            return failure('general', (str(e),))
+        return success()
+
     else:
-        all_errors = defaultdict(list)
+        form_errors = defaultdict(list)
         for field, errors in chain(
-                form_origin.errors.items(),  # pylint: disable=no-member
-                form_plugin.errors.items(),  # pylint: disable=no-member
+                form_origin.errors.items(),
+                form_plugin.errors.items(),
         ):
-            all_errors[field].extend(errors)
-        return {'success': False,
-                'failure_type': 'validation',
-                'errors': all_errors}
+            form_errors[field].extend(errors)
+        return failure('validation', form_errors)
 
 
 @blueprint.route('/translate', methods=['GET'])

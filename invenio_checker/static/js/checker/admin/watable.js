@@ -28,6 +28,7 @@ define(
     "use strict";
 
     var current_page = "";
+    var last_pressed_button = "";
 
     // Default page
     $(document).ready(function () {
@@ -88,11 +89,15 @@ define(
                 var field_id = $(this).data('field-id');
                 if (field_id in response.errors) {
                   $(this).html(response.errors[field_id]);
+                  $(this).show();
+                }
+                else {
+                  $(this).hide();
                 }
               });
               break;
-            case 'commit':
-              $("#task-insertion-failure").html('<strong>Failed to commit to the database:</strong> ' + response.errors);
+            case 'general':
+              $("#task-insertion-failure").html('<strong>Failed to complete request:</strong> ' + response.errors);
               $("#task-insertion-failure").show();
               break;
             default:
@@ -109,6 +114,11 @@ define(
       function beforeSubmit(formData, jqForm, options) {
         $("#task-insertion-failure").hide();
         $(".validation-error").html('');
+        if (null === last_pressed_button) {
+          // No button was explicitly clicked. Bail out.
+          return false;
+        }
+        jqForm[0].requested_action.value = last_pressed_button;
       }
 
       var options = {
@@ -119,6 +129,11 @@ define(
         clearForm: false
       };
 
+      // Have different buttons add different attributes to the form
+      $("[id^='submit_']").on('click', function(event) {
+        last_pressed_button=$(this).attr("id");
+        return true;
+      });
       // bind to the form's submit event
       $('#new_task_form').submit(function() {
           $(this).ajaxSubmit(options);
@@ -127,8 +142,11 @@ define(
 
       // Prepare periodic checks
       $("#periodic").after("<div id='cronexp' style='display: inline;'></div>");
-      $("#periodic").attr('checked', false);
+      periodicToggle(false);
       $("#cronexp").hide();
+
+      // Prepare requested action
+      $("#requested_action").closest(".row").hide();
 
       // Hide previously displayed failure
       $("#task-insertion-failure").hide();
@@ -177,9 +195,9 @@ define(
     $('#periodic').bind('change', function(e) {
       var cur_input = $(this);
       if (cur_input.is(':checked')) {
-        $("#cronexp").show();
+        periodicToggle(true);
       } else {
-        $("#cronexp").hide();
+        periodicToggle(false);
       }
     });
 
@@ -203,6 +221,17 @@ define(
           }
         }
       });
+    }
+
+    function periodicToggle(is){
+      $("#periodic").attr('checked', is);
+      $(".button_when_periodic").prop("disabled", !is);
+      $(".button_when_not_periodic").prop("disabled", is);
+      if (is) {
+        $("#cronexp").show();
+      } else {
+        $("#cronexp").hide();
+      }
     }
 
     // Display tables
