@@ -664,7 +664,6 @@ def pytest_configure(config):
 
     :type config: :py:class:`_pytest.config.Config`
     """
-<<<<<<< HEAD
     def get_reporters(invenio_rule):
         """
         :type invenio_rule: :py:class:`invenio_checker.models.CheckerRule`
@@ -679,10 +678,6 @@ def pytest_configure(config):
         config.option.redis_worker.master.get_execution()
 
     config.option.invenio_rule = config.option.invenio_execution.rule
-=======
-    if hasattr(config, 'slaveinput'):
-        return  # xdist slave, we are already active on the master
->>>>>>> 51655b0... reporters: basic reporting capabilities
 
     config.option.invenio_reporters = get_reporters(config.option.invenio_rule)
 
