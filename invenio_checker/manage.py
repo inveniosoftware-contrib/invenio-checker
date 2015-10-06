@@ -37,42 +37,6 @@ from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
 from invenio.ext.sqlalchemy import db
 
-################################################################################
-# from invenio_checker.models import CheckerRule, CheckerRecord, CheckerReporter
-# from invenio.ext.sqlalchemy import db
-# CheckerRecord.query.delete()
-# CheckerRule.query.delete()
-# try:
-#     print "1"
-#     new_rule = CheckerRule(
-#         name='enum',
-#         plugin_module='invenio_checker',
-#         plugin_file='enum',
-#         option_holdingpen=True,
-#         option_consider_deleted_records=False,
-#         filter_pattern=None,
-#         filter_records=None,
-#     )
-#     db.session.add(new_rule)
-#     db.session.commit()
-# except Exception:
-#     pass
-# try:
-#     new_rule = CheckerRule(
-#         name='enum2',
-#         plugin_module='invenio_checker',
-#         plugin_file='enum',
-#         option_holdingpen=True,
-#         option_consider_deleted_records=False,
-#         filter_pattern=None,
-#         filter_records=None,
-#     )
-#     db.session.add(new_rule)
-#     db.session.commit()
-# except Exception:
-#     pass
-################################################################################
-
 manager = Manager(usage=__doc__)
 rules_dec = manager.option('--rules', '-r', default=ALL,
                            help='Comma seperated list of rule names to load,'
@@ -230,9 +194,12 @@ def delete_rule(rule_uuid):
     Deletes (and de-schedules) a rule.
     """
     rule = CheckerRule.query.filter(CheckerRule.name == rule_uuid).first()
-    db.session.delete(rule)
-    db.session.commit()
-
+    try:
+        db.session.delete(rule)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
 
 @manager.option('--name', '-n', dest='rule_uuid',
                 help='')
@@ -254,9 +221,9 @@ def start_rules(*rule_uuids):
     """
     Starts a rule.
     """
-    # from .supervisor import run_task
-    # for rule_uuid in rule_uuids:
-    #     run_task(rule_uuid)
+    from .supervisor import run_task
+    for rule_uuid in rule_uuids:
+        run_task(rule_uuid)
 
 
 def json_import(json_file):

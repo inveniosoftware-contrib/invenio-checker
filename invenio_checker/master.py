@@ -51,6 +51,7 @@ keys_master = {
 
 
 class HasWorkers(object):
+
     # TODO: Return actual workers (redis_workers)
     @property
     def workers(self):
