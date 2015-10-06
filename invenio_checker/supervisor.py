@@ -269,7 +269,6 @@ class CustomRetry(Exception):
 def run_test(self, filepath, master_id, task_id, retval=None):
     redis_worker = RedisWorker(task_id)
     print 'ENTER {} of GROUP {}'.format(task_id, redis_worker.master.uuid)
-    # import faulthandler; faulthandler.enable()
 
     if retval is None:
         redis_worker.status = StatusWorker.booting

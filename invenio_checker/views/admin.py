@@ -75,14 +75,15 @@ import sys
 from croniter import croniter
 
 
+from functools import partial
+from invenio.utils import forms
+
 blueprint = Blueprint('checker_admin', __name__,
                       url_prefix="/admin/checker",
                       template_folder='../templates',
                       static_folder='../static')
 
 def get_NewTaskForm(*args, **kwargs):
-
-    from ..models import SendEmail
 
     class NewTaskForm(Form):
         name = fields.StringField(
@@ -114,9 +115,6 @@ def get_NewTaskForm(*args, **kwargs):
         filter_records = fields.StringField(
             'Record IDs',
         )
-        periodic = fields.BooleanField(
-            'Run this rule periodically',
-        )
         schedule = fields.StringField(
             'Schedule',
         )
@@ -128,6 +126,16 @@ def get_NewTaskForm(*args, **kwargs):
                 ('submit_schedule',) * 2,
                 ('submit_run',) * 2,
             ]
+        )
+        # Hidden
+        periodic = fields.BooleanField(
+            'Run this rule periodically',
+        )
+        modify = fields.BooleanField(
+            'Request modification instead of creation',
+        )
+        original_name = fields.StringField(
+            'Original name for modification',
         )
 
         def validate_filter_records(self, field):
@@ -153,6 +161,7 @@ def get_NewTaskForm(*args, **kwargs):
                 reraise(ValidationError, *sys.exc_info()[1:])
 
         def validate_send_email(self, field):
+            from ..models import SendEmail
             field.data = SendEmail[field.data]
 
     return NewTaskForm(*args, **kwargs)
@@ -198,12 +207,14 @@ def get_tasks_data():
         rule_d = {key: val for key, val in rule_d.items()
                   if not key.startswith('_')}
         rule_d['arguments'] = str(rule_d['arguments'])
-        rule_d['plugin'] = rule.plugin,
         if rule_d['filter_records'].is_infinite():
-            rule_d['filter_records'] = '' # Infinite is not serializable
+            rule_d['filter_records'] = ''
         else:
-            rule_d['filter_records'] = list(rule_d['filter_records'])
-        rule_d['send_email'] = rule_d['send_email'].name
+            rule_d['filter_records'] = ranges_str(rule_d['filter_records'])
+        rule_d['send_email'] = rule_d['send_email'].name  # FIXME: This is weird and not displayed
+        for key, val in rule_d.items():
+            if isinstance(val, bool):
+                rule_d[key] = int(val)
         row_list.append(rule_d)
     return jsonify({'rows': row_list, 'cols': column_list})
 
@@ -283,21 +294,22 @@ def stream_logs(uuid):
     execution = CheckerRuleExecution.query.get(uuid)
     return Response(stream_with_context(execution.read_logs()))
 
-
-# Create
-
-@blueprint.route('/api/create_task/get_arguments_spec/<plugin_name>', methods=['POST'])
+@blueprint.route('/api/task_create/get_arguments_spec', methods=['POST'])
 @login_required
-@templated('checker/admin/create_task.html')
-def get_arguments_spec(plugin_name):
 @permission_required(viewchecker.name)
+def task_create():
     """Return complementary form fields for a check's arguments."""
+    plugin_name = request.form['plugin_name']
     form = get_ArgForm(plugin_name)
+    task_name = request.form.get('task_name')
+    if task_name:
+        task_arguments = CheckerRule.query.get(task_name).arguments
+        for key, val in task_arguments.items():
+            setattr(getattr(form, key), 'data', val)
     return render_template_string('''
     {% import 'checker/admin/macros_bootstrap.html' as bt %}
     {{ bt.render_form(form, nested=True) }}
     ''', form=form)
-
 
 def get_schema_for_plugin(plugin_name):
     if plugin_name not in plugin_files:
@@ -307,10 +319,6 @@ def get_schema_for_plugin(plugin_name):
         return module.argument_schema
     except AttributeError:
         return {}
-
-
-from functools import partial
-from invenio.utils import forms
 
 type_to_wtforms = {
     "string": partial(fields.StringField, validators=[validators.InputRequired()]),
@@ -324,7 +332,6 @@ type_to_wtforms = {
     "date": partial(fields.DateField, widget=forms.DatePickerWidget()),
 }
 
-
 def get_ArgForm(plugin_name, *args, **kwargs):
     """Get a WTForms form based on the cerberus schema defined in the check."""
 
@@ -334,52 +341,55 @@ def get_ArgForm(plugin_name, *args, **kwargs):
     arguments_schema = {"arg_" + k: v for k, v
                         in get_schema_for_plugin(plugin_name).items()}
     for key, spec in arguments_schema.items():
-        setattr(
-            ArgForm,
-            key,
-            type_to_wtforms[spec['type']]()
-        )
+        setattr(ArgForm, key, type_to_wtforms[spec['type']]())
 
     return ArgForm(*args, **kwargs)
 
-
-@blueprint.route('/api/create_task/submit', methods=['POST'])
+@blueprint.route('/api/task_create/submit', methods=['POST'])
 @login_required
-@templated('checker/admin/create_task.html')
 @permission_required(viewchecker.name)
+@templated('checker/admin/task_create.html')
 def submit_task():
     from ..supervisor import run_task
 
     def failure(type_, errors):
         assert type_ in ('general', 'validation')
-        return {'success': False,
-                'failure_type': type_,
-                'errors': errors}
+        return jsonify({'failure_type': type_, 'errors': errors}), 400
 
     def success():
-        return {'success': True}
+        return jsonify({})
 
     form_origin = get_NewTaskForm(request.form)
     form_plugin = get_ArgForm(request.form['plugin'], request.form)
 
     if form_origin.validate() & form_plugin.validate():
-
         # Prepare form to its final form
         form_for_db = form_origin.data.copy()
+
         periodic = form_for_db.pop('periodic', False)
+        modify = form_for_db.pop('modify', False)
+        original_name = form_for_db.pop('original_name', False)
+        requested_action = form_for_db.pop('requested_action', False)
+
         if not periodic:
             form_for_db['schedule'] = None
-        form_for_db['last_run'] = datetime.now()
 
         try:
             # Save
-            task = CheckerRule(
-                arguments=form_plugin.data,
-                **form_for_db
-            )
+            if modify:
+                task = CheckerRule.query.get(original_name)
+                for key, val in form_for_db.iteritems():
+                    setattr(task, key, val)
+                task.arguments=form_plugin.data
+            else:
+                form_for_db['last_run'] = datetime.now()
+                task = CheckerRule(
+                    arguments=form_plugin.data,
+                    **form_for_db
+                )
             db.session.add(task)
             db.session.commit()
-            if form_origin['requested_action'].startswith('submit_run'):
+            if requested_action.startswith('submit_run'):
                 run_task(task.name)
         except Exception as e:
             return failure('general', (str(e),))
@@ -394,11 +404,59 @@ def submit_task():
             form_errors[field].extend(errors)
         return failure('validation', form_errors)
 
-
 @blueprint.route('/translate', methods=['GET'])
 @login_required
-@permission_required(WEBACCESSACTION)
+@permission_required(viewchecker.name)
 def translate():
     """Returns the columns of the checks table."""
     from invenio.base.i18n import _
     return str(_(request.args['english']))
+
+@blueprint.route('/task_run', methods=['GET'])
+@login_required
+@permission_required(modifychecker.name)
+def task_run():
+    from ..manage import start_rules
+    names_in_db = CheckerRule.query.with_entities(CheckerRule.name).all()
+    names_in_db = {tup[0] for tup in names_in_db}
+    task_names = request.values.getlist('task_names[]')
+    if set(task_names) - names_in_db:
+        return jsonify({'error': 'Missing tasks requested'}), 400
+    start_rules(*task_names)
+    return jsonify({})
+
+@blueprint.route('/task_delete', methods=['GET'])
+@login_required
+@permission_required(modifychecker.name)
+def task_delete():
+    from ..manage import delete_rule
+    task_names = request.values.getlist('task_names[]')
+    for task_name in task_names:
+        delete_rule(task_name)
+    return jsonify({})
+
+# @blueprint.route('/task_modify/<plugin_name>', methods=['GET'])
+# @login_required
+# @permission_required(modifychecker.name)
+# def task_modify(plugin_name):
+#     form = get_ArgForm(plugin_name)
+#     return render_template_string('''
+#     {% import 'checker/admin/macros_bootstrap.html' as bt %}
+#     {{ bt.render_form(form, nested=True) }}
+#     ''', form=form)
+
+def get_ranges(items):
+    from operator import itemgetter
+    from itertools import groupby
+    for k, g in groupby(enumerate(sorted(set(items))), lambda (i,x):i-x):
+           yield map(itemgetter(1), g)
+
+def ranges_str(items):
+    output = ""
+    for cont_set in get_ranges(items):
+        if len(cont_set) == 1:
+            output = output + "," + str(cont_set[0])
+        else:
+            output = output + "," + str(cont_set[0]) + "-" + str(cont_set[-1])
+    output = output.lstrip(",")
+    return output

@@ -55,7 +55,7 @@
             <li><a href="{{url_for('.view', page_name='executions')}}" id='load_logs'>{{ _("Executions") }}</a></li>
         </ul>
         <ul class="nav navbar-nav navbar-right">
-            <a href="{{url_for('.view', page_name='create_task')}}" type="button" class="btn btn-default navbar-btn" id="create_task">
+            <a href="{{url_for('.view', page_name='task_create')}}" type="button" class="btn btn-default navbar-btn" id="task_create">
                 {{ _("Create task") }}
             </a>
         </ul>
@@ -68,25 +68,24 @@
 <div class="switchable" id="table-container"> </div>
 <div id="side-floater">
     <div class="list-group-horizontal">
-        <a href="#" class="list-group-item list-group-item-success table-action-btn table-action-multi table-action-signle">Run <span class="badge">0</span></a>
-        <a href="#" class="list-group-item list-group-item-danger table-action-btn table-action-multi table-action-signle">Delete <span class="badge">0</span></a>
-      <a href="#" class="list-group-item list-group-item-warning table-action-btn table-action-single">Modify</a>
-      <a href="#" class="list-group-item list-group-item-info table-action-btn table-action-single">Use as template</a>
+        <a href="#" class="list-group-item list-group-item-success table-action-btn table-action-multi table-action-signle task_run">Run <span class="badge">0</span></a>
+        <a href="#" class="list-group-item list-group-item-danger table-action-btn table-action-multi table-action-signle task_delete">Delete <span class="badge">0</span></a>
+        <a href="#" class="list-group-item list-group-item-warning table-action-btn table-action-single task_modify">Modify</a>
+        <a href="#" class="list-group-item list-group-item-info table-action-btn table-action-single task_new_with_task_tpl">Use as template</a>
     </div>
 </div>
-
 
 {# Creation #}
 <div class="switchable" id="creation" class="panel panel-default">
     <div class="panel-heading">
-        <h3 class="panel-title">{{ _('Please enter the new task details') }}</h3>
+        <!-- <h3 class="panel-title">{{ _('Please enter the new task details') }}</h3> -->
     </div>
     <div class="panel-body">
 
         <div id="new-task-form">
             {{ bt.render_form(new_task_form, action_url=url_for(".submit_task"), action_text='Save task', id_='new_task_form', class_='form-horizontal') }}
         </div>
-        <div id='task-insertion-failure' class="alert alert-danger" style="display: none;"></div>
+        <div id='task-insertion-failure' class="alert alert-danger col-md-10"></div>
 
         {#
         {% call bt.render_form(form, action_url=url_for('login_view'), action_text='Login',
@@ -102,6 +101,14 @@
         #}
 
     </div>
+</div>
+
+<div class="clearfix"></div>
+<div class="alert alert-dismissible tbl_alert" role="alert">
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
+  <p></p>
 </div>
 
 {# Modal #}

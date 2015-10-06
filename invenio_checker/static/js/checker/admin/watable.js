@@ -31,10 +31,12 @@ define(
     var last_pressed_button = "";
     var tbl = null;
     var floater = null;
+    var tbl_alert = null;
 
     // Default page
     $(document).ready(function () {
       floater = $("#side-floater");
+      tbl_alert = $(".tbl_alert");
       plugJqueryForms();
       plugDatePickers();
       switchTo(requested_page);
@@ -42,32 +44,32 @@ define(
     });
 
     // Page switching
-    $('#load_tasks, #load_checks, #load_logs, #create_task')
+    $('#load_tasks, #load_checks, #load_logs, #task_create')
     .on('click', function(event) {
       function id_to_url (id_) {
         return $("#" + id_).attr('href');
       }
+      event.preventDefault();
       function id_to_page_name (id_) {
         return {
           load_tasks : 'tasks',
           load_checks : 'checks',
           load_logs : 'executions',
-          create_task : 'create_task'
+          task_create : 'task_create',
         }[id_];
       }
-      event.preventDefault();
       var id_ = event.target.id;
-      history.pushState('data', '', id_to_url(id_));
       switchTo(id_to_page_name(id_));
     });
 
-    function switchTo(page_name) {
+
+    function switchTo(page_name, template) {
+      history.pushState('data', '', page_name);
       $(".switchable").hide();
       updateSubtitle(page_name);
-      if (page_name === 'create_task') {
-        createNewTask();
-      }
-      else {
+      if (['task_create', 'task_modify'].indexOf(page_name) >= 0) {
+        renderTaskForm(page_name, template);
+      } else {
         loadTable(page_name);
       }
     }
@@ -84,8 +86,9 @@ define(
 
     function plugJqueryForms() {
 
-      function handleResponse(response, statusText, xhr, $form) {
-        if (response.success === false) {
+      function handleError(xhr, whatHappen, statusText, $form) {
+        if (xhr.readyState === 4) {
+          var response = xhr.responseJSON;
           switch (response.failure_type) {
             case 'validation':
               $(".validation-error").html(function() {
@@ -108,15 +111,18 @@ define(
               text('<strong>Bad reply:</strong> Missing failure type');
               $("#task-insertion-failure").show();
           }
+        } else {
+              tblAlert('danger', 'Unknown error occurred while submitting task!');
         }
-        else {
+      }
+
+      function handleResponse(response, statusText, xhr, $form) {
           // TODO: Forward to newly created rule
-        }
       }
 
       function beforeSubmit(formData, jqForm, options) {
         $("#task-insertion-failure").hide();
-        $(".validation-error").html('');
+        $(".validation-error").hide();
         if (null === last_pressed_button) {
           // No button was explicitly clicked. Bail out.
           return false;
@@ -127,18 +133,20 @@ define(
       var options = {
         beforeSubmit: beforeSubmit,
         success: handleResponse,
+        error: handleError,
         dataType: 'json',
         resetForm: false,
         clearForm: false
       };
 
-      // Have different buttons add different attributes to the form
+      // Have different buttons do different actions
       $("[id^='submit_']").on('click', function(event) {
         last_pressed_button=$(this).attr("id");
         return true;
       });
       // bind to the form's submit event
       $('#new_task_form').submit(function() {
+          $(".tbl_alert.alert-danger").hide();
           $(this).ajaxSubmit(options);
           return false; // prevent standard browser behaviour
       });
@@ -148,23 +156,56 @@ define(
       periodicToggle(false);
       $("#cronexp").hide();
 
-      // Prepare requested action
-      $("#requested_action").closest(".row").hide();
+      // Manually hide fields
+      $("#requested_action, #schedule, #modify, #original_name").closest(".row").hide();
 
       // Hide previously displayed failure
       $("#task-insertion-failure").hide();
-
     }
 
-    function createNewTask(check_blueprint, task_blueprint) {
-      if (check_blueprint !== undefined) {
-        // TODO: Load blueprint
+    function renderTaskForm(action, template) {
+      // Fill in fields that exist in template
+      $("[id^='arg_']").closest(".row").remove();
+      if (template !== undefined) {
+        for (var key in template) {
+          if (template.hasOwnProperty(key)) {
+            var elem = $("#creation").find("#"+key);
+            if ($(elem).is(":checkbox")) {
+              $(elem).click();
+            } else {
+              $(elem).val(template[key]);
+            }
+          }
+        }
       }
-      else if (task_blueprint) {
-        // TODO: Load blueprint
+      if (action === 'task_modify') {
+        $("#modify").prop("checked", true);
+        $("#original_name").val($("#name").val());
+      } else {
+        $("#modify").prop("checked", false);
       }
-      updateCreationArguments();
-      $("#schedule").closest(".row").css("display", "none");
+      // Update title of form
+      // var action_to_human = {
+      //   task_create: "Please enter the new task's details",
+      //   task_modify: "Please modify the task",
+      // };
+      // $.ajax({
+      //   type: "GET",
+      //   url: "/admin/checker/translate",
+      //   data: {english: action_to_human[action]},
+      //   success: function(data) {
+      //     $("#creation .panel-title").text(data);
+      //   }
+      // });
+      // Refresh refreshable javascript elements
+      if (template === undefined) {
+        updateCreationArguments();
+      } else {
+        updateCreationArguments(template.name);
+      }
+      if ($("#schedule").val() !== "") {
+        $('#periodic').click();  // Changing the attribute doesn't trigger event
+      }
       $("#creation").show();
     }
 
@@ -177,15 +218,14 @@ define(
       updateCreationArguments();
     });
 
-    function updateCreationArguments() {
+    function updateCreationArguments(for_rule) {
       var arg_rows = $("[id^='arg_']").closest(".row");
       var plugin = $("#plugin");
       var plugin_row = $(plugin).closest(".row");
       $.ajax({
         type: "POST",
-        dataType: "html",
-        url: "/admin/checker/api/create_task/get_arguments_spec/" +
-          $(plugin).val(),
+        url: "/admin/checker/api/task_create/get_arguments_spec/",
+        data: {plugin_name: $(plugin).val(), task_name: for_rule},
         success: function(data) {
           $(arg_rows).remove();
           $(plugin_row).after(data);
@@ -262,11 +302,13 @@ define(
             }
           },
           rowClicked: function(data) {
-            if (table_name === 'executions') {
+            // `table_name` is not injected from the `else` block below. this
+            // is why we use `current_page` here.
+            if (current_page === 'executions') {
               data.event.preventDefault();
               showLog(data.row.uuid);
             }
-            else if (table_name === 'checks') {
+            else if (current_page === 'checks') {
               data.event.preventDefault();
               showFile(data.row.name);
             }
@@ -292,9 +334,9 @@ define(
       });
     }
 
-    function refreshFloater(table_name){
+    function refreshFloater(table_name) {
       // Reset
-      $("#side-floater").hide();  // hide is faster than remove, removes flicker
+      $(floater).hide();  // hide is faster than remove, removes flicker
 
       // Don't rely on WATable's .getData(true) to get checked rows as it is
       // not updated mid-check.
@@ -312,11 +354,79 @@ define(
             break;
           case 1:
             $(".table-action-single").removeClass("disabled");
+            // No, no break statement with my coffee, thank you.
           default:
             $(".table-action-multi").removeClass("disabled");
         }
-        $("#side-floater").show();
+
+        $(".task_run").off('click').on('click', function(event) {
+          var selected_tasks = [];
+          $.each(tbl.getData(true).rows, function(idx, row) {
+            selected_tasks.push(row.name);
+          });
+          $.ajax({
+            type: "GET",
+            url: "/admin/checker/task_run",
+            data: {task_names: selected_tasks},
+            success: function(data) {
+              tblAlert('success', 'Tasks started!');
+            },
+            error: function(data) {
+              if (data.readyState === 4) {
+                tblAlert('danger', data.responseJSON.error);
+              } else {
+                tblAlert('danger', 'Could not start tasks!');
+              }
+            }
+          });
+        });
+
+        $(".task_delete").off('click').on('click', function(event) {
+          var selected_tasks = [];
+          $.each(tbl.getData(true).rows, function(idx, row) {
+            selected_tasks.push(row.name);
+          });
+          $.ajax({
+            type: "GET",
+            url: "/admin/checker/task_delete",
+            data: {task_names: selected_tasks},
+            success: function(data) {
+              tbl.update();
+              tblAlert('warning', 'Tasks deleted!');
+            },
+            error: function(data) {
+              tblAlert('danger', 'Failed to delete tasks!');
+            }
+          });
+        });
+
+        $(".task_modify").off('click').on('click', function(event) {
+          var selected_task = null;
+          $.each(tbl.getData(true).rows, function(idx, row) {
+            // Only one is selected anyway
+            selected_task = row;
+          });
+          switchTo('task_modify', selected_task);
+        });
+
+        $(".task_new_with_task_tpl").off('click').on('click', function(event) {
+          var selected_task = null;
+          $.each(tbl.getData(true).rows, function(idx, row) {
+            // Only one is selected anyway
+            selected_task = row;
+          });
+          switchTo('task_create', selected_task);
+        });
+
+        $(floater).show();
       }
+    }
+
+    function tblAlert(level, content) {
+      var new_alert = tbl_alert.clone();
+      $(new_alert).find('p').text(content);
+      $(new_alert).addClass("alert-"+level);
+      $(new_alert).hide().appendTo("#table-container").toggle('highlight');
     }
 
     // Components and state
@@ -326,7 +436,8 @@ define(
         tasks: 'Tasks view',
         checks: 'Checks view',
         executions: 'Executions view',
-        create_task: 'Create task',
+        task_create: 'Create task',
+        task_modify: 'Modify task',
       };
       var subtitle_en = subtitles[page_name];
       $.ajax({

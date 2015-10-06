@@ -40,6 +40,7 @@
         <div class={{ kwargs.pop('field_class', '') }}>
             {{ field(class_='form-control', **kwargs) }}
         </div>
+        <div class="clearfix"></div>
         <div class="col-md-2 bg-warning validation-error" data-field-id="{{ field.id }}"></div>
     </div>
 {%- endmacro %}
@@ -124,9 +125,9 @@
     </div>
 
     <div class="col-md-7" style="padding-right: 0">
-        <button id="submit_run_and_schedule" type="submit" class="{{ btn_class }} btn-primary button_when_periodic submit-button-right">Run and schedule</button>
-        <button id="submit_schedule" type="submit" class="{{ btn_class }} btn-primary button_when_periodic submit-button-right">Schedule</button>
-        <button id="submit_run" type="submit" class="{{ btn_class }} btn-primary button_when_not_periodic submit-button-right">Run</button>
+        <button id="submit_run_and_schedule" type="submit" class="{{ btn_class }} btn-primary button_when_periodic submit-button-right">{{_('Run and schedule')}}</button>
+        <button id="submit_schedule" type="submit" class="{{ btn_class }} btn-primary button_when_periodic submit-button-right">{{_('Schedule')}}</button>
+        <button id="submit_run" type="submit" class="{{ btn_class }} btn-primary button_when_not_periodic submit-button-right">{{_('Run')}}</button>
     </div>
 </form>
 {% endif %}
