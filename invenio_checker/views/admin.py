@@ -55,6 +55,7 @@ from invenio.ext.sqlalchemy import db
 from invenio.base.decorators import templated
 from invenio.base.i18n import _
 from invenio.ext.principal import permission_required
+from ..acl import viewchecker, modifychecker
 
 from invenio_checker.models import (
     CheckerRule,
@@ -73,9 +74,6 @@ from ..recids import ids_from_input
 import sys
 from croniter import croniter
 
-# from invenio.modules.access.local_config import \
-# FIXME
-WEBACCESSACTION = 'cfgwebaccess'
 
 blueprint = Blueprint('checker_admin', __name__,
                       url_prefix="/admin/checker",
@@ -168,7 +166,7 @@ def index():
 
 @blueprint.route('/view/<page_name>')
 @login_required
-@permission_required(WEBACCESSACTION)
+@permission_required(viewchecker.name)
 @templated('checker/admin/index.html')
 @register_breadcrumb(blueprint, 'admin.checker_admin', _('Checker'))
 def view(page_name):
@@ -181,7 +179,7 @@ def view(page_name):
 # Tasks
 @blueprint.route('/api/tasks/get/data', methods=['GET'])
 @login_required
-@permission_required(WEBACCESSACTION)
+@permission_required(viewchecker.name)
 def get_tasks_data():
     """
     Return a JSON representation of the CheckerRule data.
@@ -213,7 +211,7 @@ def get_tasks_data():
 # Checks
 @blueprint.route('/api/checks/get/data', methods=['GET'])
 @login_required
-@permission_required(WEBACCESSACTION)
+@permission_required(viewchecker.name)
 def get_checks_data():
     """Returns the columns of the checks table."""
     checks = []
@@ -227,7 +225,7 @@ def get_checks_data():
 
 @blueprint.route('/api/checks/stream_check/<pluginspec>', methods=['GET'])
 @login_required
-@permission_required(WEBACCESSACTION)  # FIXME: Admin permission?
+@permission_required(viewchecker.name)
 def stream_check(pluginspec):
     """
     TODO
@@ -243,7 +241,7 @@ def stream_check(pluginspec):
 # executions
 @blueprint.route('/api/executions/get/data', methods=['GET'])
 @login_required
-@permission_required(WEBACCESSACTION)
+@permission_required(viewchecker.name)
 def get_logs_data():
     """Returns the columns of the checks table."""
     loglist = []
@@ -279,7 +277,7 @@ def get_logs_data():
 
 @blueprint.route('/api/executions/stream_structured/<uuid>', methods=['GET'])
 @login_required
-@permission_required(WEBACCESSACTION)
+@permission_required(viewchecker.name)
 def stream_logs(uuid):
     """Returns the columns of the checks table."""
     execution = CheckerRuleExecution.query.get(uuid)
@@ -290,9 +288,9 @@ def stream_logs(uuid):
 
 @blueprint.route('/api/create_task/get_arguments_spec/<plugin_name>', methods=['POST'])
 @login_required
-@permission_required(WEBACCESSACTION)
 @templated('checker/admin/create_task.html')
 def get_arguments_spec(plugin_name):
+@permission_required(viewchecker.name)
     """Return complementary form fields for a check's arguments."""
     form = get_ArgForm(plugin_name)
     return render_template_string('''
@@ -347,8 +345,8 @@ def get_ArgForm(plugin_name, *args, **kwargs):
 
 @blueprint.route('/api/create_task/submit', methods=['POST'])
 @login_required
-@permission_required(WEBACCESSACTION)
 @templated('checker/admin/create_task.html')
+@permission_required(viewchecker.name)
 def submit_task():
     from ..supervisor import run_task
 
