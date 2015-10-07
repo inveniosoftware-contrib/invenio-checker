@@ -22,40 +22,29 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-from invenio.ext.email import send_email
-from invenio_checker.models import CheckerReporter, CheckerRule
-from invenio.base.config import CFG_SITE_ADMIN_EMAIL
+from invenio_checker.models import CheckerReporter
+from invenio.workflows.api import start_delayed
 
 
-class MailReporter(object):
+class WorkflowReporter(object):
     def __init__(self, reporter_name):
         self.reporter_name = reporter_name
-        self.admin_email = CFG_SITE_ADMIN_EMAIL
-        self.email = None
         if reporter_name:
             self.reporter = CheckerReporter.query.filter_by(name=reporter_name).first()
         else:
             print "Missing or wrong reporter name!"
             raise Exception
-        if self.reporter:
-            self.settings = self.reporter.arguments
-            check = CheckerRule.query.filter_by(name=self.reporter.rule_name).first()
-            if check.owner:
-                self.email = check.owner.email
-        if not self.email:
-            self.email = self.admin_email
 
     def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None):
-        send_email(self.admin_email,
-                   self.email,
-                   "CHECKER EXCEPTION - rule: %s raised exception" % (self.reporter.rule_name,),
-                   "%s\n %s\n %s\n %s" % (when, outrep_summary, location_tuple, formatted_exception))
+        error_data = {'rule_name': self.reporter.rule_name,
+                      'when': when,
+                      'outrep_summary': outrep_summary,
+                      'location_tuple': location_tuple,
+                      'formatted_exception': formatted_exception}
+        start_delayed('simple_reporting_workflow', [error_data], module_name="checker")
 
     def report(self, user_readable_msg, location_tuple=None):
-        send_email(self.admin_email,
-                   self.email,
-                   "CHECKER LOG - rule: %s logging" % (self.reporter.rule_name,),
-                   "%s\n %s" % (user_readable_msg, location_tuple))
+        pass
 
     def finalize(self):
         pass
@@ -63,4 +52,4 @@ class MailReporter(object):
 # TODO make reporter load correct settings from DB on initialization basing on name taken from task
 def get_reporter(name):
     print "Initializing reporter %s" % (name,)
-    return MailReporter(name)
+    return WorkflowReporter(name)
