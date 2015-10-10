@@ -80,12 +80,12 @@ task_mapping = {
         "type": "string",
         "friendly": "Arguments",
     },
-    "option_holdingpen": {
+    "holdingpen": {
         "index": 4,
         "type": "bool",
         "friendly": "HoldingPen",
     },
-    "option_consider_deleted_records": {
+    "consider_deleted_records": {
         "index": 5,
         "type": "bool",
         "friendly": "Consider deleted records",
