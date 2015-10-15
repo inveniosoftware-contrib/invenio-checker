@@ -41,28 +41,12 @@ from invenio.ext.registry import (
 from invenio.utils.datastructures import LazyDict
 
 def _valuegetter(class_or_module, registry_name):
-    # if inspect.ismodule(class_or_module):
     plugin_name = class_or_module.__name__.split('.')[-1]
     if plugin_name == '__init__':
         # Ignore __init__ modules.
         return None
-
-    def check_attr(attr_name):
-        try:
-            attr = getattr(class_or_module, attr_name)
-            if not callable(attr):
-                raise TypeError
-        except (AttributeError, TypeError) as e:
-            exc_info = sys.exc_info()
-            e.args += ("Checker {registry_name}'s {plugin_name} `{attr}` could "
-                        "not be loaded.".format(plugin_name=plugin_name,
-                                                attr=attr_name,
-                                                registry_name=registry_name)),
-            reraise(RegistryError, e, exc_info[2])
-        else:
-            return plugin_name
-    # check_attr('check_record')
     return class_or_module
+
 
 class CheckerPluginRegistry(DictModuleAutoDiscoverySubRegistry):
     def keygetter(self, key, orig_value, class_):
@@ -84,7 +68,9 @@ class PkgResourcesDirDiscoveryRegistry(FlaskPkgResourcesDirDiscoveryRegistry):
                                      for f in self if test(f)))
 
 
-checkerext = RegistryProxy('checkerext', ModuleAutoDiscoveryRegistry, 'checkerext')
+checkerext = RegistryProxy('checkerext',
+                           ModuleAutoDiscoveryRegistry,
+                           'checkerext')
 
 plugin_files = RegistryProxy('checkerext.checks',
                              CheckerPluginRegistry,

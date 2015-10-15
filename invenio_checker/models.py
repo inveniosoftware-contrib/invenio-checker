@@ -26,7 +26,6 @@
 
 import inspect
 import simplejson as json
-from enum import Enum
 
 from sqlalchemy import types
 from intbitset import intbitset  # pylint: disable=no-name-in-module
@@ -41,18 +40,13 @@ from invenio_accounts.models import User
 
 from .common import ALL
 from .errors import PluginMissing
-from .registry import plugin_files
+from .registry import plugin_files, reporters_files
 
 from sqlalchemy_utils.types.choice import ChoiceType
 from .master import StatusMaster
 
 from sqlalchemy.ext import mutable
 
-
-class SendEmail(Enum):
-    on_failure = 0
-    always = 1
-    never = 2
 
 
 def default_date(obj):
@@ -124,24 +118,22 @@ class CheckerRule(db.Model):
 
     records = db.relationship('CheckerRecord', backref='rule',
                               cascade='all, delete-orphan')
+
     reporters = db.relationship('CheckerReporter', backref='checker_rule',
                                 cascade='all, delete-orphan')
 
     last_run = db.Column(
         db.DateTime(),
-        nullable=False,
+        nullable=True,
     )
 
     schedule = db.Column(db.String(255), nullable=True)
 
+    schedule_enabled = db.Column(db.Boolean, default=False, nullable=False)
+
     temporary = db.Column(db.Boolean, default=False)  # TODO: what do we do with this
 
     force_run_on_unmodified_records = db.Column(db.Boolean, default=False)
-
-    send_email = db.Column(
-        ChoiceType(SendEmail, impl=db.Integer()),
-        default=SendEmail.on_failure,
-    )
 
     @db.hybrid_property
     def filepath(self):
@@ -355,12 +347,20 @@ class CheckerRecord(db.Model):
                           db.ForeignKey('bibrec.id'),
                           primary_key=True, nullable=False)
 
-    name_checker_rule = db.Column(db.String(50),
-                                  db.ForeignKey('checker_rule.name'),
-                                  nullable=False, index=True,
-                                  primary_key=True)
+    name_checker_rule = db.Column(
+        db.String(127),
+        db.ForeignKey(
+            'checker_rule.name',
+            onupdate="CASCADE",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True,
+        primary_key=True,
+    )
 
-    last_run = db.Column(db.DateTime, nullable=True, server_default=None, index=True)
+    last_run = db.Column(db.DateTime, nullable=True, server_default=None,
+                         index=True)
 
 
 class CheckerReporter(db.Model):
@@ -369,11 +369,14 @@ class CheckerReporter(db.Model):
 
     __tablename__ = 'checker_reporter'
 
-    name = db.Column(db.String(50), primary_key=True)
-    plugin_module = db.Column(db.String(50), nullable=False)
-    plugin_file = db.Column(db.String(50), nullable=False)
-    arguments = db.Column(db.PickleType, default={})
-    rule_name = db.Column(db.String(50), db.ForeignKey('checker_rule.name'))
+    uuid = db.Column(db.Integer, primary_key=True)
+    plugin = db.Column(db.String(127))
+    arguments = db.Column(JsonEncodedDict(1023), default={})
+    rule_name = db.Column(db.String(127), db.ForeignKey('checker_rule.name'))
+
+    @db.hybrid_property
+    def module(self):
+        return reporters_files[self.plugin]
 
 
 __all__ = ('CheckerRule', 'CheckerRecord', 'CheckerReporter', 'CheckerRuleExecution')

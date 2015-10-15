@@ -23,19 +23,18 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 from invenio_checker.models import CheckerReporter
-from invenio.workflows.api import start_delayed
+from invenio_workflows.api import start_delayed
+from sqlalchemy.orm.exc import NoResultFound
 
 
 class WorkflowReporter(object):
-    def __init__(self, reporter_name):
-        self.reporter_name = reporter_name
-        if reporter_name:
-            self.reporter = CheckerReporter.query.filter_by(name=reporter_name).first()
-        else:
-            print "Missing or wrong reporter name!"
-            raise Exception
+    def __init__(self, rule_name):
+        try:
+            self.reporter = CheckerReporter.query.filter_by(rule_name=rule_name).one()
+        except NoResultFound:
+            raise Exception("Missing or wrong reporter name!")
 
-    def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None):
+    def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None, patches=None):
         error_data = {'rule_name': self.reporter.rule_name,
                       'when': when,
                       'outrep_summary': outrep_summary,
