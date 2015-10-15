@@ -17,18 +17,21 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""" Bibcheck plugin to check fields have one of a defined set of values """
+"""Change the title of records whose author is too young."""
 
+from datetime import datetime
 
 # Type must be specified
 # Key may not start with 'arg_'
 argument_schema = {
-    'astring': {'type': 'string'},
-    'anumber': {'type': 'float'},
-    'adt': {'type': 'datetime'},
-    'atext': {'type': 'text'},
-    'adate': {'type': 'date'},
-    'abool': {'type': 'boolean'},
+    'new_title': {'type': 'string', 'label': 'New Record Title'},
+    # 'anumber': {'type': 'float'},
+    # 'adt': {'type': 'datetime'},
+    # 'atext': {'type': 'text'},
+    'minimum_birthdate': {'type': 'date', 'label': 'Minimum birthdate of author'},
+    # 'abool': {'type': 'boolean'},
+    # 'adrop': {'type': 'choice', 'values': ['oNe', 'tWo']},
+    # 'adrop': {'type': 'choice_multi', 'values': ['oNe', 'tWo']},
 }
 
 
@@ -47,7 +50,14 @@ class CheckWhatever(object):
     # def setup_method(self, log):
     #     raise KeyError
 
-    def check_fail(self,log,record):
-        log('record ' + str(record))
-        # import os
-        # os.path.join(tuple(), 1)
+    def check_fail(self, log, batch_recids, get_record, search, record, arguments):
+        log('test')
+        raise KeyError("OH NO")
+
+        if 'title' not in record:
+            log('Whoops. The author name was missing')
+            raise
+
+        if arguments['minimum_birthdate'] < datetime.now().date():
+            log('Changing name for author ' + record['id'])
+            record['title'] = arguments['new_name']
