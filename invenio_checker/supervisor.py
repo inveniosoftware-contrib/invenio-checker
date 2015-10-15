@@ -54,6 +54,13 @@ from eliot import (
 from .config import get_eliot_log_path
 eliot_log_path = get_eliot_log_path()
 
+from _pytest.main import (
+    EXIT_OK,
+    EXIT_TESTSFAILED,
+    EXIT_INTERRUPTED,
+    EXIT_INTERNALERROR,
+    EXIT_USAGEERROR,
+)
 
 def _exclusive_paths(path1, path2):
     if not path1.endswith('/'):
@@ -231,18 +238,21 @@ def handle_results(task_ids):
 
 @celery.task
 def handle_errors(_, failed_master_id):
+    print 'FAILED {}'.format(failed_master_id)
     with with_eliot('handle errors', master_id=failed_master_id):
         for redis_worker in RedisMaster(failed_master_id).redis_workers:
-            redis_worker = RedisWorker(redis_worker.task_id)
-            redis_worker.status = StatusWorker.failed
-            print 'FAILED {}'.format(failed_master_id)
+            handle_error(redis_worker.task_id)
 
 
-# XXX: This is called chunk-times per failed-task-id
 @celery.task
 def handle_error(failed_task_id):
-    """
-    :type res: list of retvals or list of exception strings
+    """Handle the fact that a certain task has failed.
+
+    ..note::
+        Celery calls this function chunk-times per failed_task_id.
+
+    :param failed_task_id: The UUID of the task that failed.
+    :type failed_task_id: str
     """
     redis_worker = RedisWorker(failed_task_id)
     redis_worker.status = StatusWorker.failed
@@ -283,8 +293,19 @@ def run_test(self, filepath, master_id, task_id, retval=None):
                             '--invenio-master-id', master_id,
                             filepath])
 
+    # If pytest exited for reason different than a failed check, then something
+    # really did break
+    exit_success = (EXIT_OK,)
+    exit_failure = (EXIT_INTERRUPTED,
+                    EXIT_INTERNALERROR,
+                    EXIT_USAGEERROR,)
+    exit_test_failure = (EXIT_TESTSFAILED,)
 
-    # TODO: Check retval?
+    if retval in exit_test_failure:
+        raise Exception("Some tests failed. Not committing to the database.")
+
+    if retval in exit_failure:
+        raise Exception("Worker failed with {}.".format(retval))
 
     # Always pass `exc != None` to `self.retry`, because `None` breaks cleanup
     # of workers that are in retry queue (celery/celery#2560)
