@@ -205,7 +205,8 @@ define(
       // });
 
       // $("#new_task_form")[0].reset();  // Skips nested fields, so we do:
-      $("#new_task_form").find("input").val('');
+      $("#new_task_form input[type!=checkbox]").val('');
+      $("#new_task_form input[type=checkbox]").prop('checked', false);
       // Fill in fields that exist in template
       if (inherit !== undefined) {
         $.ajax({
@@ -217,10 +218,14 @@ define(
             for (var key in template) {
               if (template.hasOwnProperty(key)) {
                 var elem = $("#creation").find("#"+key);
+                var new_value = template[key];
                 if ($(elem).is(":checkbox")) {
-                  $(elem).click();
+                  if (new_value === true) {
+                    // We've already made sure it's not clicked.
+                    $(elem).click();
+                  }
                 } else {
-                  $(elem).val(template[key]);
+                  $(elem).val(new_value);
                 }
               }
             }

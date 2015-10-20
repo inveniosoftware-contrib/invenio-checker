@@ -447,11 +447,10 @@ def submit_task():
     # Get a dictionary that we can pass as kwargs to the database object,
     form_for_db = dict(form_origin.data)
     # but first, pop metadata out of it.
-    form_for_db.pop('modify', False)
-    modify = 'modify' in request.form
-    original_name = form_for_db.pop('original_name', False)
-    requested_action = form_for_db.pop('requested_action', False)
-    reporter_names = form_for_db.pop('reporters', [])
+    modify = form_for_db.pop('modify')
+    original_name = form_for_db.pop('original_name')
+    requested_action = form_for_db.pop('requested_action')
+    reporter_names = form_for_db.pop('reporters')
 
     if modify:
         task = CheckerRule.query.get(original_name)
@@ -541,8 +540,8 @@ def task_delete():
 def get_ranges(items):
     from operator import itemgetter
     from itertools import groupby
-    for k, g in groupby(enumerate(sorted(set(items))), lambda (i,x):i-x):
-           yield map(itemgetter(1), g)
+    for _, g in groupby(enumerate(sorted(set(items))), lambda (i, x): i - x):
+        yield map(itemgetter(1), g)  # pylint: disable=bad-builtin
 
 def ranges_str(items):
     output = ""
