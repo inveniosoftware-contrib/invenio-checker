@@ -78,7 +78,6 @@ install_requires = [
     'eliot>=0.8.0',
     'eliot-tree>=15.2.0',
     # Enum type
-    'enum34>=1.0.4',
     'SQLAlchemy-Utils>=0.30.17',
     # Serialize Decimal and friends
     'simplejson>=3.8.0',
@@ -93,6 +92,9 @@ install_requires = [
 
 if platform.python_version_tuple() < ('3', '2'):
     install_requires.append('backports.functools_lru_cache>=1.0.1')
+
+if platform.python_version_tuple() < ('3', '4'):
+    install_requires.append('enum34>=1.0.4')
 
 packages = find_packages()
 
