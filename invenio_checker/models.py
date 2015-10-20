@@ -106,8 +106,6 @@ class CheckerRule(db.Model):
 
     arguments = db.Column(JsonEncodedDict(1023), default={})
 
-    holdingpen = db.Column(db.Boolean, nullable=False, default=True)
-
     consider_deleted_records = db.Column(db.Boolean, nullable=True,
                                          default=False)
 
@@ -118,19 +116,19 @@ class CheckerRule(db.Model):
     records = db.relationship('CheckerRecord', backref='rule',
                               cascade='all, delete-orphan')
 
-    reporters = db.relationship('CheckerReporter', backref='checker_rule',
+    reporters = db.relationship('CheckerReporter', backref='rule',
                                 cascade='all, delete-orphan')
 
-    last_run = db.Column(
-        db.DateTime(),
-        nullable=True,
-    )
+    executions = db.relationship('CheckerRuleExecution', backref='rule',
+                                 cascade='all, delete-orphan')
+
+    last_run = db.Column(db.DateTime(), nullable=True)
 
     schedule = db.Column(db.String(255), nullable=True)
 
     schedule_enabled = db.Column(db.Boolean, default=False, nullable=False)
 
-    temporary = db.Column(db.Boolean, default=False)  # TODO: what do we do with this
+    temporary = db.Column(db.Boolean, default=False)  # TODO: use
 
     force_run_on_unmodified_records = db.Column(db.Boolean, default=False)
 
@@ -149,9 +147,9 @@ class CheckerRule(db.Model):
         try:
             associated_records = intbitset(zip(
                 *db.session
-                .query(CheckerRecord.id_bibrec)
+                .query(CheckerRecord.bibrec_id)
                 .filter(
-                    CheckerRecord.name_checker_rule == self.name
+                    CheckerRecord.rule_name == self.name
                 ).all()
             )[0])
         except IndexError:
@@ -160,8 +158,8 @@ class CheckerRule(db.Model):
         # Store requested records that were until now unknown to this rule
         requested_ids = self.requested_recids
         for requested_id in requested_ids - associated_records:
-            new_record = CheckerRecord(id_bibrec=requested_id,
-                                       name_checker_rule=self.name)
+            new_record = CheckerRecord(bibrec_id=requested_id,
+                                       rule_name=self.name)
             db.session.add(new_record)
         db.session.commit()
 
@@ -170,11 +168,11 @@ class CheckerRule(db.Model):
         try:
             recids = zip(
                 *db.session
-                .query(CheckerRecord.id_bibrec)
+                .query(CheckerRecord.bibrec_id)
                 .outerjoin(Bibrec)
                 .filter(
-                    CheckerRecord.id_bibrec.in_(requested_ids),
-                    CheckerRecord.name_checker_rule == self.name,
+                    CheckerRecord.bibrec_id.in_(requested_ids),
+                    CheckerRecord.rule_name == self.name,
                     db.or_(
                         self.force_run_on_unmodified_records,
                         db.or_(
@@ -193,8 +191,8 @@ class CheckerRule(db.Model):
         now = datetime.now()
         db.session.query(CheckerRecord).filter(
             db.and_(
-                CheckerRecord.id_bibrec == recids,
-                CheckerRecord.name_checker_rule == self.name,
+                CheckerRecord.bibrec_id == recids,
+                CheckerRecord.rule_name == self.name,
             )
         ).update(
             {
@@ -269,7 +267,7 @@ class CheckerRuleExecution(db.Model):
         primary_key=True,
     )
 
-    id_owner = db.Column(
+    owner_id = db.Column(
         db.Integer(15, unsigned=True),
         db.ForeignKey('user.id'),
         nullable=False,
@@ -279,12 +277,11 @@ class CheckerRuleExecution(db.Model):
         'User'
     )
 
-    id_rule = db.Column(
-        db.String(50),
-        db.ForeignKey('checker_rule.name')
-    )
-    rule = db.relationship(
-        'CheckerRule'
+    rule_name = db.Column(
+        db.String(127),
+        db.ForeignKey('checker_rule.name'),
+        nullable=False,
+        index=True,
     )
 
     _status = db.Column(
@@ -342,24 +339,26 @@ class CheckerRecord(db.Model):
 
     __tablename__ = 'checker_record'
 
-    id_bibrec = db.Column(db.MediumInteger(8, unsigned=True),
-                          db.ForeignKey('bibrec.id'),
-                          primary_key=True, nullable=False)
+    bibrec_id = db.Column(
+        db.MediumInteger(8, unsigned=True),
+        db.ForeignKey('bibrec.id'),
+        primary_key=True, nullable=False
+    )
 
-    name_checker_rule = db.Column(
+    rule_name = db.Column(
         db.String(127),
-        db.ForeignKey(
-            'checker_rule.name',
-            onupdate="CASCADE",
-            ondelete="CASCADE"
-        ),
+        db.ForeignKey('checker_rule.name'),
         nullable=False,
         index=True,
         primary_key=True,
     )
 
-    last_run = db.Column(db.DateTime, nullable=True, server_default=None,
-                         index=True)
+    last_run = db.Column(
+        db.DateTime,
+        nullable=True,
+        server_default=None,
+        index=True
+    )
 
 
 class CheckerReporter(db.Model):
@@ -371,11 +370,22 @@ class CheckerReporter(db.Model):
     uuid = db.Column(db.Integer, primary_key=True)
     plugin = db.Column(db.String(127))
     arguments = db.Column(JsonEncodedDict(1023), default={})
-    rule_name = db.Column(db.String(127), db.ForeignKey('checker_rule.name'))
+    rule_name = db.Column(
+        db.String(127),
+        db.ForeignKey('checker_rule.name'),
+        nullable=False,
+        index=True,
+        primary_key=True,
+    )
 
     @db.hybrid_property
     def module(self):
         return reporters_files[self.plugin]
 
 
-__all__ = ('CheckerRule', 'CheckerRecord', 'CheckerReporter', 'CheckerRuleExecution')
+__all__ = (
+    'CheckerRule',
+    'CheckerRecord',
+    'CheckerReporter',
+    'CheckerRuleExecution'
+)

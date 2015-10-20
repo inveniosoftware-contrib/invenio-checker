@@ -129,7 +129,7 @@ def run_task(task_name):
     try:
         new_exec = CheckerRuleExecution(
             uuid=master_id,
-            id_rule=task_name,
+            rule_name=task_name,
             start_date=datetime.now(),
             status=StatusMaster.booting,
             owner=owner,
