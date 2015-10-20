@@ -23,22 +23,21 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 import jsonpatch
-import redis
 from intbitset import intbitset  # pylint: disable=no-name-in-module
-from six import string_types
-from warnings import warn
-from invenio_records.api import get_record as get_record_orig
 from collections import defaultdict
 from operator import itemgetter
 
 from .redis_helpers import (
     RedisClient,
     get_workers_in_redis,
-    Lock,
     get_redis_conn,
+    PleasePylint,
+    set_identifier,
+    SetterProperty,
 )
 from .master import master_workers
 from .enums import StatusWorker
+from .redis_helpers import get_lock_partial
 
 
 _prefix = 'invenio_checker'
@@ -46,13 +45,14 @@ _prefix_worker = _prefix + ':worker:{uuid}'
 _prefix_master = _prefix + ':master:{uuid}'
 
 # Global
-master_examining_lock = _prefix + ':master:examine_lock'
+client_examining_lock = _prefix + ':client:examine_lock'
 lock_last_owner = _prefix_master + ':examine_lock'
 
 # Worker
 worker_allowed_recids = _prefix_worker + ':allowed_recids'
 worker_allowed_paths = _prefix_worker + ':allowed_paths'
 worker_requested_recids = _prefix_worker + ':requested_recids'
+
 worker_status = _prefix_worker + ':status'
 worker_retry_after_ids = _prefix_worker + ':retry_after_ids'
 worker_patches_we_applied = _prefix_worker + ':patches_we_applied'  # contains client_patches
@@ -71,41 +71,36 @@ keys_worker = {
     worker_retry_after_ids,
 }
 
-def get_workers_with_unprocessed_results():  # FIXME: Name
+def get_workers_with_unprocessed_results():
     """Return all workers in celery  which have started processing, but their
     results have not been handled yet.
 
-    ..note:: Must be in a lock.
+    ..note::
+        Must be in a lock.
     """
-    # conn = get_redis_conn()
     running_workers = set()
     for worker in get_workers_in_redis():
-        if worker.in_celery and worker.status in (StatusWorker.running, StatusWorker.ran):  # XXX Do we want .ran here?
+        if worker.in_celery and worker.status in (StatusWorker.running,
+                                                  StatusWorker.ran):
             running_workers.add(worker)
     return running_workers
 
-
-
-def fullpatch_to_id(fullpatch):
-    return client_patches.format(uuid=fullpatch['task_id'],
-                                 recid=fullpatch['recid'],
-                                 record_hash=fullpatch['record_hash'])
-
 def make_fullpatch(recid, record_hash, patch, task_id):
+    """Create a `fullpatch`-dictionary."""
     return {
+        'task_id': task_id,
         'recid': recid,
         'record_hash': record_hash,
         'patch': patch,
-        'task_id': task_id
     }
 
-
 def id_to_fullpatch(id_, patch):
+    """Generate a `fullpatch`-dictionary."""
     spl = id_.split(':')
     task_id = spl[2]
-    recid_ = int(spl[3])
+    recid = int(spl[3])
     record_hash = int(spl[4])
-    return make_fullpatch(recid_, record_hash, patch, task_id)
+    return make_fullpatch(recid, record_hash, patch, task_id)
 
 
 def get_fullpatches(recid):
@@ -113,14 +108,15 @@ def get_fullpatches(recid):
 
     :param recid: recid to get patches for
     """
-
     conn = get_redis_conn()
     identifier = client_patches.format(uuid='*', recid=recid, record_hash='*')
-    # FIXME Workers should vanish instead of us filtering here. We should do correct failure propagation.
+    # FIXME Workers should vanish instead of us filtering here.
+    #   We should do correct failure propagation.
     # XXX: Should be getting the lock here..?
     patchlists = [
-        (conn.ttl(id_), conn.lrange(id_, 0, -1), id_) for id_ in conn.scan_iter(identifier)
-        if not RedisWorker(id_.split(':')[2]).a_used_dependency_of_ours_has_failed
+        (conn.ttl(id_), conn.lrange(id_, 0, -1), id_)
+        for id_ in conn.scan_iter(identifier)
+        if not RedisWorker(id_to_fullpatch(id_, None)['task_id']).a_used_dependency_of_ours_has_failed
         # or RedisWorker(id_.split(':')[2]).status == StatusWorker.failed
     ]
 
@@ -128,102 +124,69 @@ def get_fullpatches(recid):
     # [set(['[{"path": "/d", "value": "a", "op": "replace"}]'])]
 
     sorted_fullpatches = []
-    from operator import itemgetter
-    for ttl, patchlist, id_ in sorted(patchlists, key=itemgetter(0)):
+    for ttl, patchlist, id_on_redis in sorted(patchlists, key=itemgetter(0)):
         for patch in patchlist:
-            fullpatch = id_to_fullpatch(id_, patch)
+            fullpatch = id_to_fullpatch(id_on_redis, patch)
             sorted_fullpatches.append(fullpatch)
     return sorted_fullpatches
 
 
-class HasPatches(object):
+class HasAllowedRecids(PleasePylint):
 
     @property
-    def patches_we_applied(self):
-        identifier = worker_patches_we_applied.format(uuid=self.task_id)
-        return self.conn.smembers(identifier)
-
-    def patches_we_applied_add(self, fullpatch):
-        identifier = worker_patches_we_applied.format(uuid=self.task_id)
-        id_ = fullpatch_to_id(fullpatch)
-        return self.conn.sadd(identifier, id_)
-
-    def patches_we_applied_clear(self):
-        identifier = worker_patches_we_applied.format(uuid=self.task_id)
-        for redis_patch in self.conn.scan_iter(identifier):
-            self.conn.delete(redis_patch)
-
-
-class RedisWorker(RedisClient, HasPatches):
-
-    def __init__(self, task_id, eliot_task_id=None, bundle_requested_recids=None):
-        """Instantiate a handle to all the manifestations of a worker.
-
-        :type task_id: str
-        """
-        # TODO: Split to .create()
-        # assert (eliot_task_id is not None and bundle_requested_recids is not None)\
-        #     or (not eliot_task_id and not bundle_requested_recids)
-        initialization = eliot_task_id and bundle_requested_recids
-
-        super(RedisWorker, self).__init__(task_id, eliot_task_id)
-        self.lock = Lock(self.task_id)
-
-        if initialization:
-            self._bundle_requested_recids = bundle_requested_recids
-            self.status = StatusWorker.scheduled
-
-    @property
-    def task_id(self):
-        return self.uuid
-
-    @property
-    def master(self):
-        from .master import RedisMaster
-        for master in self.conn.scan_iter(master_workers.format(uuid='*')):
-            if self.conn.sismember(master, self.task_id):
-                master_id = master.split(':')[2]
-                return RedisMaster(master_id)
-        raise AttributeError("Can't find master!")
-
-    def zap(self):
-        """Zap this worker.
-
-        This method is meant to be called from the master.
-        """
-        warn('Zapping worker ' + str(self.task_id))
-        self.status = StatusWorker.failed
-        if self.result is not None:
-            if not self.result.ready():
-                self.result.revoke(terminate=True, signal='TERM')
-
-    @property
+    @set_identifier(worker_allowed_recids)
     def allowed_recids(self):
         """Get the recids that this worker is allowed to modify."""
-        identifier = self.fmt(worker_allowed_recids)
-        recids = self.conn.get(identifier)
+        recids = self.conn.get(self._identifier)
         if recids is None:
             return None
-        return intbitset(self.conn.get(identifier))
+        return intbitset(recids)
 
     @allowed_recids.setter
+    @set_identifier(worker_allowed_recids)
     def allowed_recids(self, allowed_recids):
         """Set the recids that this worker will be allowed to modify.
 
         :type allowed_recids: set
         """
-        identifier = self.fmt(worker_allowed_recids)
-        self.conn.set(identifier, intbitset(allowed_recids).fastdump())
+        return self.conn.set(self._identifier,
+                             intbitset(allowed_recids).fastdump())
 
-    ############################################################################
+
+class HasAllowedPaths(PleasePylint):
 
     @property
+    @set_identifier(worker_allowed_paths)
+    def allowed_paths(self):
+        """Get the dictionary paths that this worker is allowed to modify."""
+        paths = self.conn.smembers(self._identifier)
+        if paths is None:
+            return None
+        return frozenset(paths)
+
+    @allowed_paths.setter
+    @set_identifier(worker_allowed_paths)
+    def allowed_paths(self, allowed_paths):
+        """Set the dictionary paths that this worker will be allowed to modify.
+
+        :type allowed_paths: set
+        """
+        # TODO must be jsonpointers (IETF RFC 6901)
+        self.conn.delete(self._identifier)
+        if allowed_paths:
+            return self.conn.sadd(self._identifier, *allowed_paths)
+
+
+class HasRetryAfterIds(PleasePylint):
+
+    @property
+    @set_identifier(worker_retry_after_ids)
     def retry_after_ids(self):
         """Get task IDs that must finish before we retry running this task."""
-        identifier = self.fmt(worker_retry_after_ids)
-        return self.conn.smembers(identifier)
+        return self.conn.smembers(self._identifier)
 
     @retry_after_ids.setter
+    @set_identifier(worker_retry_after_ids)
     def retry_after_ids(self, worker_ids):
         """Set task IDs that must finish before we retry running this task.
 
@@ -232,55 +195,34 @@ class RedisWorker(RedisClient, HasPatches):
 
         :type worker_ids: list of str
         """
-        identifier = self.fmt(worker_retry_after_ids)
-        self.conn.sadd(identifier, *worker_ids)
+        return self.conn.sadd(self._identifier, *worker_ids)
 
+    @set_identifier(worker_retry_after_ids)
     def retry_after_ids_pop(self, task_id_to_remove):
         """Remove a task upon which the current task depends on.
 
         :type task_id_to_remove: str
         """
-        identifier = self.fmt(worker_retry_after_ids)
-        self.conn.srem(identifier, task_id_to_remove)
+        return self.conn.srem(self._identifier, task_id_to_remove)
 
-    ############################################################################
 
-    @property
-    def allowed_paths(self):
-        """Get the dictionary paths that this worker is allowed to modify."""
-        identifier = self.fmt(worker_allowed_paths)
-        paths = self.conn.smembers(identifier)
-        if paths is None:
-            return None
-        return frozenset(paths)
-
-    @allowed_paths.setter
-    def allowed_paths(self, allowed_paths):
-        """Set the dictionary paths that this worker will be allowed to modify.
-
-        :type allowed_paths: set
-        """
-        identifier = self.fmt(worker_allowed_paths)
-        self.conn.delete(identifier)
-        if allowed_paths:
-            self.conn.sadd(identifier, *allowed_paths)
-
-    ############################################################################
+class HasStatusWorker(PleasePylint):
 
     @property
+    @set_identifier(worker_status)
     def status(self):
         """Get the status of this worker.
 
         :rtype: :py:class:`StatusWorker`"
         """
-        identifier = self.fmt(worker_status)
         try:
-            return StatusWorker(int(self.conn.get(identifier)))
+            return StatusWorker(int(self.conn.get(self._identifier)))
         except TypeError:
             return StatusWorker.dead_parrot
 
 
     @status.setter
+    @set_identifier(worker_status)
     def status(self, new_status):
         """Set the status of this worker.
 
@@ -289,8 +231,7 @@ class RedisWorker(RedisClient, HasPatches):
         assert new_status in StatusWorker
         # print 'SETTING STATUS {} ON {}'.format(new_status, self.task_id)
 
-        identifier = self.fmt(worker_status)
-        self.conn.set(identifier, new_status.value)
+        self.conn.set(self._identifier, new_status.value)
 
         self.master.worker_status_changed()
 
@@ -302,30 +243,21 @@ class RedisWorker(RedisClient, HasPatches):
             self.patches_we_applied_clear()
 
     def _on_own_failure(self):
-        self.lock.get()
-        try:
+        with self.lock():
             self._disappear_as_depender()
             self._clear_own_patches()
             self._cleanup()
-        finally:
-            self.lock.release()
 
     def _on_ran(self):
-        self.lock.get()
-        try:
+        with self.lock():
             self._disappear_as_depender()
             self._cleanup()
-        finally:
-            self.lock.release()
 
     def on_others_failure(self):
-        self.lock.get()
-        try:
+        with self.lock():
             self._disappear_as_depender()
             self._clear_own_patches()
             self._cleanup()
-        finally:
-            self.lock.release()
 
     def _disappear_as_depender(self):
         """Remove this task from being a dependency of all other tasks."""
@@ -333,7 +265,8 @@ class RedisWorker(RedisClient, HasPatches):
             worker.retry_after_ids_pop(self.task_id)
 
     def _clear_own_patches(self):
-        identifier = client_patches.format(uuid=self.task_id, recid='*', record_hash='*')
+        identifier = client_patches.format(uuid=self.task_id,
+                                           recid='*', record_hash='*')
         for redis_patch in self.conn.scan_iter(identifier):
             self.conn.delete(redis_patch)
 
@@ -342,35 +275,74 @@ class RedisWorker(RedisClient, HasPatches):
         for key in keys_worker:
             self.conn.delete(self.fmt(key))
 
-    ############################################################################
+
+class HasBundleRequestedRecids(PleasePylint):
 
     @property
+    @set_identifier(worker_requested_recids)
     def bundle_requested_recids(self):
         """Get the recids that this worker shall iterate over.
 
         ..note:: These recids have already been filtered.
         """
-        identifier = self.fmt(worker_requested_recids)
-        recids = self.conn.get(identifier)
+        recids = self.conn.get(self._identifier)
         if recids is None:
             recids = set()
         return intbitset(recids)
 
-    @property
-    def _bundle_requested_recids(self):
-        """Get the recids that this worker shall iterate over."""
-        return self.bundle_requested_recids
-
-    @_bundle_requested_recids.setter
-    def _bundle_requested_recids(self, new_recids):
+    @SetterProperty
+    @set_identifier(worker_requested_recids)
+    def _bundle_requested_recids(self, new_recids):  # pylint: disable=method-hidden
         """Set the recids that this worker shall iterate over.
 
         :type new_recids: :py:class:`intbitset`
         """
-        identifier = self.fmt(worker_requested_recids)
-        self.conn.set(identifier, intbitset(new_recids).fastdump())
+        self.conn.set(self._identifier, intbitset(new_recids).fastdump())
 
-    ############################################################################
+
+class HasPatches(PleasePylint):
+    """Add support for handling fullpatch-style patches in storage."""
+
+    @property
+    @set_identifier(worker_patches_we_applied)
+    def patches_we_applied(self):
+        return self.conn.smembers(self._identifier)
+
+    @set_identifier(worker_patches_we_applied)
+    def patches_we_applied_add(self, fullpatch):
+        id_ = fullpatch.format(uuid=fullpatch['task_id'],
+                               recid=fullpatch['recid'],
+                               record_hash=fullpatch['record_hash'])
+        return self.conn.sadd(self._identifier, id_)
+
+    @set_identifier(worker_patches_we_applied)
+    def patches_we_applied_clear(self):
+        for redis_patch in self.conn.scan_iter(self._identifier):
+            self.conn.delete(redis_patch)
+
+    def patch_to_redis(self, fullpatch):
+        """
+        Called on session finish, once per recid."""
+        identifier = client_patches.format(
+            uuid=fullpatch['task_id'],
+            recid=fullpatch['recid'],
+            record_hash=fullpatch['record_hash'],
+        )
+        # assert not conn.get(identifier)
+        # print 'patching {} from {}'.format(fullpatch['recid'], fullpatch['task_id'])
+        self.conn.rpush(identifier, fullpatch['patch'].to_string())
+        # self.conn.expire(identifier, 365*86400)
+
+    @property
+    def all_patches(self):
+        identifier = client_patches.format(uuid=self.uuid,
+                                           recid='*', record_hash='*')
+        patches = defaultdict(list)
+        for sub_id in self.conn.scan_iter(identifier):
+            for patch in self.conn.lrange(sub_id, 0, -1):
+                recid = sub_id.split(':')[3]
+                patches[recid].append(patch)
+        return patches
 
     @property
     def task_ids_of_patches_we_worked_ontop(self):
@@ -382,6 +354,26 @@ class RedisWorker(RedisClient, HasPatches):
         print 'TASKS FROM WHICH WE USED PATCHES {}'.format(remote_ids)
         return remote_ids
 
+    def get_record_orig_or_mem(self, recid):
+        """
+        ..note::
+            We upload patches at the end, so we're not picking up our own
+            patches here
+        """
+
+        # XXX Should we put a lock around this?
+        from invenio_records.api import get_record as get_record_orig
+        record = get_record_orig(recid)
+        record_hash = hash(record)
+        sorted_fullpatches = get_fullpatches(recid)
+
+        for fullpatch in sorted_fullpatches:
+            # FIXME: Check record hash? Or check in `get_fullpatches`?  see conftest2.py:408
+            # assert fullpatch['record_hash'] == record_hash
+            self.patches_we_applied_add(fullpatch)
+            jsonpatch.apply_patch(record, fullpatch['patch'], in_place=True)
+        return record
+
     @property
     def our_used_dependencies_have_committed(self):
         tiopwwo = self.task_ids_of_patches_we_worked_ontop
@@ -392,7 +384,7 @@ class RedisWorker(RedisClient, HasPatches):
 
     @property
     def a_used_dependency_of_ours_has_failed(self):
-        # Could speed up XXX
+        # Could speed up XXX: Don't look at the patches, look at the task_ids
         identifier = client_patches.format(uuid='*', recid='*', record_hash='*')
         patch_ids_in_memory = set()
         for patchlist_id in self.conn.scan_iter(identifier):
@@ -408,50 +400,52 @@ class RedisWorker(RedisClient, HasPatches):
         #         return True
         # return False
 
-    ############################################################################
 
-    def get_record_orig_or_mem(self, recid):
-        # We upload patches at the end, so we're not picking up our own patches here
+class RedisWorker(RedisClient, HasPatches, HasAllowedRecids, HasRetryAfterIds,
+                  HasAllowedPaths, HasStatusWorker, HasBundleRequestedRecids):
 
-        # XXX Could put a lock around this but ugh.
-        record = get_record_orig(recid)
-        record_hash = hash(record)
-        sorted_fullpatches = get_fullpatches(recid)
+    def __init__(self, task_id):
+        """Instantiate a handle to all the manifestations of a worker.
 
-        for fullpatch in sorted_fullpatches:
-            # FIXME: Check record hash? Or check in `get_fullpatches`?  see conftest2.py:408
-            # assert fullpatch['record_hash'] == record_hash
-            self.patches_we_applied_add(fullpatch)
-            jsonpatch.apply_patch(record, fullpatch['patch'], in_place=True)
-        return record
-
-    def patch_to_redis(self, fullpatch):
+        :type task_id: str
         """
-        Called on session finish, once per recid."""
-        # XXX This should terminate the test
-        if self.a_used_dependency_of_ours_has_failed:
-            self.on_others_failure()
-            return
-        conn = get_redis_conn()
-        identifier = client_patches.format(
-            uuid=fullpatch['task_id'],
-            recid=fullpatch['recid'],
-            record_hash=fullpatch['record_hash'],
-        )
-        # assert not conn.get(identifier)
-        # print 'patching {} from {}'.format(fullpatch['recid'], fullpatch['task_id'])
-        conn.rpush(identifier, fullpatch['patch'].to_string())
-        conn.expire(identifier, 365*86400)
+        super(RedisWorker, self).__init__(task_id)
+        self.lock = get_lock_partial(client_examining_lock, self.conn)
+
+    @classmethod
+    def create(cls, task_id, eliot_task_id, bundle_requested_recids):
+        """Register this worker in redis and store vital information."""
+        new_worker = cls(task_id)
+        super(RedisWorker, new_worker).create(eliot_task_id)
+        new_worker._bundle_requested_recids = bundle_requested_recids
+        new_worker.status = StatusWorker.scheduled
+        return new_worker
 
     @property
-    def all_patches(self):
-        identifier = client_patches.format(uuid=self.uuid, recid='*', record_hash='*')
-        patches = defaultdict(list)
-        for sub_id in self.conn.scan_iter(identifier):
-            for patch in self.conn.lrange(sub_id, 0, -1):
-                recid = sub_id.split(':')[3]
-                patches[recid].append(patch)
-        return patches
+    def task_id(self):
+        """Legacy name for self.uuid on workers only."""
+        return self.uuid
+
+    @property
+    def master(self):
+        """Get the master of this worker based on redis information."""
+        from .master import RedisMaster
+        for master in self.conn.scan_iter(master_workers.format(uuid='*')):
+            if self.conn.sismember(master, self.task_id):
+                master_id = master.split(':')[2]
+                return RedisMaster(master_id)
+        raise AttributeError("Can't find master!")
+
+    def zap(self):
+        """Zap this worker.
+
+        This method is meant to be called from the master.
+        """
+        # XXX This is silly. Should be done _on_own_failure
+        self.status = StatusWorker.failed
+        if self.result is not None:
+            if not self.result.ready():
+                self.result.revoke(terminate=True, signal='TERM')
 
 
 # client_patches = _prefix + ':patches:{uuid}:{recid}:{record_hash}' # patch

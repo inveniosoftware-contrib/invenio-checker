@@ -73,7 +73,7 @@ install_requires = [
     # For passing required records around
     'intbitset>=2.1.1',
     # Lock for the check runners and celery beat
-    'redlock-py>=1.0.5',
+    'redlock==1.1.0',
     # Logging and log presentation
     'eliot>=0.8.0',
     'eliot-tree>=15.2.0',

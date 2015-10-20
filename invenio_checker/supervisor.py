@@ -343,13 +343,13 @@ def beat():
     from .models import CheckerRule as CR
     from croniter import croniter
     from datetime import datetime
-    from .redis_helpers import get_lock_manager
+    from .redis_helpers import (
+        get_lock_partial,
+        get_redis_conn,
+    )
 
-    lock_manager = get_lock_manager()
-    my_lock = lock_manager.lock("invenio_checker:beat_lock", 30000)
-    if not my_lock:
-        return
-    try:
+    conn = get_redis_conn()
+    with get_lock_partial("invenio_checker:beat_lock", conn)():
         for rule in CR.query.filter(CR.schedule != None).all():
             iterator = croniter(rule.schedule, rule.last_run)
             next_run = iterator.get_next(datetime)
@@ -357,9 +357,9 @@ def beat():
             if next_run <= now:
                 run_task(rule.name)
                 rule.last_run = now
-                db.session.add(rule)
-                db.session.commit()
-    except Exception:
-        db.session.rollback()
-        lock_manager.unlock(my_lock)
-        raise
+                try:
+                    db.session.add(rule)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+                    raise

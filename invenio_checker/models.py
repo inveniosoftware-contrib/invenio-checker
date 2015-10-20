@@ -48,7 +48,6 @@ from .master import StatusMaster
 from sqlalchemy.ext import mutable
 
 
-
 def default_date(obj):
     try:
         return json_util.default(obj)

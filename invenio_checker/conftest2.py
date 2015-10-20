@@ -203,8 +203,7 @@ def _pytest_collection_modifyitems(session, config, items):
 
     redis_worker.status = StatusWorker.ready  # XXX unused?
     with start_action(action_type='checking for conflicting running workers'):
-        redis_worker.lock.get()
-        try:
+        with redis_worker.lock():
             blockers = worker_conflicts_with_currently_running(redis_worker)
             if blockers:
                 Message.log(message_type='found conflicting workers', value=str(blockers))
@@ -214,8 +213,6 @@ def _pytest_collection_modifyitems(session, config, items):
             else:
                 print 'RESUMING ' + str(redis_worker.task_id)
                 redis_worker.status = StatusWorker.running
-        finally:
-            redis_worker.lock.release()
 
 
 ################################################################################
