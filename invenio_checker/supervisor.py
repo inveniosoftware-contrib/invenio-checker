@@ -173,7 +173,7 @@ def _run_task(rule_name, master_id):
 
         with start_action(action_type='create master'):
             eliot_task_id = eliot_task.serialize_task_id()
-            redis_master = RedisMaster(master_id, eliot_task_id, rule_name)
+            redis_master = RedisMaster.create(master_id, eliot_task_id, rule_name)
 
         with start_action(action_type='create subtasks'):
             rules = CheckerRule.from_ids((rule_name,))
@@ -186,7 +186,7 @@ def _run_task(rule_name, master_id):
                     task_id = uuid()
                     redis_master.workers_append(task_id)
                     eliot_task_id = eliot_task.serialize_task_id()
-                    RedisWorker(task_id, eliot_task_id, chunk)
+                    RedisWorker.create(task_id, eliot_task_id, chunk)
                     subtasks.append(run_test.subtask(args=(rule.filepath,
                                                            redis_master.master_id,
                                                            task_id),
@@ -201,7 +201,6 @@ def _run_task(rule_name, master_id):
             callback = handle_results.subtask(link_error=[handle_errors.s(redis_master.master_id)])
             my_chord = chord(header)
             result = my_chord(callback)
-            redis_master.status = StatusMaster.running
 
 
 def with_eliot(action_type, master_id=None, worker_id=None):

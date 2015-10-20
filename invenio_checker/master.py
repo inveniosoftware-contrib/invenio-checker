@@ -28,6 +28,9 @@ from .redis_helpers import (
     RedisClient,
     get_redis_conn,
     prefix_master,
+    PleasePylint,
+    set_identifier,
+    SetterProperty,
 )
 from warnings import warn
 from .enums import StatusMaster, StatusWorker
@@ -50,17 +53,18 @@ keys_master = {
 }
 
 
-class HasWorkers(object):
+class HasWorkers(PleasePylint):
+    """Give master the ability to set and reason about its workers."""
 
-    # TODO: Return actual workers (redis_workers)
+    # FIXME: Return actual workers (redis_workers)
     @property
+    @set_identifier(master_workers)
     def workers(self):
         """Get all the worker IDs associated with this master.
 
         :rtype: set of :py:class:`WorkerRedis`
         """
-        identifier = self.fmt(master_workers)
-        return self.conn.smembers(identifier)
+        return self.conn.smembers(self._identifier)
 
     @workers.setter
     def workers(self, worker_ids):
@@ -68,10 +72,9 @@ class HasWorkers(object):
 
         :type worker_ids: set of IDs
         """
-        identifier = self.fmt(master_workers)
-        self.conn.delete(identifier)
+        self.conn.delete(self._identifier)
         if worker_ids:
-            self.conn.sadd(identifier, *worker_ids)
+            return self.conn.sadd(self._identifier, *worker_ids)
 
     @property
     def redis_workers(self):
@@ -82,29 +85,38 @@ class HasWorkers(object):
         from .worker import RedisWorker
         return {RedisWorker(worker_id) for worker_id in self.workers}
 
+    @set_identifier(master_workers)
     def workers_append(self, worker_id):
-        identifier = self.fmt(master_workers)
-        self.conn.sadd(identifier, worker_id)
+        """Append a worker to this master given its identifier.
+
+        :type worker_id: str
+        """
+        return self.conn.sadd(self._identifier, worker_id)
 
     def worker_status_changed(self):
+        """Call when a worker's status has changed.
+
+        This makes the master aware of whether it should change its own status.
+        """
         if any(w.status == StatusWorker.failed for w in self.redis_workers):
             self.status = StatusMaster.failed
         elif all(w.status == StatusWorker.committed for w in self.redis_workers):
             self.status = StatusMaster.completed
 
 
-class HasAllRecids(object):
+class HasAllRecids(PleasePylint):
 
     @property
+    @set_identifier(master_all_recids)
     def all_recids(self):
         """Get all recids that are assumed to exist by tasks of this master."""
-        identifier = self.fmt(master_all_recids)
-        recids_set = self.conn.get(identifier)
+        recids_set = self.conn.get(self._identifier)
         if recids_set is None:
             return None
         return intbitset(recids_set)
 
     @all_recids.setter
+    @set_identifier(master_all_recids)
     def all_recids(self, recids):
         """Set all recids that are assumed to exist by tasks of this master.
 
@@ -113,56 +125,55 @@ class HasAllRecids(object):
         if self.all_recids is not None:
             raise Exception('Thou shall not set `all_recids` twice.')
         else:
-            identifier = self.fmt(master_all_recids)
-            self.conn.set(identifier, intbitset(recids).fastdump())
+            return self.conn.set(self._identifier, intbitset(recids).fastdump())
 
 
-class HasStatusMaster(object):
+class HasStatusMaster(PleasePylint):
 
     @property
+    @set_identifier(master_status)
     def status(self):
         """Get the status of the master.
 
         :returns StatusMaster
         """
-        identifier = self.fmt(master_status)
-        return StatusMaster[self.conn.get(identifier)]
+        return StatusMaster[self.conn.get(self._identifier)]
 
     @status.setter
+    @set_identifier(master_status)
     def status(self, new_status):
         """Set the status of the master.
 
         :type new_status: :py:class:`invenio_checker.redis_helpers.StatusMaster`
         """
         assert new_status in StatusMaster
-        identifier = self.fmt(master_status)
-        self.conn.set(identifier, new_status.name)
+        self.conn.set(self._identifier, new_status.name)
 
         execution = self.get_execution()
         execution.status = self.status
-        db.session.add(execution)
-        db.session.commit()
+        try:
+            db.session.add(execution)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
 
     def get_execution(self):
         from .models import CheckerRuleExecution
         return CheckerRuleExecution.query.get(self.uuid)
 
 
-class HasRuleName(object):
+class HasRule(PleasePylint):
 
     @property
+    @set_identifier(master_rule_name)
     def rule_name(self):
-        identifier = self.fmt(master_rule_name)
-        return self.conn.get(identifier)
+        return self.conn.get(self._identifier)
 
-    @property
-    def _rule_name(self):
-        return self.rule_name
-
-    @_rule_name.setter
+    @SetterProperty
+    @set_identifier(master_rule_name)
     def _rule_name(self, new_rule_name):
-        identifier = self.fmt(master_rule_name)
-        self.conn.set(identifier, new_rule_name)
+        return self.conn.set(self._identifier, new_rule_name)
 
     @property
     def rule(self):
@@ -170,7 +181,7 @@ class HasRuleName(object):
         return CheckerRule.query.get(self.rule_name)
 
 
-class RedisMaster(RedisClient, HasRuleName, HasWorkers, HasAllRecids, HasStatusMaster):
+class RedisMaster(RedisClient, HasRule, HasWorkers, HasAllRecids, HasStatusMaster):
     def __init__(self, master_id, eliot_task_id=None, rule_name=None):
         """Initialize a lock handle for a certain master.
 
@@ -179,31 +190,21 @@ class RedisMaster(RedisClient, HasRuleName, HasWorkers, HasAllRecids, HasStatusM
 
         :type master_id: str
         """
-        from invenio_records.models import Record
-        super(RedisMaster, self).__init__(master_id, eliot_task_id)
+        super(RedisMaster, self).__init__(master_id)
 
-        if not RedisMaster._already_instnatiated(master_id):
-            self.all_recids = Record.allids()  # __init__ is a good time for this.
-            self.status = StatusMaster.booting
-            self._rule_name = rule_name
+    @classmethod
+    def create(cls, master_id, eliot_task_id, rule_name):
+        from invenio_records.models import Record
+        self = cls(master_id)
+        self.status = StatusMaster.booting
+        self.all_recids = Record.allids()  # create is a good time for this.
+        self._rule_name = rule_name
+        super(RedisMaster, self).create(eliot_task_id)
+        return self
 
     @property
     def master_id(self):
         return self.uuid
-
-    @staticmethod
-    def _already_instnatiated(master_id):
-        """Return whether this master is already registered with redis.
-
-        :type master_id: str
-        """
-        conn = get_redis_conn()
-        for prefix in keys_master:
-            for field in conn.scan_iter(prefix.format(uuid='*')):
-                id_ = field.split(':')[2]
-                if id_ == master_id:
-                    return True
-        return False
 
     def _cleanup(self):
         """Remove this worker from redis."""
@@ -216,7 +217,6 @@ class RedisMaster(RedisClient, HasRuleName, HasWorkers, HasAllRecids, HasStatusM
         This method is meant to be called by a SIGINT or exception handler from
         within the master process itself.
         """
-        # FIXME: Should we lock here?
         signal.signal(signal.SIGINT, lambda rcv_signal, frame: None)
         # Kill workers
         for redis_worker in self.redis_workers:
