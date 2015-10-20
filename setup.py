@@ -71,7 +71,7 @@ install_requires = [
     # Internal communication of check runners
     'redis>=2.10.3',
     # For passing required records around
-    'intbitset>=2.1.1',
+    'intbitset>=2.2.1',
     # Lock for the check runners and celery beat
     'redlock==1.1.0',
     # Logging and log presentation
