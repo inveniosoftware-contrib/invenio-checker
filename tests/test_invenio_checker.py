@@ -22,6 +22,31 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-from .admin import blueprint as admin_blueprint
 
-blueprint = admin_blueprint
+"""Module tests."""
+
+from __future__ import absolute_import, print_function
+
+from flask import Flask
+from flask_babelex import Babel
+
+from invenio_checker import InvenioChecker
+
+
+def test_version():
+    """Test version import."""
+    from invenio_checker import __version__
+    assert __version__
+
+
+def test_init():
+    """Test extension initialization."""
+    app = Flask('testapp')
+    ext = InvenioChecker(app)
+    assert 'invenio-checker' in app.extensions
+
+    app = Flask('testapp')
+    ext = InvenioChecker()
+    assert 'invenio-checker' not in app.extensions
+    ext.init_app(app)
+    assert 'invenio-checker' in app.extensions

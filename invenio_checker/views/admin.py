@@ -1,29 +1,34 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of Invenio.
-# Copyright (C) 2012, 2013, 2014, 2015 CERN.
+# Copyright (C) 2015 CERN.
 #
-# Invenio is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as
+# Invenio is free software; you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of the
 # License, or (at your option) any later version.
 #
-# Invenio is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
+# Invenio is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Invenio; if not, write to the Free Software Foundation, Inc.,
-# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+# along with Invenio; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307, USA.
+#
+# In applying this license, CERN does not
+# waive the privileges and immunities granted to it by virtue of its status
+# as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-"""Checker Admin Flask Blueprint."""
+"""Checker Admin Flask Views."""
 
 from __future__ import unicode_literals
 from importlib import import_module
 from itertools import chain
 from collections import defaultdict
-from intbitset import intbitset
+from intbitset import intbitset  # pylint: disable=no-name-in-module
 
 import six
 
@@ -54,13 +59,8 @@ from invenio.base.decorators import templated
 from invenio.base.i18n import _
 from invenio.ext.principal import permission_required
 from ..acl import viewchecker, modifychecker
+from invenio.base.wrappers import lazy_import
 
-from ..models import (
-    CheckerRule,
-    CheckerRuleExecution,
-    CheckerReporter,
-    default_date,
-)
 from ..views.config import (
     task_mapping,
     check_mapping,
@@ -77,10 +77,23 @@ import json
 from functools import partial
 from invenio.utils import forms
 
-blueprint = Blueprint('checker_admin', __name__,
-                      url_prefix="/admin/checker",
-                      template_folder='../templates',
-                      static_folder='../static')
+
+CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
+CheckerRuleExecution = \
+    lazy_import('invenio_checker.models.CheckerRuleExecution')
+CheckerReporter = \
+    lazy_import('invenio_checker.models.CheckerReporter')
+default_date = \
+    lazy_import('invenio_checker.models.default_date')
+
+blueprint = Blueprint(
+    'invenio_checker_admin',
+    __name__,
+    url_prefix="/admin/checker",
+    template_folder='../templates',
+    static_folder='../static'
+)
+
 
 def get_NewTaskForm(*args, **kwargs):
 

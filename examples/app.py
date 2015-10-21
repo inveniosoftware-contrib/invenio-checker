@@ -22,6 +22,28 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-from .admin import blueprint as admin_blueprint
 
-blueprint = admin_blueprint
+"""Minimal Flask application example for development.
+
+Run example development server:
+
+.. code-block:: console
+
+   $ cd examples
+   $ python app.py
+"""
+
+from __future__ import absolute_import, print_function
+
+from flask import Flask
+from flask_babelex import Babel
+
+from invenio_checker import InvenioChecker
+
+# Create Flask application
+app = Flask(__name__)
+Babel(app)
+InvenioChecker(app)
+
+if __name__ == "__main__":
+    app.run()

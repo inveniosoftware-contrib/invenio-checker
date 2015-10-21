@@ -42,7 +42,7 @@ tests_require = [
     'pytest-cache>=1.0',
     'pytest-cov>=1.8.0',
     'pytest-pep8>=1.0.6',
-    'pytest>=2.8.0',
+    'pytest>=2.8.2',
 ]
 
 extras_require = {
@@ -67,7 +67,7 @@ install_requires = [
     'six>=1.9.0',
     'Invenio>=2.0.3',
     # Used for running checks
-    'pytest==2.7.2',
+    'pytest==2.8.2',
     # Internal communication of check runners
     'redis>=2.10.3',
     # For passing required records around
