@@ -22,6 +22,7 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
+from invenio.base.wrappers import lazy_import
 import inspect
 import os
 import sys
@@ -39,8 +40,8 @@ from six import StringIO
 
 import jsonpatch
 from functools import wraps, partial
-from invenio_search.api import Query
-from .models import CheckerRule
+Query = lazy_import('invenio_search.api.Query')
+CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 from .worker import (
     RedisWorker,
     StatusWorker,
@@ -54,13 +55,10 @@ from eliot import (
     to_file,
     Logger,
 )
-from .supervisor import (
-    _are_compatible
-)
+_are_compatible = lazy_import('invenio_checker.supervisor._are_compatible')
 from .config import get_eliot_log_path
 from .registry import reporters_files
 
-eliot_log_path = get_eliot_log_path()
 
 try:
     from functools import lru_cache
@@ -73,14 +71,6 @@ except ImportError:
 # TERMINATION
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
-
-
-def die(rcv_signal, frame):
-    raise SystemExit
-
-
-signal.signal(signal.SIGINT, die)
-signal.signal(signal.SIGTERM, die)
 
 
 def pytest_exception_interact(node, call, report):
@@ -99,8 +89,7 @@ def pytest_exception_interact(node, call, report):
     """
     if isinstance(call.excinfo.value, SystemExit):
         redis_worker = node.config.option.redis_worker
-        warn('Ending worker' + str(redis_worker.task_id))
-        # redis_worker._cleanup() raise node.session.Interrupted(True)
+        redis_worker.status = StatusWorker.failed
 
 
 ################################################################################
@@ -119,6 +108,7 @@ def start_action_dec(action_type, **dec_kwargs):
             # print "~{} {}".format(eliot_task_id, action_type)
 
             del Logger._destinations._destinations[:]
+            eliot_log_path = get_eliot_log_path()
             to_file(open(os.path.join(eliot_log_path, redis_worker.master.uuid + '.' + redis_worker.task_id), "ab"))
 
             eliot_task = Action.continue_task(task_id=eliot_task_id)
@@ -188,7 +178,6 @@ def _pytest_collection_modifyitems(session, config, items):
     if allowed_recids - all_recids(session):
         raise AssertionError('Check requested recids that are not in the'
                              ' database!')
-    # TODO `allowed_paths` must return jsonpointers (IETF RFC 6901)
 
     redis_worker.allowed_paths = allowed_paths
     redis_worker.allowed_recids = allowed_recids
@@ -395,9 +384,8 @@ class Session(object):
     session = None
 
 
-def _patches_of_last_execution():
-    """Get the full_patches generated during the last check.
-
+def get_fullpatches(step):
+    """Return all the record patches resulting from the last run.
     ..note::
         `invenio_records` is populated by the `get_record` function.
     """
@@ -405,17 +393,16 @@ def _patches_of_last_execution():
     invenio_records = session.invenio_records
     redis_worker = session.config.option.redis_worker
 
-    def get_full_patches():
-        """Return all the record patches resulting from the last run."""
-        for recid, modified_record in invenio_records['temporary'].items():
-            original_record = invenio_records['original'][recid]
-            patch = jsonpatch.make_patch(original_record, modified_record)
-            if patch:
-                yield make_fullpatch(recid, hash(original_record), patch, redis_worker.task_id)
-
-    for full_patch in get_full_patches():
-        del invenio_records['temporary'][full_patch['recid']]
-        yield full_patch
+    assert step in ('temporary', 'modified')
+    for recid, modified_record in invenio_records[step].items():
+        original_record = invenio_records['original'][recid]
+        patch = jsonpatch.make_patch(original_record, modified_record)
+        if patch:
+            record_hash = 'FIXME'
+            yield make_fullpatch(recid,
+                                 record_hash,
+                                 patch.to_string(),
+                                 redis_worker.task_id)
 
 
 # Runs after exception has been reported to the reporter, after every single fine-grained step
@@ -428,6 +415,10 @@ def pytest_runtest_logreport(report):
 
 # @start_action_dec(action_type='invenio_checker:conftest2:pytest_runtest_logreport')
 def _pytest_runtest_logreport(report):
+    """
+    Move the 'temporary' keys that were passed to the worker to 'modified',
+    if the test was successful.
+    """
     session = Session.session
     invenio_records = session.invenio_records
 
@@ -479,25 +470,28 @@ def pytest_sessionfinish(session, exitstatus):
     return _pytest_sessionfinish(session, exitstatus)
 
 
-@start_action_dec(action_type='invenio_checker:conftest2:_pytest_sessionfinish')
+# @start_action_dec(action_type='invenio_checker:conftest2:_pytest_sessionfinish')
 def _pytest_sessionfinish(session, exitstatus):
+    # TODO: Should we check exitstatus here?
     with start_action(action_type='moving added patches to redis'):
-        invenio_records = session.invenio_records
         redis_worker = session.config.option.redis_worker
+        for fullpatch in get_fullpatches('modified'):
+            redis_worker.patch_to_redis(fullpatch)
 
-        for recid, modified_record in invenio_records['modified'].items():
-            original_record = invenio_records['original'][recid]
-            patch = jsonpatch.make_patch(original_record, modified_record)
-            if patch:
-                # FIXME: Hash is wrong
-                redis_worker.patch_to_redis(
-                    make_fullpatch(
-                        recid, hash(original_record),
-                        patch, redis_worker.task_id)
-                )
+    invenio_records = session.invenio_records
+    invenio_records['original'].clear()
+    invenio_records['modified'].clear()
+    invenio_records['temporary'].clear()
 
 
 class LocationTuple(object):
+    """Common structure to identify the location of some code.
+
+    This is useful for sending the same kind of tuple to the reporters, no
+    matter what it is that we are reporting.
+
+    The format is: (absolute_path, line number, domain)
+    """
 
     @staticmethod
     def from_report_location(report_location):
@@ -637,11 +631,22 @@ class InvenioReporter(TerminalReporter):
             exc_info = sys.exc_info()
         formatted_exception = ''.join(traceback.format_exception(*exc_info))
 
+        invenio_records = Session.session.invenio_records
+
         # Inform all enabled reporters
-        patches = tuple(_patches_of_last_execution())
+        patches = []
+        for fullpatch in get_fullpatches('temporary'):
+            del invenio_records['temporary'][fullpatch['recid']]
+            patches.append(fullpatch)
+
         for reporter in pytest.config.option.invenio_reporters:  # pylint: disable=no-member
-            report_exception = partial(reporter.report_exception, when, outrep_summary,
-                                       location_tuple, formatted_exception=formatted_exception)
+            report_exception = partial(
+                reporter.report_exception,
+                when,
+                outrep_summary,
+                location_tuple,
+                formatted_exception=formatted_exception
+            )
             if patches:
                 report_exception(patches=patches)
             else:

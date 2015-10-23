@@ -23,7 +23,16 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 from invenio_checker.enums import StatusWorker
+import redis
+from invenio_checker.worker import (
+    RedisWorker,
+    get_lock_partial,
+)
+from intbitset import intbitset  # pylint: disable=no-name-in-module
+from pytest_mock import mock_module
+import pytest
 
+# from .conftest import get_TestRedisWorker
 
 class TestWorker(object):
     def test_workers_with_unproc_results(self, mocker):
@@ -55,7 +64,7 @@ class TestFullpatch(object):
         expected_fullpatch = {
             'task_id': 'ab',  # uuid
             'recid': 10,
-            'record_hash': 123,
+            'record_hash': '123',
             'patch': {'a': 'b'},
         }
 
@@ -66,7 +75,6 @@ class TestFullpatch(object):
 
     def test_get_fullpatches_gets_sorted_patches(self, mocker):
 
-        from pytest_mock import mock_module
         mocker.PropertyMock = mock_module.PropertyMock
 
         m_RedisWorker1 = mocker.Mock()
@@ -108,14 +116,67 @@ class TestFullpatch(object):
 
         from invenio_checker.worker import get_fullpatches
         fullpatches = get_fullpatches(10)
-        assert fullpatches == [{'recid': 10, 'record_hash': 123,
+        assert fullpatches == [{'recid': 10, 'record_hash': '123',
                                 'task_id': 'ab', 'patch': {'a': 'b'}},
-                               {'recid': 10, 'record_hash': 123,
+                               {'recid': 10, 'record_hash': '123',
                                 'task_id': 'ab', 'patch': {'c': 'd'}},
-                               {'recid': 10, 'record_hash': 123,
+                               {'recid': 10, 'record_hash': '123',
                                 'task_id': 'cd', 'patch': {'e': 'f'}}]
 
         m_conn.scan_iter.assert_called_once_with('invenio_checker:patches:*:10:*')
         # m_conn.lrange.assert_called_once_with(' # should we?
 
-    #def test_worker_notifies_master_about_status_update(self):
+    #def test_worker_notifies_master_about_status_update(self): #TODO
+
+    # Ensure worker inherits from everything import that we test TODO
+
+    @pytest.mark.parametrize("input_,intbitset_str", [
+        ({1, 2, 3}, r'x\x9ccc@\x05\x00\x00p\x00\x07'),
+        (None, TypeError()),
+    ])
+    def test_can_set_recids(self, input_, intbitset_str,
+                            f_intbitset, m_conn, mocker,
+                            get_TestRedisWorker):
+
+        # Mock
+        m_intbitset, m_intbitset_inst = \
+            f_intbitset('invenio_checker.worker.intbitset',
+                        on_fastdump=intbitset_str)
+        worker = get_TestRedisWorker('abc', m_conn)
+
+        # Run
+        worker.allowed_recids = input_
+
+        # Verify
+        identifier = 'invenio_checker:worker:abc:allowed_recids'
+        if input_ is None:
+            m_conn.set.assert_called_once_with(identifier, None)
+        else:
+            m_conn.set.assert_called_once_with(identifier, intbitset_str)
+        if not isinstance(intbitset_str, Exception):
+            m_intbitset.assert_called_once_with(input_)
+            m_intbitset_inst.fastdump.assert_called_once_with()
+
+    @pytest.mark.parametrize("set_,intbitset_str", [
+        ({1, 2, 3}, r'x\x9ccc@\x05\x00\x00p\x00\x07'),
+        (None, TypeError()),
+    ])
+    def test_can_get_recids(self, intbitset_str, set_,
+                            f_intbitset, m_conn,
+                            get_TestRedisWorker):
+
+        # Mock
+        m_intbitset, m_intbitset_inst = \
+            f_intbitset('invenio_checker.worker.intbitset')
+        worker = get_TestRedisWorker('abc', m_conn)
+        m_conn.get.return_value = intbitset_str
+
+        # Run
+        retval = worker.allowed_recids
+
+        identifier = 'invenio_checker:worker:abc:allowed_recids'
+        m_conn.get.assert_called_once_with(identifier)
+        if not set_ is None:
+            m_intbitset.assert_called_once_with(intbitset_str)
+
+        assert retval == m_intbitset_inst

@@ -534,6 +534,8 @@ def task_run():
 @login_required
 @permission_required(modifychecker.name)
 def task_delete():
+    # TODO: Instead of deleting, MARK as deleted so that we can keep executions
+    # around
     from ..manage import delete_rule
     task_names = request.values.getlist('task_names[]')
     for task_name in task_names:

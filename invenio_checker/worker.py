@@ -99,7 +99,7 @@ def id_to_fullpatch(id_, patch):
     spl = id_.split(':')
     task_id = spl[2]
     recid = int(spl[3])
-    record_hash = int(spl[4])
+    record_hash = spl[4]
     return make_fullpatch(recid, record_hash, patch, task_id)
 
 
@@ -116,7 +116,8 @@ def get_fullpatches(recid):
     patchlists = [
         (conn.ttl(id_), conn.lrange(id_, 0, -1), id_)
         for id_ in conn.scan_iter(identifier)
-        if not RedisWorker(id_to_fullpatch(id_, None)['task_id']).a_used_dependency_of_ours_has_failed
+        if not RedisWorker(id_to_fullpatch(id_, None)['task_id']).\
+        a_used_dependency_of_ours_has_failed
         # or RedisWorker(id_.split(':')[2]).status == StatusWorker.failed
     ]
 
@@ -149,6 +150,8 @@ class HasAllowedRecids(PleasePylint):
 
         :type allowed_recids: set
         """
+        if allowed_recids is None:
+            return self.conn.set(self._identifier, None)
         return self.conn.set(self._identifier,
                              intbitset(allowed_recids).fastdump())
 
@@ -328,10 +331,7 @@ class HasPatches(PleasePylint):
             recid=fullpatch['recid'],
             record_hash=fullpatch['record_hash'],
         )
-        # assert not conn.get(identifier)
-        # print 'patching {} from {}'.format(fullpatch['recid'], fullpatch['task_id'])
-        self.conn.rpush(identifier, fullpatch['patch'].to_string())
-        # self.conn.expire(identifier, 365*86400)
+        self.conn.rpush(identifier, fullpatch['patch'])
 
     @property
     def all_patches(self):
@@ -355,7 +355,8 @@ class HasPatches(PleasePylint):
         return remote_ids
 
     def get_record_orig_or_mem(self, recid):
-        """
+        """Returns record from database, after applying existing patches.
+
         ..note::
             We upload patches at the end, so we're not picking up our own
             patches here
@@ -364,7 +365,7 @@ class HasPatches(PleasePylint):
         # XXX Should we put a lock around this?
         from invenio_records.api import get_record as get_record_orig
         record = get_record_orig(recid)
-        record_hash = hash(record)
+        # record_hash = hash(record)
         sorted_fullpatches = get_fullpatches(recid)
 
         for fullpatch in sorted_fullpatches:

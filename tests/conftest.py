@@ -30,6 +30,9 @@ from __future__ import absolute_import, print_function
 import pytest
 from flask import Flask
 
+from _pytest.python import SubRequest
+from _pytest.main import Session
+
 
 @pytest.fixture()
 def app():
@@ -39,3 +42,92 @@ def app():
         TESTING=True
     )
     return app
+
+
+@pytest.fixture(scope="function")
+def f_intbitset(mocker):
+    def f_intbitset_(path_to_patch, on_fastdump=None):
+        from intbitset import intbitset  # pylint: disable=no-name-in-module
+
+        # Instance
+        m_intbitset_inst = mocker.Mock(intbitset())
+        if on_fastdump is not None:
+            if isinstance(on_fastdump, Exception):
+                m_intbitset_inst.fastdump.side_effect = on_fastdump
+            else:
+                m_intbitset_inst.fastdump.return_value = on_fastdump
+
+        # Class
+        m_intbitset = mocker.Mock(intbitset, return_value=m_intbitset_inst)
+        # if retval is not None:
+        #     m_intbitset.return_value = retval
+
+        # Patch
+        mocker.patch(path_to_patch, m_intbitset)
+
+        return (m_intbitset, m_intbitset_inst)
+    return f_intbitset_
+
+@pytest.fixture
+def m_conn(mocker):
+    import redis
+    m_conn = mocker.Mock(redis.StrictRedis())
+    return m_conn
+
+@pytest.fixture
+def get_TestRedisWorker(m_get_record_orig_or_mem):
+    def inner(uuid, m_conn):
+        from invenio_checker.worker import RedisWorker
+
+        class TestRedisWorker(RedisWorker):  # pylint: disable=missing-docstring
+            def __init__(self):  # pylint: disable=super-init-not-called
+                pass
+
+        worker = TestRedisWorker()
+
+        worker.uuid = uuid
+        worker.conn = m_conn
+
+        worker.get_record_orig_or_mem = m_get_record_orig_or_mem
+        return worker
+    return inner
+
+@pytest.fixture
+def m_get_record_orig_or_mem(mocker):
+    return mocker.Mock(dict())
+
+@pytest.fixture()
+def m_request(mocker, m_session):
+    m_request_ = mocker.Mock(SubRequest)
+    m_request_.session = m_session
+    return m_request_
+
+@pytest.fixture()
+def m_session(mocker, m_config):
+    m_session_ = mocker.Mock(Session)
+    m_session_.config = m_config
+    invenio_records = {'original': {},
+                       'modified': {},
+                       'temporary': {}}
+    m_session_.invenio_records = invenio_records
+
+    m_Session = mocker.Mock(object)
+    m_Session.session = m_session_
+    mocker.patch('invenio_checker.conftest2.Session', m_Session)
+
+    return m_session_
+
+@pytest.fixture()
+def m_config(mocker, m_option):
+    m_config_ = mocker.Mock()
+    return m_config_
+
+@pytest.fixture()
+def m_option(mocker, m_conn, get_TestRedisWorker):
+    m_option_ = mocker.Mock()
+    m_option_.redis_worker = get_TestRedisWorker('abc', m_conn)
+
+    return m_option_
+
+# @pytest.fixture()
+# def m_option(mocker, m_conn, get_TestRedisWorker):
