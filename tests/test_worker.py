@@ -31,6 +31,7 @@ from invenio_checker.worker import (
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from pytest_mock import mock_module
 import pytest
+import mock
 
 # from .conftest import get_TestRedisWorker
 
@@ -73,62 +74,54 @@ class TestFullpatch(object):
                                {'a': 'b'}) == \
             expected_fullpatch
 
-    def test_get_fullpatches_gets_sorted_patches(self, mocker):
+    def test_get_sorted_fullpatches_gets_sorted_patches(self, mocker):
 
         mocker.PropertyMock = mock_module.PropertyMock
 
-        m_RedisWorker1 = mocker.Mock()
-        type(m_RedisWorker1).a_used_dependency_of_ours_has_failed = \
-            mocker.PropertyMock(return_value=False)
-
-        m_RedisWorker2 = mocker.Mock()
-        type(m_RedisWorker2).a_used_dependency_of_ours_has_failed = \
-            mocker.PropertyMock(return_value=False)
-
-        m_RedisWorker3 = mocker.Mock()
-        type(m_RedisWorker3).a_used_dependency_of_ours_has_failed = \
-            mocker.PropertyMock(return_value=True)
-
-        m_RedisWorkers = {'ab': m_RedisWorker1,
-                          'cd': m_RedisWorker2,
-                          'ef': m_RedisWorker3}
-
-        mocker.patch('invenio_checker.worker.RedisWorker',
-                     side_effect=lambda x: m_RedisWorkers[x])
-
-        m_conn = mocker.Mock()
-        m_conn.scan_iter.return_value = \
-            (i for i in ['invenio_checker:patches:ab:10:123',
-                         'invenio_checker:patches:cd:10:123',
-                         'invenio_checker:patches:ef:10:123'])
         fullpatch_storage = {
             'invenio_checker:patches:ab:10:123': [{'a': 'b'}, {'c': 'd'}],
-            'invenio_checker:patches:cd:10:123': [{'e': 'f'}],
-            'invenio_checker:patches:ef:10:123': [{'g': 'h'}],
+            'invenio_checker:patches:ab:11:123': [{'N': 'O'}],
+            'invenio_checker:patches:cd:10:123': [{'g': 'h'}],
         }
+
+        m_conn = mocker.Mock()
+
         m_conn.lrange.side_effect = lambda ident, start, stop: \
             fullpatch_storage[ident]
+
+        def lpop():
+            for patch in fullpatch_storage['invenio_checker:patches:ab:10:123']:
+                yield patch
+            yield None
+        import redis; c = redis.StrictRedis()
+        foo = lpop()
+        m_conn.lpop = mock.create_autospec(c.lpop, side_effect=lambda x: next(foo))
+        # TODO: Assert that x is the right thing
+
+        m_conn.scan_iter.return_value = (
+            i for i in fullpatch_storage.iterkeys()
+            if i == 'invenio_checker:patches:ab:10:123'
+        )
+
         m_conn.ttl.side_effect = lambda x: \
             4 if x == 'invenio_checker:patches:ab:10:123' else 5
 
         m_get_conn = mocker.patch('invenio_checker.worker.get_redis_conn',
                                   return_value=m_conn)
 
-        from invenio_checker.worker import get_fullpatches
-        fullpatches = get_fullpatches(10)
-        assert fullpatches == [{'recid': 10, 'record_hash': '123',
-                                'task_id': 'ab', 'patch': {'a': 'b'}},
-                               {'recid': 10, 'record_hash': '123',
-                                'task_id': 'ab', 'patch': {'c': 'd'}},
-                               {'recid': 10, 'record_hash': '123',
-                                'task_id': 'cd', 'patch': {'e': 'f'}}]
+        # Run
+        from invenio_checker.worker import get_sorted_fullpatches
+        fullpatches = tuple(get_sorted_fullpatches(10, 'ab'))
+        assert fullpatches == (
+            {'recid': 10, 'record_hash': '123',
+             'task_id': 'ab', 'patch': {'a': 'b'}},
 
-        m_conn.scan_iter.assert_called_once_with('invenio_checker:patches:*:10:*')
-        # m_conn.lrange.assert_called_once_with(' # should we?
+            {'recid': 10, 'record_hash': '123',
+             'task_id': 'ab', 'patch': {'c': 'd'}},
+        )
 
-    #def test_worker_notifies_master_about_status_update(self): #TODO
-
-    # Ensure worker inherits from everything import that we test TODO
+        m_conn.scan_iter.assert_called_once_with('invenio_checker:patches:ab:10:*')
+        # m_conn.lrange.assert_called_once_with('invenio_checker:patches:ab:10:123', 0, -1)
 
     @pytest.mark.parametrize("input_,intbitset_str", [
         ({1, 2, 3}, r'x\x9ccc@\x05\x00\x00p\x00\x07'),
@@ -180,3 +173,7 @@ class TestFullpatch(object):
             m_intbitset.assert_called_once_with(intbitset_str)
 
         assert retval == m_intbitset_inst
+
+    #def test_worker_notifies_master_about_status_update(self): #TODO
+
+    # Ensure worker inherits from everything import that we test TODO

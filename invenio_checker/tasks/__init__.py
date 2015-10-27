@@ -40,13 +40,7 @@ from celery.result import AsyncResult
 # from invenio_records.api import get_record, Record
 
 
-from ..supervisor import (
-    run_task,
-    handle_results,
-    handle_error,
-    handle_errors,
-    beat,
-)
+from ..supervisor import *
 
 def _ensure_key(key, dict_):
     if key not in dict_:

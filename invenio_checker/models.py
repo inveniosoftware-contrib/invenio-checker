@@ -142,6 +142,9 @@ class CheckerRule(db.Model):
 
     @db.hybrid_property
     def modified_requested_recids(self):
+        """
+        :rtype: intbitset
+        """
         # Get all records that are already associated to this rule
         # If this is returning an empty set, you forgot to run bibindex
         try:

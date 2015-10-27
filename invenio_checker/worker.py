@@ -22,6 +22,9 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
+
+import itertools as it
+
 import jsonpatch
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from collections import defaultdict
@@ -55,7 +58,6 @@ worker_requested_recids = _prefix_worker + ':requested_recids'
 
 worker_status = _prefix_worker + ':status'
 worker_retry_after_ids = _prefix_worker + ':retry_after_ids'
-worker_patches_we_applied = _prefix_worker + ':patches_we_applied'  # contains client_patches
 
 # Common
 client_eliot_task_id = _prefix + ':{uuid}:eliot_task_id'
@@ -70,6 +72,38 @@ keys_worker = {
     #client_eliot_task_id,
     worker_retry_after_ids,
 }
+
+def _workers_touch_common_paths(paths1, paths2):
+
+    def paths_are_exclusive(path1, path2):
+        # if not path1.endswith('/'):
+        #     path1 += '/'
+        # if not path2.endswith('/'):
+        #     path2 += '/'
+        return path1.startswith(path2) or path2.startswith(path1)
+
+    if not paths1:
+        paths1 = {'/'}
+    if not paths2:
+        paths2 = {'/'}
+    for a, b in it.product(paths1, paths2):
+        if paths_are_exclusive(a, b):
+            return True
+    return False
+
+def _workers_touch_common_records(recids1, recids2):
+    return recids1 & recids2
+
+def workers_are_compatible(worker1, worker2):
+    return not (
+        _workers_touch_common_records(
+            worker1.allowed_recids,
+            worker2.allowed_recids)
+        and
+        _workers_touch_common_paths(
+            worker1.allowed_paths,
+            worker2.allowed_paths)
+    )
 
 def get_workers_with_unprocessed_results():
     """Return all workers in celery  which have started processing, but their
@@ -102,34 +136,19 @@ def id_to_fullpatch(id_, patch):
     record_hash = spl[4]
     return make_fullpatch(recid, record_hash, patch, task_id)
 
-
-def get_fullpatches(recid):
-    """Get sorted fullpatches from workers that have not failed.
+def get_sorted_fullpatches(recid, worker_id):
+    """Get sorted fullpatches for this worker.
 
     :param recid: recid to get patches for
     """
+    identifier = client_patches.format(uuid=worker_id, recid=recid,
+                                       record_hash='*')
     conn = get_redis_conn()
-    identifier = client_patches.format(uuid='*', recid=recid, record_hash='*')
-    # FIXME Workers should vanish instead of us filtering here.
-    #   We should do correct failure propagation.
-    # XXX: Should be getting the lock here..?
-    patchlists = [
-        (conn.ttl(id_), conn.lrange(id_, 0, -1), id_)
-        for id_ in conn.scan_iter(identifier)
-        if not RedisWorker(id_to_fullpatch(id_, None)['task_id']).\
-        a_used_dependency_of_ours_has_failed
-        # or RedisWorker(id_.split(':')[2]).status == StatusWorker.failed
-    ]
-
-    # sorted_patchets: [[patch_str, patch_str], [patch_str, patch_str]]
-    # [set(['[{"path": "/d", "value": "a", "op": "replace"}]'])]
-
-    sorted_fullpatches = []
-    for ttl, patchlist, id_on_redis in sorted(patchlists, key=itemgetter(0)):
-        for patch in patchlist:
-            fullpatch = id_to_fullpatch(id_on_redis, patch)
-            sorted_fullpatches.append(fullpatch)
-    return sorted_fullpatches
+    for id_ in conn.scan_iter(identifier):
+        patch = conn.lpop(id_)
+        while patch is not None:
+            yield id_to_fullpatch(id_, patch)
+            patch = conn.lpop(id_)
 
 
 class HasAllowedRecids(PleasePylint):
@@ -181,6 +200,7 @@ class HasAllowedPaths(PleasePylint):
 
 
 class HasRetryAfterIds(PleasePylint):
+    """Contains IDs of tasks that must exit before we can try again."""
 
     @property
     @set_identifier(worker_retry_after_ids)
@@ -232,18 +252,14 @@ class HasStatusWorker(PleasePylint):
         :type new_status: :py:class:`invenio_checker.redis_helpers.StatusWorker`
         """
         assert new_status in StatusWorker
-        # print 'SETTING STATUS {} ON {}'.format(new_status, self.task_id)
-
         self.conn.set(self._identifier, new_status.value)
-
-        self.master.worker_status_changed()
 
         if new_status == StatusWorker.ran:
             self._on_ran()
         elif new_status == StatusWorker.failed:
             self._on_own_failure()
         elif new_status == StatusWorker.running:
-            self.patches_we_applied_clear()
+            pass
 
     def _on_own_failure(self):
         with self.lock():
@@ -280,6 +296,7 @@ class HasStatusWorker(PleasePylint):
 
 
 class HasBundleRequestedRecids(PleasePylint):
+    """Contains the record IDs that this worker shall iterate over."""
 
     @property
     @set_identifier(worker_requested_recids)
@@ -306,23 +323,6 @@ class HasBundleRequestedRecids(PleasePylint):
 class HasPatches(PleasePylint):
     """Add support for handling fullpatch-style patches in storage."""
 
-    @property
-    @set_identifier(worker_patches_we_applied)
-    def patches_we_applied(self):
-        return self.conn.smembers(self._identifier)
-
-    @set_identifier(worker_patches_we_applied)
-    def patches_we_applied_add(self, fullpatch):
-        id_ = fullpatch.format(uuid=fullpatch['task_id'],
-                               recid=fullpatch['recid'],
-                               record_hash=fullpatch['record_hash'])
-        return self.conn.sadd(self._identifier, id_)
-
-    @set_identifier(worker_patches_we_applied)
-    def patches_we_applied_clear(self):
-        for redis_patch in self.conn.scan_iter(self._identifier):
-            self.conn.delete(redis_patch)
-
     def patch_to_redis(self, fullpatch):
         """
         Called on session finish, once per recid."""
@@ -344,16 +344,6 @@ class HasPatches(PleasePylint):
                 patches[recid].append(patch)
         return patches
 
-    @property
-    def task_ids_of_patches_we_worked_ontop(self):
-        # Unordered
-        remote_ids = set()
-        for patch_id in self.patches_we_applied:
-            remote_id = patch_id.split(':')[2]
-            remote_ids.add(remote_id)
-        print 'TASKS FROM WHICH WE USED PATCHES {}'.format(remote_ids)
-        return remote_ids
-
     def get_record_orig_or_mem(self, recid):
         """Returns record from database, after applying existing patches.
 
@@ -361,45 +351,14 @@ class HasPatches(PleasePylint):
             We upload patches at the end, so we're not picking up our own
             patches here
         """
-
         # XXX Should we put a lock around this?
         from invenio_records.api import get_record as get_record_orig
         record = get_record_orig(recid)
-        # record_hash = hash(record)
-        sorted_fullpatches = get_fullpatches(recid)
+        sorted_fullpatches = get_sorted_fullpatches(recid, self.uuid)
 
         for fullpatch in sorted_fullpatches:
-            # FIXME: Check record hash? Or check in `get_fullpatches`?  see conftest2.py:408
-            # assert fullpatch['record_hash'] == record_hash
-            self.patches_we_applied_add(fullpatch)
             jsonpatch.apply_patch(record, fullpatch['patch'], in_place=True)
         return record
-
-    @property
-    def our_used_dependencies_have_committed(self):
-        tiopwwo = self.task_ids_of_patches_we_worked_ontop
-        for task_id in tiopwwo:
-            if RedisWorker(task_id).status != StatusWorker.committed:
-                return False
-        return True
-
-    @property
-    def a_used_dependency_of_ours_has_failed(self):
-        # Could speed up XXX: Don't look at the patches, look at the task_ids
-        identifier = client_patches.format(uuid='*', recid='*', record_hash='*')
-        patch_ids_in_memory = set()
-        for patchlist_id in self.conn.scan_iter(identifier):
-            # for id_ in self.conn.smembers(patchlist_id):
-            patch_ids_in_memory.add(patchlist_id)
-        if self.patches_we_applied <= patch_ids_in_memory:
-            return False
-        return True
-
-        # tiopwwo = self.task_ids_of_patches_we_worked_ontop
-        # for task_id in tiopwwo:
-        #     if RedisWorker(task_id).status == StatusWorker.failed:
-        #         return True
-        # return False
 
 
 class RedisWorker(RedisClient, HasPatches, HasAllowedRecids, HasRetryAfterIds,
@@ -447,7 +406,3 @@ class RedisWorker(RedisClient, HasPatches, HasAllowedRecids, HasRetryAfterIds,
         if self.result is not None:
             if not self.result.ready():
                 self.result.revoke(terminate=True, signal='TERM')
-
-
-# client_patches = _prefix + ':patches:{uuid}:{recid}:{record_hash}' # patch
-

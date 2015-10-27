@@ -24,21 +24,19 @@
 
 """Load, construct and supervise tasks."""
 
-import itertools as it
 import signal
 import sys
 import time
 import os
+import math
 
 import jsonpatch
 from pytest import main
-from celery.exceptions import TimeoutError
 from celery import chord, uuid
 from six import reraise
 from invenio.celery import celery
 from invenio.base.helpers import with_app_context
 from functools import partial
-from invenio_records.api import get_record as get_record_orig
 
 from .master import RedisMaster, StatusMaster
 from .worker import RedisWorker, StatusWorker
@@ -62,146 +60,133 @@ from _pytest.main import (
     EXIT_USAGEERROR,
 )
 
-def _exclusive_paths(path1, path2):
-    if not path1.endswith('/'):
-        path1 += '/'
-    if not path2.endswith('/'):
-        path2 += '/'
-    return path1.startswith(path2) or path2.startswith(path1)
+from invenio_base.wrappers import lazy_import
+
+from datetime import datetime
+from flask_login import current_user
+from invenio.ext.sqlalchemy import db
+from croniter import croniter
+from .redis_helpers import (
+    get_lock_partial,
+    get_redis_conn,
+)
+
+User = lazy_import('invenio_accounts.models.User')
+CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
+CheckerRuleExecution = lazy_import('invenio_checker.models.CheckerRuleExecution')
 
 
-def _touch_common_paths(paths1, paths2):
-    if not paths1:
-        paths1 = frozenset({'/'})
-    if not paths2:
-        paths2 = frozenset({'/'})
-    for a, b in it.product(paths1, paths2):
-        if _exclusive_paths(a, b):
-            return True
-    return False
-
-
-def _touch_common_records(recids1, recids2):
-    return recids1 & recids2
-
-
-def _are_compatible(worker1, worker2):
-    return not (_touch_common_records(worker1.allowed_recids, worker2.allowed_recids) and \
-        _touch_common_paths(worker1.allowed_paths, worker2.allowed_paths))
-
-
-def chunks(l, n):
-    """Yield successive n-sized chunks from l."""
-    if n == 0:
+def _chunks(list_, size):
+    """Yield successive size-sized chunks from list_."""
+    list_ = list(list_)
+    if size == 0:
         yield []
     else:
-        for i in xrange(0, len(l), n):
-            yield l[i:i+n]
+        for i in xrange(0, len(list_), size):
+            yield list_[i:i+size]
 
+def chunk_recids(recids, max_chunks=10, max_chunk_size=1000000):
+    """Put given items into chunks that meet given conditions.
 
-def rules_to_bundles(rules, all_recids):
-    max_chunk_size = 1000
-    max_chunks = 1
-    rule_bundles = {}
-    for rule in rules:
-        modified_requested_recids = rule.modified_requested_recids
-        chunk_size = len(modified_requested_recids)/max_chunks
-        if chunk_size > max_chunk_size:
-            chunk_size = max_chunk_size
-        rule_bundles[rule] = chunks(modified_requested_recids, chunk_size)
-    # assert len(rule_bundles) == max_chunks
-    return rule_bundles
+    :type max_chunks: int
+    :type requested_recids: set
+    """
+    if not recids:
+        return []
 
+    chunks_cnt = int(math.log(len(recids) * 0.01))
+    chunks_cnt = max(1, chunks_cnt)
+
+    if chunks_cnt > max_chunks:
+        chunks_cnt = max_chunks
+
+    chunk_size = len(recids) / chunks_cnt
+    if chunk_size > max_chunk_size:
+        chunk_size = max_chunk_size
+
+    return _chunks(recids, chunk_size)
 
 def run_task(task_name):
-    from .models import CheckerRuleExecution
-    from invenio.ext.sqlalchemy import db
-    from datetime import datetime
-    from flask_login import current_user
-    from invenio_accounts.models import User
-
-    cur_user_id = current_user.get_id()
-    owner = User.query.get(cur_user_id)
-    if owner is None:
-        owner = User.query.filter(User.nickname=='admin').one()
-
     master_id = uuid()
-    try:
-        new_exec = CheckerRuleExecution(
-            uuid=master_id,
-            rule_name=task_name,
-            start_date=datetime.now(),
-            status=StatusMaster.booting,
-            owner=owner,
-        )
-        db.session.add(new_exec)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
 
-    _run_task.apply_async(args=(task_name, master_id), task_id=master_id)
-
-
-@celery.task()
-def _run_task(rule_name, master_id):
-    del Logger._destinations._destinations[:]
+    del Logger._destinations._destinations[:] # prevent dupes in logger
     to_file(open(os.path.join(eliot_log_path, master_id), "ab"))
 
     with start_task(action_type="invenio_checker:supervisor:_run_task",
                     master_id=master_id) as eliot_task:
-        from .models import CheckerRule
-        # cleanup_failed_runs()
 
-        redis_master = None
+        cur_user_id = current_user.get_id()
+        owner = User.query.get(cur_user_id)
+        if owner is None:
+            owner = User.query.filter(User.nickname == 'admin').one()
 
-        def cleanup_session():
-            print 'Cleaning up'
-            if redis_master is not None:
-                redis_master.zap()
+        try:
+            new_exec = CheckerRuleExecution(
+                uuid=master_id,
+                rule_name=task_name,
+                start_date=datetime.now(),
+                status=StatusMaster.booting,
+                owner=owner,
+            )
+            db.session.add(new_exec)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
 
-        def sigint_hook(rcv_signal, frame):
-            cleanup_session()
+        _run_task.apply_async(args=(task_name, master_id, eliot_task),
+                              task_id=master_id)
 
-        def except_hook(type_, value, tback):
-            cleanup_session()
-            reraise(type_, value, tback)
+@celery.task()
+def _run_task(rule_name, master_id, eliot_task):
+    # cleanup_failed_runs()
 
-        signal.signal(signal.SIGINT, sigint_hook)
-        signal.signal(signal.SIGTERM, sigint_hook)
-        sys.excepthook = except_hook
+    redis_master = None
+    def cleanup_session():
+        # FIXME
+        if redis_master is not None:
+            redis_master.zap()
 
-        with start_action(action_type='create master'):
-            eliot_task_id = eliot_task.serialize_task_id()
-            redis_master = RedisMaster.create(master_id, eliot_task_id, rule_name)
+    def sigint_hook(rcv_signal, frame):
+        cleanup_session()
 
-        with start_action(action_type='create subtasks'):
-            rules = CheckerRule.from_ids((rule_name,))
-            bundles = rules_to_bundles(rules, redis_master.all_recids)
+    def except_hook(type_, value, tback):
+        cleanup_session()
+        reraise(type_, value, tback)
 
-            subtasks = []
-            errback = handle_error.s()
-            for rule, rule_chunks in bundles.iteritems():
-                for chunk in rule_chunks:
-                    task_id = uuid()
-                    redis_master.workers_append(task_id)
-                    eliot_task_id = eliot_task.serialize_task_id()
-                    RedisWorker.create(task_id, eliot_task_id, chunk)
-                    subtasks.append(run_test.subtask(args=(rule.filepath,
-                                                           redis_master.master_id,
-                                                           task_id),
-                                                     task_id=task_id,
-                                                     link_error=[errback]))
+    signal.signal(signal.SIGINT, sigint_hook)
+    signal.signal(signal.SIGTERM, sigint_hook)
+    sys.excepthook = except_hook
 
-            Message.log(message_type='registered subtasks', value=str(redis_master.workers))
+    Message.log(message_type='creating master')
+    eliot_task_id = eliot_task.serialize_task_id()
+    redis_master = RedisMaster.create(master_id, eliot_task_id,
+                                      rule_name)
 
-        with start_action(action_type='run chord'):
-            redis_master.status = StatusMaster.running
-            header = subtasks
-            callback = handle_results.subtask(link_error=[handle_errors.s(redis_master.master_id)])
-            my_chord = chord(header)
-            result = my_chord(callback)
+    rule = CheckerRule.from_ids((rule_name,)).pop()
+    bundles = chunk_recids(rule.modified_requested_recids)
+    Message.log(message_type='creating {} subtasks'.format(len(bundles)))
+    subtasks = []
+    for id_chunk in bundles:
+        task_id = uuid()
+        # We need to tell the master first so that the worker knows
+        redis_master.workers_append(task_id)
+        eliot_task_id = eliot_task.serialize_task_id()
+        RedisWorker.create(task_id, eliot_task_id, id_chunk)
+        subtasks.append(
+            run_test.subtask(
+                args=(rule.filepath, redis_master.master_id),
+                task_id=task_id,
+                link=[handle_worker_completion.s()],
+                link_error=[handle_worker_error.s()],
+            )
+        )
 
+    redis_master.status = StatusMaster.running
+    callback = handle_all_completion.subtask(
+        # link_error=[handle_master_error.s(redis_master.master_id)]
+    )
+    result = chord(subtasks)(callback)
 
 def with_eliot(action_type, master_id=None, worker_id=None):
     assert master_id or worker_id
@@ -215,36 +200,30 @@ def with_eliot(action_type, master_id=None, worker_id=None):
     with Action.continue_task(task_id=eliot_task_id):
         return start_action(action_type=action_type)
 
-
 @celery.task
-def handle_results(task_ids):
+def handle_worker_completion(task_id):
     """Commit patches.
 
-    :type task_ids: list of str
-    :param task_ids: values returned by `run_test` instances
+    :type task_id: str
+    :param task_id: task_id as returned by `run_test`
     """
-    with with_eliot(action_type='handle results', worker_id=task_ids[0]):
-        for task_id in task_ids:
-            redis_worker = RedisWorker(task_id)
-            for recid, patches in redis_worker.all_patches.items():
-                record = get_record_orig(recid)
-                for patch in patches:
-                    jsonpatch.apply_patch(record, patch, in_place=True)
-                record.commit()
-            redis_worker.master.rule.mark_recids_as_checked(redis_worker.bundle_requested_recids)
-            redis_worker.status = StatusWorker.committed
-
+    from invenio_records.api import get_record as get_record_orig
+    redis_worker = RedisWorker(task_id)
+    for recid, patches in redis_worker.all_patches.items():
+        record = get_record_orig(recid)
+        for patch in patches:
+            jsonpatch.apply_patch(record, patch, in_place=True)
+        record.commit()
+    redis_worker.master.rule.mark_recids_as_checked(redis_worker.bundle_requested_recids)
+    redis_worker.status = StatusWorker.committed
 
 @celery.task
-def handle_errors(_, failed_master_id):
-    print 'FAILED {}'.format(failed_master_id)
-    with with_eliot('handle errors', master_id=failed_master_id):
-        for redis_worker in RedisMaster(failed_master_id).redis_workers:
-            handle_error(redis_worker.task_id)
-
+def handle_all_completion(master_id):
+    master = RedisMaster(master_id)
+    master.status = StatusMaster.completed
 
 @celery.task
-def handle_error(failed_task_id):
+def handle_worker_error(failed_task_id):
     """Handle the fact that a certain task has failed.
 
     ..note::
@@ -255,11 +234,7 @@ def handle_error(failed_task_id):
     """
     redis_worker = RedisWorker(failed_task_id)
     redis_worker.status = StatusWorker.failed
-
-    # TODO (zap things)
-    # RedisMaster(failed_master_id).zap()
-    # failed_result = AsyncResult(id=failed_task_id)
-    # failed_result.maybe_reraise()
+    redis_worker.master.status = StatusWorker.failed
 
 
 class CustomRetry(Exception):
@@ -275,7 +250,9 @@ class CustomRetry(Exception):
 
 @celery.task(bind=True, max_retries=None, default_retry_delay=5)
 @with_app_context()
-def run_test(self, filepath, master_id, task_id, retval=None):
+def run_test(self, check_file, master_id, retval=None):
+    from celery.contrib import rdb; rdb.set_trace()
+    task_id = self.request.id
     redis_worker = RedisWorker(task_id)
     print 'ENTER {} of GROUP {}'.format(task_id, redis_worker.master.uuid)
 
@@ -290,7 +267,7 @@ def run_test(self, filepath, master_id, task_id, retval=None):
                             '-c', conftest_file,
                             '--invenio-task-id', task_id,
                             '--invenio-master-id', master_id,
-                            filepath])
+                            check_file])
 
     # If pytest exited for reason different than a failed check, then something
     # really did break
@@ -316,13 +293,6 @@ def run_test(self, filepath, master_id, task_id, retval=None):
                 format(retry_after_ids), False)
         # We are looking to commit below this line
         redis_worker.status = StatusWorker.ran
-        if redis_worker.a_used_dependency_of_ours_has_failed:
-            redis_worker.on_others_failure()
-            raise CustomRetry(
-                'A used dependency of ours failed, so we want to run again',
-                False)
-        if not redis_worker.our_used_dependencies_have_committed:
-            raise CustomRetry('Waiting for dependencies to commit', True)
     except CustomRetry as exc:
         if exc.countdown is not None:
             self.retry = partial(self.retry, countdown=exc.countdown)
@@ -338,18 +308,10 @@ def run_test(self, filepath, master_id, task_id, retval=None):
 
 @celery.task
 def beat():
-    from invenio.ext.sqlalchemy import db
-    from .models import CheckerRule as CR
-    from croniter import croniter
-    from datetime import datetime
-    from .redis_helpers import (
-        get_lock_partial,
-        get_redis_conn,
-    )
-
-    conn = get_redis_conn()
-    with get_lock_partial("invenio_checker:beat_lock", conn)():
-        for rule in CR.query.filter(CR.schedule != None).all():
+    CR = CheckerRule
+    with get_lock_partial("invenio_checker:beat_lock", get_redis_conn())():
+        scheduled_rules = CR.query.filter(CR.schedule_enabled == True).all()
+        for rule in scheduled_rules:
             iterator = croniter(rule.schedule, rule.last_run)
             next_run = iterator.get_next(datetime)
             now = datetime.now()

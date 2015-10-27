@@ -30,7 +30,6 @@ import re
 import traceback
 from contextlib import contextmanager
 from warnings import warn
-import signal
 from copy import deepcopy
 
 import pytest
@@ -41,7 +40,6 @@ from six import StringIO
 import jsonpatch
 from functools import wraps, partial
 Query = lazy_import('invenio_search.api.Query')
-CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 from .worker import (
     RedisWorker,
     StatusWorker,
@@ -55,7 +53,7 @@ from eliot import (
     to_file,
     Logger,
 )
-_are_compatible = lazy_import('invenio_checker.supervisor._are_compatible')
+from invenio_checker.worker import workers_are_compatible
 from .config import get_eliot_log_path
 from .registry import reporters_files
 
@@ -131,19 +129,11 @@ def start_action_dec(action_type, **dec_kwargs):
 
 def pytest_collection_modifyitems(session, config, items):
     """Call when pytest has finished collecting items."""
-    _pytest_collection_modifyitems(session, config, items)
+    _pytest_collection_modifyitems(session, config.option.invenio_rule.arguments,
+                                   config.option.redis_worker, items)
 
-
-@start_action_dec(action_type='invenio_checker.conftest2.pytest_collection_modifyitems')
-def _pytest_collection_modifyitems(session, config, items):
-    """Report allowed recids and jsonpaths to master and await start.
-
-    :type session: :py:class:_pytest.main.Session
-    :type config: :py:class:_pytest.config.Config
-    :type items: list
-    """
-    redis_worker = config.option.redis_worker
-    unique_functions_found = set((item.function for item in items))
+def ensure_only_one_test_function_exists_in_check(items):
+    unique_functions_found = {item.function for item in items}
 
     if not unique_functions_found:
         raise AssertionError(
@@ -155,19 +145,19 @@ def _pytest_collection_modifyitems(session, config, items):
             "We support one check function per file. Found {0} instead."
             .format(len(unique_functions_found))
         )
-    item = items[0]
 
-    # Set allowed_paths and allowed_recids
+def get_restrictions_from_check_class(item, task_arguments, session):
+    """Get performance hints from this check.
+    TODO
+    """
     if hasattr(item, 'cls'):
         if hasattr(item.cls, 'allowed_paths'):
-            allowed_paths = item.cls.allowed_paths(
-                config.option.invenio_rule.arguments
-            )
+            allowed_paths = item.cls.allowed_paths(task_arguments)
         else:
             allowed_paths = set()
         if hasattr(item.cls, 'allowed_recids'):
             allowed_recids = item.cls.allowed_recids(
-                config.option.invenio_rule.arguments,
+                task_arguments,
                 batch_recids(session),
                 all_recids(session),
                 search(session)
@@ -179,29 +169,40 @@ def _pytest_collection_modifyitems(session, config, items):
         raise AssertionError('Check requested recids that are not in the'
                              ' database!')
 
-    redis_worker.allowed_paths = allowed_paths
-    redis_worker.allowed_recids = allowed_recids
+    return allowed_paths, allowed_recids
 
-    def worker_conflicts_with_currently_running(worker):
-        foreign_running_workers = get_workers_with_unprocessed_results()
-        blockers = set()
-        for foreign in foreign_running_workers:
-            if not _are_compatible(worker, foreign):
-                blockers.add(foreign)
-        return blockers
+def worker_conflicts_with_currently_running(worker):
+    foreign_running_workers = get_workers_with_unprocessed_results()
+    blockers = set()
+    for foreign in foreign_running_workers:
+        if not workers_are_compatible(worker, foreign):
+            blockers.add(foreign)
+    return blockers
 
-    redis_worker.status = StatusWorker.ready  # XXX unused?
+def _pytest_collection_modifyitems(session, task_arguments, worker, items):
+    """Report allowed recids and jsonpaths to master and await start.
+
+    :type session: :py:class:_pytest.main.Session
+    :type config: :py:class:_pytest.config.Config
+    :type items: list
+    """
+    ensure_only_one_test_function_exists_in_check(items)
+    item = items[0]
+    worker.allowed_paths, worker.allowed_recids = \
+        get_restrictions_from_check_class(item, task_arguments, session)
+    worker.status = StatusWorker.ready  # XXX unused?
+
     with start_action(action_type='checking for conflicting running workers'):
-        with redis_worker.lock():
-            blockers = worker_conflicts_with_currently_running(redis_worker)
+        with worker.lock():
+            blockers = worker_conflicts_with_currently_running(worker)
             if blockers:
                 Message.log(message_type='found conflicting workers', value=str(blockers))
-                print 'CONFLICT {} {}'.format(redis_worker.task_id, blockers)
-                redis_worker.retry_after_ids = {bl.task_id for bl in blockers}
+                # print 'CONFLICT {} {}'.format(worker.uuid, blockers)
+                worker.retry_after_ids = {bl.uuid for bl in blockers}
                 del items[:]
             else:
-                print 'RESUMING ' + str(redis_worker.task_id)
-                redis_worker.status = StatusWorker.running
+                # print 'RESUMING ' + str(worker.uuid)
+                worker.status = StatusWorker.running
 
 
 ################################################################################
@@ -322,8 +323,7 @@ def log(request):
     :type request: :py:class:_pytest.python.SubRequest
     """
     def _log(user_readable_msg):
-        # current_function = request.node  #<class '_pytest.python.Function'>
-        location_tuple = LocationTuple.from_stack(inspect.stack()[1])
+        location_tuple = LocationTuple.from_report_location(request.node.reportinfo())
         for reporter in request.config.option.invenio_reporters:
             reporter.report(user_readable_msg, location_tuple)
     return _log
@@ -384,7 +384,7 @@ class Session(object):
     session = None
 
 
-def get_fullpatches(step):
+def get_fullpatches_of_last_run(step):
     """Return all the record patches resulting from the last run.
     ..note::
         `invenio_records` is populated by the `get_record` function.
@@ -435,15 +435,6 @@ def _pytest_runtest_logreport(report):
 ################################################################################
 
 
-@lru_cache(maxsize=2)
-def _load_rule_from_db(rule_name):
-    """Translate the name of the rule set to this task to a database object.
-
-    :type rule_name: str
-    """
-    return CheckerRule.query.get(rule_name)
-
-
 def pytest_addoption(parser):
     """Parse arguments given to the command line of this batch.
 
@@ -467,18 +458,17 @@ def pytest_sessionfinish(session, exitstatus):
 
     TODO: Upload
     """
-    return _pytest_sessionfinish(session, exitstatus)
+    worker = session.config.option.redis_worker
+    invenio_records = session.invenio_records
+    return _pytest_sessionfinish(session, worker, invenio_records, exitstatus)
 
 
-# @start_action_dec(action_type='invenio_checker:conftest2:_pytest_sessionfinish')
-def _pytest_sessionfinish(session, exitstatus):
+def _pytest_sessionfinish(session, worker, invenio_records, exitstatus):
     # TODO: Should we check exitstatus here?
     with start_action(action_type='moving added patches to redis'):
-        redis_worker = session.config.option.redis_worker
-        for fullpatch in get_fullpatches('modified'):
-            redis_worker.patch_to_redis(fullpatch)
+        for fullpatch in get_fullpatches_of_last_run('modified'):
+            worker.patch_to_redis(fullpatch)
 
-    invenio_records = session.invenio_records
     invenio_records['original'].clear()
     invenio_records['modified'].clear()
     invenio_records['temporary'].clear()
@@ -501,24 +491,6 @@ class LocationTuple(object):
         """
         fspath, lineno, domain = report_location
         return os.path.abspath(fspath), lineno, domain
-
-    @staticmethod
-    def from_stack(stack):
-        """Convert a `stack` to a `LocationTuple`.
-
-        :type stack: tuple
-        """
-        frame, filename, line_number, function_name, lines, index = stack
-        function_name = frame.f_code.co_name  # 'check_fail'
-        try:
-            argvalues = inspect.getargvalues(frame)
-            first_argument = argvalues.locals[argvalues.args[0]]
-            class_name = first_argument.__class__.__name__  # CheckWhatever
-        except IndexError:
-            domain = function_name
-        else:
-            domain = '{0}.{1}'.format(class_name, function_name)
-        return filename, line_number, domain
 
 
 class InvenioReporter(TerminalReporter):
@@ -619,7 +591,7 @@ class InvenioReporter(TerminalReporter):
             self._outrep_summary(report)  # pylint: disable=no-member
         outrep_summary = getvalue()
 
-        # Output, should use celery?
+        # Output, should use celery? XXX
         location_tuple = LocationTuple.from_report_location(report.location)
         try:
             exc_info = (
@@ -635,7 +607,7 @@ class InvenioReporter(TerminalReporter):
 
         # Inform all enabled reporters
         patches = []
-        for fullpatch in get_fullpatches('temporary'):
+        for fullpatch in get_fullpatches_of_last_run('temporary'):
             del invenio_records['temporary'][fullpatch['recid']]
             patches.append(fullpatch)
 
@@ -699,28 +671,3 @@ def pytest_runtest_makereport(item, call):
     finally:
         result.excinfo = excinfo
     return result
-
-
-# Namespace manipulation
-# class InvenioStorage(object):
-#     def __init__(self):
-#         self.records = None
-#         self.reporters = None
-
-#     @property
-#     def records(self):
-#         return pytest.config.
-
-# def pytest_namespace():
-#     pass
-#     # pytest has special handling for dicts, so we use a custom class instead
-#     # invenio_storage = InvenioStorage()
-#     # return {'invenio_storage': invenio_storage}
-
-
-# @pytest.mark.trylast
-# def pytest_cmdline_main(config):
-#     # Get the marker
-#     import ipdb; ipdb.set_trace()
-#     pytest.invenio_storage.records = config.option.records.split(',')
-#     pytest.invenio_storage.reporters = config.option.reporters.split(',')

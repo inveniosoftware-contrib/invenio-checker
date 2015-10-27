@@ -19,22 +19,29 @@
 
 from __future__ import unicode_literals
 
-from flask import current_app
 import os
+import errno
 from celery.schedules import crontab
 
+from flask import current_app
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
 
 def get_eliot_log_path():
-    app = current_app
 
     eliot_log_path = os.path.join(
-        app.instance_path,
-        app.config.get('CFG_LOGDIR', ''),
+        current_app.instance_path,
+        current_app.config.get('CFG_LOGDIR', ''),
         'checker',
     )
 
-    if not os.path.exists(eliot_log_path):
-        os.mkdir(eliot_log_path)
+    mkdir_p(eliot_log_path)
 
     return eliot_log_path
 

@@ -93,17 +93,6 @@ class HasWorkers(PleasePylint):
         """
         return self.conn.sadd(self._identifier, worker_id)
 
-    def worker_status_changed(self):
-        """Call when a worker's status has changed.
-
-        This makes the master aware of whether it should change its own status.
-        """
-        if any(w.status == StatusWorker.failed for w in self.redis_workers):
-            self.status = StatusMaster.failed
-        elif all(w.status == StatusWorker.committed for w in self.redis_workers):
-            self.status = StatusMaster.completed
-
-
 class HasAllRecids(PleasePylint):
 
     @property
