@@ -108,37 +108,30 @@ def chunk_recids(recids, max_chunks=10, max_chunk_size=1000000):
 
 def run_task(task_name):
     master_id = uuid()
+    cur_user_id = current_user.get_id()
+    owner = User.query.get(cur_user_id)
+    if owner is None:
+        owner = User.query.filter(User.nickname == 'admin').one()
 
-    del Logger._destinations._destinations[:] # prevent dupes in logger
-    to_file(open(os.path.join(eliot_log_path, master_id), "ab"))
+    try:
+        new_exec = CheckerRuleExecution(
+            uuid=master_id,
+            rule_name=task_name,
+            start_date=datetime.now(),
+            status=StatusMaster.booting,
+            owner=owner,
+        )
+        db.session.add(new_exec)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
 
-    with start_task(action_type="invenio_checker:supervisor:_run_task",
-                    master_id=master_id) as eliot_task:
-
-        cur_user_id = current_user.get_id()
-        owner = User.query.get(cur_user_id)
-        if owner is None:
-            owner = User.query.filter(User.nickname == 'admin').one()
-
-        try:
-            new_exec = CheckerRuleExecution(
-                uuid=master_id,
-                rule_name=task_name,
-                start_date=datetime.now(),
-                status=StatusMaster.booting,
-                owner=owner,
-            )
-            db.session.add(new_exec)
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-            raise
-
-        _run_task.apply_async(args=(task_name, master_id, eliot_task),
-                              task_id=master_id)
+    _run_task.apply_async(args=(task_name, master_id),
+                          task_id=master_id)
 
 @celery.task()
-def _run_task(rule_name, master_id, eliot_task):
+def _run_task(rule_name, master_id):
     # cleanup_failed_runs()
 
     redis_master = None
@@ -158,35 +151,39 @@ def _run_task(rule_name, master_id, eliot_task):
     signal.signal(signal.SIGTERM, sigint_hook)
     sys.excepthook = except_hook
 
-    Message.log(message_type='creating master')
-    eliot_task_id = eliot_task.serialize_task_id()
-    redis_master = RedisMaster.create(master_id, eliot_task_id,
-                                      rule_name)
-
-    rule = CheckerRule.from_ids((rule_name,)).pop()
-    bundles = chunk_recids(rule.modified_requested_recids)
-    Message.log(message_type='creating {} subtasks'.format(len(bundles)))
-    subtasks = []
-    for id_chunk in bundles:
-        task_id = uuid()
-        # We need to tell the master first so that the worker knows
-        redis_master.workers_append(task_id)
+    del Logger._destinations._destinations[:] # prevent dupes in logger
+    to_file(open(os.path.join(eliot_log_path, master_id), "ab"))
+    with start_task(action_type="invenio_checker:supervisor:_run_task",
+                    master_id=master_id) as eliot_task:
         eliot_task_id = eliot_task.serialize_task_id()
-        RedisWorker.create(task_id, eliot_task_id, id_chunk)
-        subtasks.append(
-            run_test.subtask(
-                args=(rule.filepath, redis_master.master_id),
-                task_id=task_id,
-                link=[handle_worker_completion.s()],
-                link_error=[handle_worker_error.s()],
-            )
-        )
+        Message.log(message_type='creating master')
+        redis_master = RedisMaster.create(master_id, eliot_task_id,
+                                          rule_name)
 
-    redis_master.status = StatusMaster.running
-    callback = handle_all_completion.subtask(
-        # link_error=[handle_master_error.s(redis_master.master_id)]
-    )
-    result = chord(subtasks)(callback)
+        rule = CheckerRule.from_ids((rule_name,)).pop()
+        bundles = list(chunk_recids(rule.modified_requested_recids))
+        Message.log(message_type='creating {} subtasks'.format(len(bundles)))
+        subtasks = []
+        for id_chunk in bundles:
+            task_id = uuid()
+            # We need to tell the master first so that the worker knows
+            redis_master.workers_append(task_id)
+            eliot_task_id = eliot_task.serialize_task_id()
+            RedisWorker.create(task_id, eliot_task_id, id_chunk)
+            subtasks.append(
+                run_test.subtask(
+                    args=(rule.filepath, redis_master.master_id),
+                    task_id=task_id,
+                    link=[handle_worker_completion.s()],
+                    link_error=[handle_worker_error.s()],
+                )
+            )
+
+        redis_master.status = StatusMaster.running
+        callback = handle_all_completion.subtask(
+            # link_error=[handle_master_error.s(redis_master.master_id)]
+        )
+        result = chord(subtasks)(callback)
 
 def with_eliot(action_type, master_id=None, worker_id=None):
     assert master_id or worker_id
@@ -218,8 +215,8 @@ def handle_worker_completion(task_id):
     redis_worker.status = StatusWorker.committed
 
 @celery.task
-def handle_all_completion(master_id):
-    master = RedisMaster(master_id)
+def handle_all_completion(worker_ids):
+    master = RedisWorker(worker_ids[0]).master
     master.status = StatusMaster.completed
 
 @celery.task
@@ -234,7 +231,7 @@ def handle_worker_error(failed_task_id):
     """
     redis_worker = RedisWorker(failed_task_id)
     redis_worker.status = StatusWorker.failed
-    redis_worker.master.status = StatusWorker.failed
+    redis_worker.master.status = StatusMaster.failed
 
 
 class CustomRetry(Exception):
@@ -251,7 +248,6 @@ class CustomRetry(Exception):
 @celery.task(bind=True, max_retries=None, default_retry_delay=5)
 @with_app_context()
 def run_test(self, check_file, master_id, retval=None):
-    from celery.contrib import rdb; rdb.set_trace()
     task_id = self.request.id
     redis_worker = RedisWorker(task_id)
     print 'ENTER {} of GROUP {}'.format(task_id, redis_worker.master.uuid)
