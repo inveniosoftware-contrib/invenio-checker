@@ -334,6 +334,15 @@ class CheckerRuleExecution(db.Model):
             for line in eliottree_subp.stdout:
                 yield line
 
+        # If you ever decide to switch to eliot-prettyprint..
+        # from eliot.prettyprint import pretty_format
+        # from eliot._bytesjson import loads
+        # for filename in filenames:
+        #     with open(filename, 'r') as file_:
+        #         for line in file_:
+        #             yield pretty_format(loads(line))
+
+
 
 class CheckerRecord(db.Model):
 
