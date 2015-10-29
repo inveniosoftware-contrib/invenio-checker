@@ -33,7 +33,6 @@ from flask import Flask
 from _pytest.python import SubRequest
 from _pytest.main import Session
 
-
 @pytest.fixture()
 def app():
     """Flask application fixture."""
@@ -94,6 +93,7 @@ def get_TestRedisWorker(m_get_record_orig_or_mem):
 
 @pytest.fixture
 def m_get_record_orig_or_mem(mocker):
+    """Mock for RedisWorker's get_record_orig_or_mem method."""
     return mocker.Mock(dict())
 
 @pytest.fixture()
@@ -104,12 +104,14 @@ def m_request(mocker, m_session):
 
 @pytest.fixture()
 def m_session(mocker, m_config):
+    """pytest session mock to use after session has been initialized."""
     m_session_ = mocker.Mock(Session)
     m_session_.config = m_config
-    invenio_records = {'original': {},
-                       'modified': {},
-                       'temporary': {}}
-    m_session_.invenio_records = invenio_records
+    m_session_.invenio_records = {'original': {},
+                                  'modified': {},
+                                  'temporary': {}}
+    m_session_.invenio_eliot_action = mocker.MagicMock(
+        return_value=mocker.MagicMock(spec=file))
 
     m_Session = mocker.Mock(object)
     m_Session.session = m_session_
@@ -119,13 +121,15 @@ def m_session(mocker, m_config):
 
 @pytest.fixture()
 def m_config(mocker, m_option):
+    """pytest config mock to use after config has been initialized."""
     m_config_ = mocker.Mock()
     return m_config_
 
 @pytest.fixture()
 def m_option(mocker, m_conn, get_TestRedisWorker):
+    """pytest option mock to use after option has been initialized."""
     m_option_ = mocker.Mock()
-    m_option_.redis_worker = get_TestRedisWorker('abc', m_conn)
+    # m_option_.redis_worker = get_TestRedisWorker('abc', m_conn)
 
     return m_option_
 
