@@ -46,16 +46,14 @@ from .worker import (
     make_fullpatch,
     get_workers_with_unprocessed_results,
 )
+import eliot
 from eliot import (
-    Action,
     Message,
-    start_action,
-    to_file,
-    Logger,
 )
 from invenio_checker.worker import workers_are_compatible
 from .config import get_eliot_log_path
 from .registry import reporters_files
+import mock
 
 
 try:
@@ -66,12 +64,57 @@ except ImportError:
 
 ################################################################################
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# ELIOT
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
+
+def eliotify(func):
+    """Decorator that puts `func` in the eliot context of this worker.
+
+    Useful for:
+        * Logging in the correct context,
+        * Logging exceptions in the wrapped function.
+
+    :type func: callable
+    :param func: function to decorate
+    """
+    @wraps(func)
+    def inner(*args, **kwargs):
+        """
+        :param args: arguments to pass to `func`
+        :param kwargs: keyword arguments to pass to `func`
+        """
+        with Session.session.invenio_eliot_action.context():
+            return func(*args, **kwargs)
+    return inner
+
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # TERMINATION
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
 
+def pytest_internalerror(excrepr, excinfo):
+    """Called when an internalerror is raised inside pytest."""
+    _pytest_internalerror(excrepr, excinfo)
+
+@eliotify
+def _pytest_internalerror(excrepr, excinfo):
+    """Log an internal error and terminate logging action."""
+    with mock.patch('eliot._traceback.sys.exc_info',
+                    mock.Mock(return_value=(excinfo.type, excinfo.value, excinfo.tb))):
+        eliot.write_traceback()
+    exception = excinfo.value
+    Session.session.invenio_eliot_action.finish(exception)
+
+#def pytest_keyboard_interrupt(excinfo):
 
 def pytest_exception_interact(node, call, report):
+    """Called when a potentially handle-able exception is raised."""
+    _pytest_exception_interact(node, call, report)
+
+@eliotify
+def _pytest_exception_interact(node, call, report):
     """Terminate execution on SystemExit.
 
     This is a workaround for the fact that pytest/billiard interpret SIGTERM
@@ -85,40 +128,15 @@ def pytest_exception_interact(node, call, report):
     :type call: :py:class:_pytest.runner.CallInfo
     :type report: :py:class:_pytest.runner.TestReport
     """
-    if isinstance(call.excinfo.value, SystemExit):
+    excinfo = call.excinfo
+    with mock.patch('eliot._traceback.sys.exc_info',
+                    mock.Mock(return_value=(excinfo.type, excinfo.value, excinfo.tb))):
+        eliot.write_traceback()
+    exception = call.excinfo.value
+    Session.session.invenio_eliot_action.finish(exception)
+    if isinstance(exception, SystemExit):
         redis_worker = node.config.option.redis_worker
         redis_worker.status = StatusWorker.failed
-
-
-################################################################################
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# ELIOT
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-################################################################################
-
-
-def start_action_dec(action_type, **dec_kwargs):
-    def real_decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            redis_worker = Session.session.config.option.redis_worker
-            eliot_task_id = redis_worker.eliot_task_id
-            # print "~{} {}".format(eliot_task_id, action_type)
-
-            del Logger._destinations._destinations[:]
-            eliot_log_path = get_eliot_log_path()
-            to_file(open(os.path.join(eliot_log_path, redis_worker.master.uuid + '.' + redis_worker.task_id), "ab"))
-
-            eliot_task = Action.continue_task(task_id=eliot_task_id)
-            with eliot_task:
-                with start_action(action_type=action_type,
-                                  worker_id=redis_worker.task_id,
-                                  **dec_kwargs):
-                    func(*args, **kwargs)
-                redis_worker.eliot_task_id = eliot_task.serialize_task_id()
-        return wrapper
-    return real_decorator
-
 
 ################################################################################
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -126,13 +144,8 @@ def start_action_dec(action_type, **dec_kwargs):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
 
-
-def pytest_collection_modifyitems(session, config, items):
-    """Call when pytest has finished collecting items."""
-    _pytest_collection_modifyitems(session, config.option.invenio_rule.arguments,
-                                   config.option.redis_worker, items)
-
 def ensure_only_one_test_function_exists_in_check(items):
+    """Raise if != 1 check funcs were collected from a single check file."""
     unique_functions_found = {item.function for item in items}
 
     if not unique_functions_found:
@@ -172,6 +185,13 @@ def get_restrictions_from_check_class(item, task_arguments, session):
     return allowed_paths, allowed_recids
 
 def worker_conflicts_with_currently_running(worker):
+    """Get the workers this worker would conflict with if it ran now.
+
+    :param worker: worker that we wish to start.
+    :type worker: RedisWorker
+
+    :returns: [RedisWorker]
+    """
     foreign_running_workers = get_workers_with_unprocessed_results()
     blockers = set()
     for foreign in foreign_running_workers:
@@ -179,6 +199,12 @@ def worker_conflicts_with_currently_running(worker):
             blockers.add(foreign)
     return blockers
 
+def pytest_collection_modifyitems(session, config, items):
+    """Call when pytest has finished collecting items."""
+    _pytest_collection_modifyitems(session, config.option.invenio_rule.arguments,
+                                   config.option.redis_worker, items)
+
+@eliotify
 def _pytest_collection_modifyitems(session, task_arguments, worker, items):
     """Report allowed recids and jsonpaths to master and await start.
 
@@ -192,17 +218,16 @@ def _pytest_collection_modifyitems(session, task_arguments, worker, items):
         get_restrictions_from_check_class(item, task_arguments, session)
     worker.status = StatusWorker.ready  # XXX unused?
 
-    with start_action(action_type='checking for conflicting running workers'):
-        with worker.lock():
-            blockers = worker_conflicts_with_currently_running(worker)
-            if blockers:
-                Message.log(message_type='found conflicting workers', value=str(blockers))
-                # print 'CONFLICT {} {}'.format(worker.uuid, blockers)
-                worker.retry_after_ids = {bl.uuid for bl in blockers}
-                del items[:]
-            else:
-                # print 'RESUMING ' + str(worker.uuid)
-                worker.status = StatusWorker.running
+    with worker.lock():
+        blockers = worker_conflicts_with_currently_running(worker)
+        if blockers:
+            Message.log(message_type='found conflicting workers', value=str(blockers))
+            # print 'CONFLICT {} {}'.format(worker.uuid, blockers)
+            worker.retry_after_ids = {bl.uuid for bl in blockers}
+            del items[:]
+        else:
+            # print 'RESUMING ' + str(worker.uuid)
+            worker.status = StatusWorker.running
 
 
 ################################################################################
@@ -322,8 +347,10 @@ def log(request):
 
     :type request: :py:class:_pytest.python.SubRequest
     """
+    @eliotify
     def _log(user_readable_msg):
         location_tuple = LocationTuple.from_report_location(request.node.reportinfo())
+        Message.log(message_type="check log", msg=user_readable_msg, location=location_tuple)
         for reporter in request.config.option.invenio_reporters:
             reporter.report(user_readable_msg, location_tuple)
     return _log
@@ -366,7 +393,7 @@ def pytest_generate_tests(metafunc):
 
 
 def pytest_sessionstart(session):
-    """Initialize session-wide variables for record management and caching.
+    """Called at the beginning of the session, after config initialization.
 
     :type session: :py:class:`_pytest.main.Session`
     """
@@ -374,10 +401,17 @@ def pytest_sessionstart(session):
 
 
 def _pytest_sessionstart(session):
-    assert not hasattr(session, 'invenio_records')
+    """Initialize session-wide variables for record management and caching."""
     session.invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
-    # Modified actually means "pull out"
     Session.session = session
+
+    # Set the eliot log path
+    config = session.config
+    worker = config.option.redis_worker
+    master = config.option.redis_worker.master
+    eliot.to_file(open(os.path.join(get_eliot_log_path(),
+                                    master.uuid + '.' + worker.uuid), "ab"))
+    session.invenio_eliot_action = eliot.start_action(action_type=u"pytest worker")
 
 
 class Session(object):
@@ -386,6 +420,7 @@ class Session(object):
 
 def get_fullpatches_of_last_run(step):
     """Return all the record patches resulting from the last run.
+
     ..note::
         `invenio_records` is populated by the `get_record` function.
     """
@@ -405,18 +440,18 @@ def get_fullpatches_of_last_run(step):
                                  redis_worker.task_id)
 
 
-# Runs after exception has been reported to the reporter, after every single fine-grained step
 def pytest_runtest_logreport(report):
-    """
-    TODO
+    """Process a report of a the setup/call/teardown phase of execution.
+
+    ..note::
+        Called after exceptions have been reported.
     """
     return _pytest_runtest_logreport(report)
 
 
-# @start_action_dec(action_type='invenio_checker:conftest2:pytest_runtest_logreport')
 def _pytest_runtest_logreport(report):
     """
-    Move the 'temporary' keys that were passed to the worker to 'modified',
+    Move the 'temporary' keys that were passed to the worker to 'modified'
     if the test was successful.
     """
     session = Session.session
@@ -454,24 +489,24 @@ def pytest_addoption(parser):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    """whole test run finishes.
+    """Called when the entire check run has completed.
 
-    TODO: Upload
+    TODO?: Upload
     """
     worker = session.config.option.redis_worker
     invenio_records = session.invenio_records
+    Session.session.invenio_eliot_action.finish()
     return _pytest_sessionfinish(session, worker, invenio_records, exitstatus)
 
-
+@eliotify
 def _pytest_sessionfinish(session, worker, invenio_records, exitstatus):
+    """Push the stored patches to redis."""
     # TODO: Should we check exitstatus here?
-    with start_action(action_type='moving added patches to redis'):
-        for fullpatch in get_fullpatches_of_last_run('modified'):
-            worker.patch_to_redis(fullpatch)
-
-    invenio_records['original'].clear()
-    invenio_records['modified'].clear()
-    invenio_records['temporary'].clear()
+    idx = 0
+    for idx, fullpatch in enumerate(get_fullpatches_of_last_run('modified'), 1):
+        Message.log(message_type='adding patch to redis', patch=fullpatch)
+        worker.patch_to_redis(fullpatch)
+    Message.log(message_type='patch to redis summary', patch_count=idx)
 
 
 class LocationTuple(object):
@@ -490,10 +525,11 @@ class LocationTuple(object):
         :type report_location: tuple
         """
         fspath, lineno, domain = report_location
-        return os.path.abspath(fspath), lineno, domain
+        return os.path.abspath(str(fspath)), lineno, domain
 
 
 class InvenioReporter(TerminalReporter):
+    """TODO"""
 
     ansi_escape = re.compile(r'\x1b[^m]*m')
 
@@ -508,20 +544,21 @@ class InvenioReporter(TerminalReporter):
     def new_tw(self):
         """Scoped terminal writer to get output of designated functions.
 
-        ..note:: Will catch any exceptions raised while in the scope and append
-        them to the stream. This way one can call deprecated functions and
-        actually get a report about it.
+        ..note::
+            Will catch any exceptions raised while in the scope and append
+            them to the stream. This way one can call deprecated functions and
+            actually get a report about it.
         """
 
         class StrippedStringIO(StringIO):
             """StringIO that strips ansi characters."""
             def write(self, message):
-                """Escape all ansi characters from input."""
                 message = InvenioReporter.ansi_escape.sub('', message)
                 StringIO.write(self, message)  # StringIO is old-style
 
         tmp_stream = StrippedStringIO()
 
+        # XXX Remember to feel bad about this.
         old_file = self._tw._file  # pylint: disable=no-member
         self._tw._file = tmp_stream  # pylint: disable=no-member
 
@@ -533,7 +570,7 @@ class InvenioReporter(TerminalReporter):
         exc_info = None
         try:
             yield getvalue
-        except Exception:
+        except Exception:  # pylint: disable=broad-except
             exc_info = sys.exc_info()
         finally:
             if exc_info:
@@ -541,7 +578,6 @@ class InvenioReporter(TerminalReporter):
                 tmp_stream.write('\nException raised while collecting description:\n')
                 tmp_stream.write(formatted_exception)
             self._tw._file = old_file  # pylint: disable=no-member
-
 
     def pytest_collectreport(self, report):
         """Report failure during colltion.
@@ -562,9 +598,6 @@ class InvenioReporter(TerminalReporter):
             return
         if report.failed:
             self.report_failure(report)
-        else:
-            pass
-            # TODO: record checked records to DB. No, don't do this before commit.
 
     def pytest_runtest_logstart(self, nodeid, location):
         """No-op terminal-specific prints."""
@@ -603,9 +636,9 @@ class InvenioReporter(TerminalReporter):
             exc_info = sys.exc_info()
         formatted_exception = ''.join(traceback.format_exception(*exc_info))
 
+        # TODO: eliotify
+        # Remove ambiguous patches and inform all enabled reporters
         invenio_records = Session.session.invenio_records
-
-        # Inform all enabled reporters
         patches = []
         for fullpatch in get_fullpatches_of_last_run('temporary'):
             del invenio_records['temporary'][fullpatch['recid']]
@@ -630,7 +663,6 @@ class InvenioReporter(TerminalReporter):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
 
-
 @pytest.mark.trylast
 def pytest_configure(config):
     """Register our report handlers' handler.
@@ -641,20 +673,16 @@ def pytest_configure(config):
         return [reporter.module.get_reporter(config.option.invenio_rule.name)
                 for reporter in invenio_rule.reporters]
 
-    config.option.invenio_execution = \
-        config.option.redis_worker.master.get_execution()
-
+    # Collect other useful variables
+    master = config.option.redis_worker.master
+    config.option.invenio_execution = master.get_execution()
     config.option.invenio_rule = config.option.invenio_execution.rule
-
     config.option.invenio_reporters = get_reporters(config.option.invenio_rule)
 
-    # Get the current terminal reporter
+    # Unregister the current terminal reporter
     terminalreporter = config.pluginmanager.getplugin('terminalreporter')
-
-    # Unregister it
     config.pluginmanager.unregister(terminalreporter)
-
-    # Add our own to act as a gateway
+    # Add our own to act as a gateway for our own reporting system
     invenioreporter = InvenioReporter(terminalreporter)
     config.pluginmanager.register(invenioreporter, 'invenioreporter')
 

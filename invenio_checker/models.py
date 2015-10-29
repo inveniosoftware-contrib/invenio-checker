@@ -251,7 +251,6 @@ class CheckerRule(db.Model):
             '* Name: {}'.format(self.name),
             '* Plugin: {}'.format(self.plugin),
             '* Arguments: {}'.format(self.arguments),
-            '* HoldingPen: {}'.format(self.holdingpen),
             '* Consider deleted records: {}'.format(
                 self.consider_deleted_records),
             '* Filter Pattern: {}'.format(self.filter_pattern),
@@ -324,7 +323,7 @@ class CheckerRuleExecution(db.Model):
 
         filenames = glob(os.path.join(eliot_log_path, self.uuid + "*"))
 
-        eliottree_subp = subprocess.Popen(['eliot-tree'],
+        eliottree_subp = subprocess.Popen(['eliot-tree', '--field-limit', '0'],
                                           stdout=subprocess.PIPE,
                                           stdin=subprocess.PIPE)
         with eliottree_subp.stdin:
