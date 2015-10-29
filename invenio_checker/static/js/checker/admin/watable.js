@@ -280,7 +280,7 @@ define(
         data: {plugin_name: plugin_name, task_name: for_rule},
         success: function(data) {
           $(".plugin-args").remove();
-          $(plugin_row).after('<div class="plugin-args">'+data+'</div>');
+          $(plugin_row).after('<div class="well well-sm">'+data+'</div>');
           plugDatePickers();
         }
       });
@@ -299,7 +299,7 @@ define(
             url: "/admin/checker/api/task_create/get_arguments_spec/",
             data: {plugin_name: el.value, task_name: for_rule},
             success: function(data) {
-              $(reporters_row).after('<div class="reporter-args">'+data+'</div>');
+              $(reporters_row).after('<div class="well well-sm">'+data+'</div>');
               plugDatePickers();
             }
           });

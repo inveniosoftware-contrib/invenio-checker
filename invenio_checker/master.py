@@ -149,10 +149,12 @@ class HasStatusMaster(PleasePylint):
 
     def get_execution(self):
         from .models import CheckerRuleExecution
-        return CheckerRuleExecution.query.get(self.uuid)
+        return CheckerRuleExecution.query.filter(
+                CheckerRuleExecution.uuid == self.uuid).one()
 
 
 class HasRule(PleasePylint):
+    """Gives master knowledge about the rule it's assigned."""
 
     @property
     @set_identifier(master_rule_name)
