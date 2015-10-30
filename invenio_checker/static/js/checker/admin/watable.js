@@ -37,45 +37,43 @@ define(
     $(document).ready(function () {
       floater = $("#side-floater");
       tbl_alert = $(".tbl_alert");
-      plugJqueryForms();
-      plugDatePickers();
+      enablePageSwitching();
+      plugFormSubmission();
       switchTo(requested_page);
-      renderPeriodic();
     });
 
-    // Page switching
-    $('#load_tasks, #load_checks, #load_logs, #task_create')
-    .on('click', function(event) {
-      function id_to_url (id_) {
-        return $("#" + id_).attr('href');
-      }
-      event.preventDefault();
-      function id_to_page_name (id_) {
-        return {
-          load_tasks : 'tasks',
-          load_checks : 'checks',
-          load_logs : 'executions',
-          task_create : 'task_create',
-        }[id_];
-      }
-      var id_ = event.target.id;
-      switchTo(id_to_page_name(id_));
-    });
-
+    function enablePageSwitching() {
+      $('#load_tasks, #load_checks, #load_logs, #task_create')
+      .on('click', function(event) {
+        function id_to_url (id_) {
+          return $("#" + id_).attr('href');
+        }
+        event.preventDefault();
+        function id_to_page_name (id_) {
+          return {
+            load_tasks : 'tasks',
+            load_checks : 'checks',
+            load_logs : 'executions',
+            task_create : 'task_create',
+          }[id_];
+        }
+        var id_ = event.target.id;
+        switchTo(id_to_page_name(id_));
+      });
+    }
 
     function switchTo(page_name, inherit) {
       history.pushState('data', '', page_name);
       $(".switchable").hide();
       updateSubtitle(page_name);
+      refreshFloater();
       if (['task_create', 'task_modify'].indexOf(page_name) >= 0) {
-        refreshFloater();
         renderTaskForm(page_name, inherit);
       } else {
         loadTable(page_name);
       }
     }
 
-    // Task creation
     function plugDatePickers() {
       $('.datetimepicker').datetimepicker({
         format: 'YYYY-MM-DD HH:mm:ss'
@@ -85,7 +83,7 @@ define(
       });
     }
 
-    function plugJqueryForms() {
+    function plugFormSubmission() {
 
       function handleError(xhr, whatHappen, statusText, $form) {
         if (xhr.readyState === 4) {
@@ -128,7 +126,7 @@ define(
           // No button was explicitly clicked. Bail out.
           return false;
         }
-        formData.map( function(item) {
+        formData.map(function(item) {
           if (item.name === 'requested_action') {
             item.value = last_pressed_button;
           }
@@ -145,7 +143,7 @@ define(
       };
 
       // Have different buttons do different actions
-      $("[id^='submit_']").on('click', function(event) {
+      $("[id^='submit_']").off('click').on('click', function(event) {
         last_pressed_button=$(this).attr("id");
         return true;
       });
@@ -155,35 +153,16 @@ define(
           $(this).ajaxSubmit(options);
           return false; // prevent standard browser behaviour
       });
-
-      // Prepare periodic checks
-      $("#periodic").after("<div id='cronexp' style='display: inline;'></div>");
-      $("#cronexp").hide();
-
-      // Manually hide fields
-      $("#requested_action, #schedule, #modify, #original_name").closest(".row").hide();
-
-      // Hide previously displayed failure
-      $("#task-insertion-failure").hide();
     }
 
     function formFilled(action, inherit) {
-      if (action === 'task_modify') {
-        $("#modify").prop("checked", true);
-        $("#original_name").val($("#name").val());
-      } else {
-        $("#modify").prop("checked", false);
-      }
-
+      plugDatePickers();
+      plugTypingSearchPattern();
       // Refresh refreshable javascript elements
       if (inherit === undefined) {
         updateAllArguments();
       } else {
         updateAllArguments($("#name").val());
-      }
-      plugTypingSearchPattern();
-      if ($("#schedule").val() !== "") {
-        $('#periodic').click();  // Changing the attribute doesn't trigger event
       }
       $("#creation").show();
     }
@@ -204,9 +183,44 @@ define(
       //   }
       // });
 
+      // Make sure we start with no arguments
+      $(".plugin-args .reporter-args").remove();
+
+      // Set metadata fields and hide them
+      if (action === 'task_modify') {
+        $("#modify").prop("checked", true);
+        $("#original_name").val($("#name").val());
+      } else {
+        $("#modify").prop("checked", false);
+      }
+      $("#requested_action, #schedule, #modify, #original_name").closest(".row").hide();
+
+      // Enable subform loading
+      $("#plugin").off('change').on('change', function() {
+        updatePluginArguments($("#original_name").val());
+      });
+      $("#reporters").off('change').on('change', function(event) {
+        updateReporterArguments($("#original_name").val());
+        // event.preventDefault();
+      });
+
+      // Hide previously displayed failure
+      $("#task-insertion-failure").hide();
+
+      // Prepare inputs for periodic
+      attachJqCron(false);
+      periodicToggle(false);
+      $('#schedule_enabled').bind('change', function(e) {
+        console.log(this.checked);
+        periodicToggle(this.checked);
+      });
+
+      // Reset all fields
       // $("#new_task_form")[0].reset();  // Skips nested fields, so we do:
       $("#new_task_form input[type!=checkbox]").val('');
       $("#new_task_form input[type=checkbox]").prop('checked', false);
+      $("#creation").show();
+
       // Fill in fields that exist in template
       if (inherit !== undefined) {
         $.ajax({
@@ -240,7 +254,7 @@ define(
     }
 
     function plugTypingSearchPattern() {  // XXX Why is this called twice?
-      $("#filter_pattern").keyup(function() {
+      $("#filter_pattern").off('keyup').on('keyup', function() {
         $.get(
           "/admin/checker/api/records/get",
           {query: $(this).val()},
@@ -251,19 +265,6 @@ define(
         );
       });
     }
-
-    $("#plugin").change(function() {
-      updatePluginArguments($("#original_name").val());
-    });
-    $("#reporters").change(function(event) {
-      updateReporterArguments($("#original_name").val());
-      event.preventDefault();
-    });
-
-    // FIXME: Doesn't run on resetForm :<
-    $("#new_task_form").on('reset', function() {
-      updateAllArguments();
-    });
 
     function updateAllArguments(for_rule) {
       updatePluginArguments(for_rule);
@@ -280,8 +281,10 @@ define(
         data: {plugin_name: plugin_name, task_name: for_rule},
         success: function(data) {
           $(".plugin-args").remove();
-          $(plugin_row).after('<div class="well well-sm">'+data+'</div>');
-          plugDatePickers();
+          if (data.trim()) {
+            $(plugin_row).after('<div class="plugin-args well well-sm">'+data+'</div>');
+            plugDatePickers();
+          }
         }
       });
     }
@@ -289,7 +292,7 @@ define(
     function updateReporterArguments(for_rule) {
       var reporters_row = $("#reporters").closest(".row");
       $("#reporters :not(option:selected)").map(function(i, el) {
-        $("[id^='arg_"+el.value+"']").closest(".row").remove();
+        $("[id^='arg_"+el.value+"']").closest(".reporter-args").remove();
       });
       $("#reporters option:selected").map(function(i, el) {
         var selector = "[id^='arg_"+el.value+"']";
@@ -299,26 +302,21 @@ define(
             url: "/admin/checker/api/task_create/get_arguments_spec/",
             data: {plugin_name: el.value, task_name: for_rule},
             success: function(data) {
-              $(reporters_row).after('<div class="well well-sm">'+data+'</div>');
-              plugDatePickers();
+              if (data.trim()) {
+                $(reporters_row).after('<div class="reporter-args well well-sm">'+data+'</div>');
+                plugDatePickers();
+              }
             }
           });
         }
       });
     }
 
-    // Periodic
-    periodicToggle(false);
-    $('#periodic').bind('change', function(e) {
-      var cur_input = $(this);
-      if (cur_input.is(':checked')) {
-        periodicToggle(true);
-      } else {
-        periodicToggle(false);
+    function attachJqCron(show) {
+      $("#schedule_enabled").after("<div id='cronexp' style='display: inline;'></div>");
+      if (!show) {
+        $("#cronexp").hide();
       }
-    });
-
-    function renderPeriodic() {
       $('#cronexp').jqCron({
         enabled_minute: true,
         multiple_dom: true,
@@ -341,7 +339,7 @@ define(
     }
 
     function periodicToggle(is){
-      $("#periodic").attr('checked', is);
+      $("#schedule_enabled").attr('checked', is);
       $(".button_when_periodic").prop("disabled", !is);
       $(".button_when_not_periodic").prop("disabled", is);
       if (is) {
@@ -403,7 +401,7 @@ define(
     }
 
     function bindCheckboxes(table_name) {
-      $('.watable-col-cbunique :checkbox, #table-container .checkToggle').on('change', function() {
+      $('.watable-col-cbunique :checkbox, #table-container .checkToggle').off('change').on('change', function() {
         refreshFloater();
       });
     }
