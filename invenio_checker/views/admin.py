@@ -25,58 +25,37 @@
 """Checker Admin Flask Views."""
 
 from __future__ import unicode_literals
+
+import json
+import sys
+from collections import defaultdict
+from functools import partial
 from importlib import import_module
 from itertools import chain
-from collections import defaultdict
-from intbitset import intbitset  # pylint: disable=no-name-in-module
 
 import six
-
-from flask import (
-    Blueprint,
-    Response,
-    redirect,
-    request,
-    stream_with_context,
-    url_for,
-    render_template_string,
-    render_template,
-)
+from croniter import croniter
+from flask import Blueprint, Response, redirect, render_template, \
+    render_template_string, request, stream_with_context, url_for
 from flask.json import jsonify
 from flask_breadcrumbs import register_breadcrumb
 from flask_login import login_required
-from datetime import datetime
+from intbitset import intbitset  # pylint: disable=no-name-in-module
+from wtforms import Form, \
+    ValidationError, fields, validators  # pylint: disable=no-name-in-module
 
-from wtforms import (  # pylint: disable=no-name-in-module
-    Form,
-    fields,
-    validators,
-    ValidationError,
-)
-
-from invenio.ext.sqlalchemy import db
 from invenio.base.decorators import templated
 from invenio.base.i18n import _
-from invenio.ext.principal import permission_required
-from ..acl import viewchecker, modifychecker
 from invenio.base.wrappers import lazy_import
-
-from ..views.config import (
-    task_mapping,
-    check_mapping,
-    log_mapping,
-)
-
-from ..registry import plugin_files, reporters_files
-
-from ..recids import ids_from_input
-import sys
-from croniter import croniter
-import json
-
-from functools import partial
+from invenio.ext.principal import permission_required
+from invenio.ext.sqlalchemy import db
 from invenio.utils import forms
+from invenio_checker.api import create_task, delete_task, edit_task, run_task
 
+from ..acl import modifychecker, viewchecker
+from ..recids import ids_from_input
+from ..registry import plugin_files, reporters_files
+from ..views.config import check_mapping, log_mapping, task_mapping
 
 CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 CheckerRuleExecution = \
@@ -177,16 +156,16 @@ def index():
     """Redirect to the tasks view."""
     return redirect(url_for('.view', page_name='tasks'))
 
-
 @blueprint.route('/api/records/get')
 @login_required
 @permission_required(viewchecker.name)
 def record_brief():
+    """XXX Temporary function to showcase live search."""
     from invenio_search.api import Query
     records = Query(request.args['query']).search().records()[:5]
-    return ''.join(render_template('format/record/Default_HTML_brief.tpl', record=i)
-                   for i in records)
-
+    return ''.join(
+        render_template('format/record/Default_HTML_brief.tpl', record=i)
+        for i in records)
 
 @blueprint.route('/view/<page_name>')
 @login_required
@@ -195,44 +174,37 @@ def record_brief():
 @register_breadcrumb(blueprint, 'admin.checker_admin', _('Checker'))
 def view(page_name):
     """Have javascript load the correct page."""
-    return {
-        'page_name': page_name,
-        'new_task_form': get_NewTaskForm()
-    }
+    return {'page_name': page_name,
+            'new_task_form': get_NewTaskForm()}
 
 # Tasks
 @blueprint.route('/api/tasks/get/data', methods=['GET'])
 @login_required
 @permission_required(viewchecker.name)
 def get_all_tasks_data():
-    """
-    Return a JSON representation of the CheckerRule data.
-
-    For security reasons, a list cannot be JSON-ified, so it has to be wrapped
-    within a dictionary.
-    """
-    column_list = {}
+    """Return a JSON representation of the CheckerRule data."""
+    columns = {}
     for mapping_key, mapping_value in task_mapping.items():
-        column_list[mapping_key] = mapping_value
-
-    row_list = []
-    rules = CheckerRule.query.all()
-    for rule in rules:
-        row_list.append(get_task_data(rule))
-    return jsonify({'rows': row_list, 'cols': column_list})
+        columns[mapping_key] = mapping_value
+    rows = []
+    for rule in CheckerRule.query.all():
+        rows.append(get_task_data(rule))
+    return jsonify({'rows': rows, 'cols': columns})
 
 @blueprint.route('/api/tasks/get/data/<task_name>', methods=['POST'])
 @login_required
 @permission_required(viewchecker.name)
 def get_single_task(task_name):
+    """Return the data for a single task."""
     return jsonify(get_task_data(CheckerRule.query.get(task_name)))
 
 def get_task_data(rule):
+    """Extract a serializable dict for a rule."""
+    # Extract all the fields
     rule_d = rule.__dict__  # Work around inveniosoftware/invenio-ext#16
     rule_d = {key: val for key, val in rule_d.items()
               if not key.startswith('_')}
-
-    # Serialization hacks
+    # Serialize unserializable things
     rule_d['arguments'] = json.dumps(rule_d['arguments'],
                                      default=default_date)
     if rule_d['filter_records'].is_infinite():
@@ -256,21 +228,17 @@ def get_checks_data():
         })
     return jsonify({'rows': checks, 'cols': check_mapping})
 
-
 @blueprint.route('/api/checks/stream_check/<pluginspec>', methods=['GET'])
 @login_required
 @permission_required(viewchecker.name)
 def stream_check(pluginspec):
-    """
-    TODO
-    """
+    """Stream the raw contents of a check file."""
     def read_file():
         filepath = plugin_files[pluginspec].__file__
         with open(filepath, 'r') as file_:
             for line in file_:
                 yield line
     return Response(stream_with_context(read_file()))
-
 
 # executions
 @blueprint.route('/api/executions/get/data', methods=['GET'])
@@ -308,7 +276,6 @@ def get_logs_data():
         })
     return jsonify({"rows": loglist, "cols": log_mapping})
 
-
 @blueprint.route('/api/executions/stream_structured/<uuid>', methods=['GET'])
 @login_required
 @permission_required(viewchecker.name)
@@ -327,14 +294,13 @@ def task_create():
     task_name = request.form.get('task_name')
 
     # If a `task_name` was sent in the request, then an already-existing's
-    # plugin's contents should be filled-in. (eg editing an existing task)
+    # plugin's contents should be filled-in. (ie editing an existing task)
     if task_name:
         if plugin_name in plugin_files:
             task = CheckerRule.query.get(task_name)
         elif plugin_name in reporters_files:
             task = CheckerReporter.query.filter(
-                CheckerReporter.rule_name == task_name,
-                CheckerReporter.plugin == plugin_name).first()
+                CheckerReporter.rule_name == task_name).first()
         # The query will only have returned something if the specified
         # task_name already has a relationship with a `plugin_name` type
         # reporter.
@@ -348,7 +314,8 @@ def task_create():
                     if isinstance(val, six.text_type): # Single choice
                         val = next((str(idx) for idx, choice in field.choices
                                     if choice == val))
-                    else:  # Multi choice
+                    else:
+                        # Multi choice
                         # UNTESTED XXX
                         val = [str(idx) for idx, choice in field.choices
                                if choice in val]
@@ -368,7 +335,7 @@ def get_ArgForm(plugin_name, *args, **kwargs):
         @property
         def data_for_db(self):
             ret = {}
-            for key, val in self.data.items():
+            for key, val in self.data.items():  # pylint: disable=3o-member
                 stripped_key = key[len(ArgForm.prefix+"_"):]
                 field = getattr(self, key)
                 schema = ArgForm.schema
@@ -397,18 +364,16 @@ def get_ArgForm(plugin_name, *args, **kwargs):
         "date": partial(fields.DateField, widget=forms.DatePickerWidget()),
     }
 
-    def get_schema(plugin_name):
-        if plugin_name not in plugin_files.keys() + reporters_files.keys():
-            raise Exception(plugin_name)  # TODO
-        module = import_module(plugin_name)
+    def get_schema(requested_plugin_name):
+        all_plugins = dict(chain(plugin_files.items(), reporters_files.items()))
         try:
-            return module.argument_schema
+            return all_plugins[requested_plugin_name].argument_schema
         except AttributeError:
             return {}
 
     def build_choices(schema, type_name, key):
         if type_name in ('choice', 'choice_multi'):
-            ret = {'choices':[]}
+            ret = {'choices': []}
             for idx, choice in enumerate(schema[key]['values']):
                 ret['choices'].append((idx, choice))
             return ret
@@ -430,7 +395,6 @@ def get_ArgForm(plugin_name, *args, **kwargs):
         setattr(ArgForm, prefixed_key, type_to_wtforms[type_name](**type_kwargs))
 
     return ArgForm(*args, **kwargs)
-
 
 @blueprint.route('/api/task_create/submit', methods=['POST'])
 @login_required
@@ -464,38 +428,22 @@ def submit_task():
     original_name = form_for_db.pop('original_name')
     requested_action = form_for_db.pop('requested_action')
     reporter_names = form_for_db.pop('reporters')
-
-    if modify:
-        task = CheckerRule.query.get(original_name)
-        for key, val in form_for_db.iteritems():
-            setattr(task, key, val)
-    else:
-        task = CheckerRule(**form_for_db)
-
-    # Modify the rule as requested. Don't flush until we say so so that any
-    # exceptions are in the try block.
-    with db.session.no_autoflush:
-        # Add arguments
-        task.arguments = form_plugin.data_for_db
-        # Add reporters
-        form_reporters = [
-            get_ArgForm(reporter_name, request.form)
-            for reporter_name in reporter_names
-        ]
-        new_reporters = []
-        if form_reporters:
-            for form_reporter in form_reporters:
-                new = CheckerReporter(
-                    plugin=form_reporter.plugin_name,
-                    arguments=form_reporter.data_for_db,
-                    rule_name=task.name,
-                )
-                new_reporters.append(new)
-                db.session.add(new)
-        task.reporters = new_reporters
+    form_for_db['arguments'] = form_plugin.data_for_db
 
     try:
-        db.session.add(task)
+        if modify:
+            task = edit_task(original_name, form_for_db, commit=False)
+        else:
+            task = create_task(form_for_db, commit=False)
+        # Add reporters
+        for reporter_name in reporter_names:
+            form_reporter = get_ArgForm(reporter_name, request.form)
+            create_reporter(
+                {'plugin': form_reporter.plugin_name,
+                 'arguments': form_reporter.data_for_db},
+                attach_to_tasks=(task,),
+                commit=False
+            )
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -521,13 +469,13 @@ def translate():
 @login_required
 @permission_required(modifychecker.name)
 def task_run():
-    from ..manage import start_rules
-    names_in_db = CheckerRule.query.with_entities(CheckerRule.name).all()
-    names_in_db = {tup[0] for tup in names_in_db}
-    task_names = request.values.getlist('task_names[]')
-    if set(task_names) - names_in_db:
+    requested_task_names = request.values.getlist('task_names[]')
+    tasks_in_db = CheckerRule.query.filter(
+        CheckerRule.name.in_(requested_task_names)).all()
+    if len(tasks_in_db) != len(requested_task_names):
         return jsonify({'error': 'Missing tasks requested'}), 400
-    start_rules(*task_names)
+    for task in tasks_in_db:
+        run_task(task.name)
     return jsonify({})
 
 @blueprint.route('/task_delete', methods=['GET'])
@@ -536,29 +484,26 @@ def task_run():
 def task_delete():
     # TODO: Instead of deleting, MARK as deleted so that we can keep executions
     # around
-    from ..manage import delete_rule
     task_names = request.values.getlist('task_names[]')
     for task_name in task_names:
-        delete_rule(task_name)
+        delete_task(task_name)
     return jsonify({})
 
-# @blueprint.route('/task_modify/<plugin_name>', methods=['GET'])
-# @login_required
-# @permission_required(modifychecker.name)
-# def task_modify(plugin_name):
-#     form = get_ArgForm(plugin_name)
-#     return render_template_string('''
-#     {% import 'checker/admin/macros_bootstrap.html' as bt %}
-#     {{ bt.render_form(form, nested=True) }}
-#     ''', form=form)
-
 def get_ranges(items):
+    """Convert a set of integers to sorted lists of sorted grouped ranges.
+
+    example: {1,2,3,10,5} --> [[1, 2, 3], [5], [10]]
+    """
     from operator import itemgetter
     from itertools import groupby
     for _, g in groupby(enumerate(sorted(set(items))), lambda (i, x): i - x):
         yield map(itemgetter(1), g)  # pylint: disable=bad-builtin
 
 def ranges_str(items):
+    """Convert a set of integers to ordered textual ranges.
+
+    example: {1,2,3,10,5} --> '1-3,5,10'
+    """
     output = ""
     for cont_set in get_ranges(items):
         if len(cont_set) == 1:
