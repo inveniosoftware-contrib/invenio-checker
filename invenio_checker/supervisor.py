@@ -166,7 +166,7 @@ def _run_task(rule_name, master_id):
         subtasks = []
         for id_chunk in bundles:
             task_id = uuid()
-            # We need to tell the master first so that the worker knows
+            # We need to tell the master first so that the worker can detect it
             redis_master.workers_append(task_id)
             eliot_task_id = eliot_task.serialize_task_id()
             RedisWorker.create(task_id, eliot_task_id, id_chunk)
@@ -179,11 +179,12 @@ def _run_task(rule_name, master_id):
                 )
             )
 
-        redis_master.status = StatusMaster.running
-        callback = handle_all_completion.subtask(
-            # link_error=[handle_master_error.s(redis_master.master_id)]
-        )
-        result = chord(subtasks)(callback)
+        if not subtasks:
+            redis_master.status = StatusMaster.completed
+        else:
+            redis_master.status = StatusMaster.running
+            callback = handle_all_completion.subtask()
+            result = chord(subtasks)(callback)
 
 def with_eliot(action_type, master_id=None, worker_id=None):
     assert master_id or worker_id
@@ -306,7 +307,8 @@ def run_test(self, check_file, master_id, retval=None):
 def beat():
     CR = CheckerRule
     with get_lock_partial("invenio_checker:beat_lock", get_redis_conn())():
-        scheduled_rules = CR.query.filter(CR.schedule_enabled == True).all()
+        scheduled_rules = CR.query.filter(CR.schedule_enabled == True,
+                                          CR.schedule != None).all()
         for rule in scheduled_rules:
             iterator = croniter(rule.schedule, rule.last_run)
             next_run = iterator.get_next(datetime)
