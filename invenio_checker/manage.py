@@ -22,12 +22,12 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-
 """Manage checker module."""
 
 import sys
+from functools import partial
 
-from functools import wraps
+from functools import wraps, update_wrapper
 
 from .common import ALL
 from .recids import ids_from_input
@@ -35,13 +35,20 @@ from .registry import plugin_files
 from .models import CheckerRule, CheckerRecord
 from invenio.base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
-from invenio.ext.sqlalchemy import db
+from flask.ext.script import (  # pylint: disable=no-name-in-module,import-error
+    Command,
+    Option,
+)
+from .api import (
+    create_task,
+    edit_task,
+    delete_task,
+    run_task,
+    import_task_from_json_file,
+)
+
 
 manager = Manager(usage=__doc__)
-rules_dec = manager.option('--rules', '-r', default=ALL,
-                           help='Comma seperated list of rule names to load,'
-                           ' or `{}` for all rules.'.format(ALL))
-
 
 def interpret_dry_run(func):
     """Resolve `dry_run` to variables understood by `run()`."""
@@ -55,199 +62,223 @@ def interpret_dry_run(func):
         return func(*args, **kwargs)
     return _dry_run
 
-
-def resolve_rules(func):
-    """Resolve `rules` to list of Rules."""
-    @wraps(func)
-    def _resolve_rules(*args, **kwargs):
-        kwargs['rules'] = CheckerRule.from_input(kwargs['rules'])
-        return func(*args, **kwargs)
-    return _resolve_rules
-
+# def resolve_rules(func):
+#     """Resolve `rules` to list of Rules."""
+#     @wraps(func)
+#     def _resolve_rules(*args, **kwargs):
+#         kwargs['rules'] = CheckerRule.from_input(kwargs['rules'])
+#         return func(*args, **kwargs)
+#     return _resolve_rules
 
 # TODO: --force check regardless of timestamp
-@manager.option('--ids', '-i', dest='user_recids',
-                default=ALL, type=ids_from_input,
-                help='List of record IDs to work on (overrides other filters),'
-                ' or `{}` to run on all records'.format(ALL))
-@manager.option('--queue', '-q', default='Checker',
-                help='Specify the RT Queue in which tickets will be created')
-@manager.option('--no-tickets', '-t', dest='tickets', action='store_false',
-                help='Policy to create tickets by')
-@manager.option('--no-upload', '-n', dest='upload', action='store_false',
-                help='Disable uploading changes to the database')
-@manager.option('--dry-run', '-d', action='store_true',
-                help='Same as --no-tickets --no-upload')
-@rules_dec
-@resolve_rules  # Must be anywhere after `rules`
-@interpret_dry_run  # Must be after `dry_run`, `upload`, `tickets`
-def run(rules, user_recids, queue, tickets, upload):
-    """Initiate the execution of all requested rules.
+# TODO: reporters
 
-    :param rules: rules to load
-    :type  rules: list of rule_names or ALL
+Option = partial(Option, default=None)
 
-    :param user_recids: record IDs to consider
-    :type  user_recids: intbitset
+opt_task_name_pos = Option(
+    'task_name_pos', metavar='task_name',
+    help='The task name'
+)
+opt_task_name = Option(
+    '--task-name', '-t', dest='task_name',
+    help='The task name'
+)
 
-    :param queue: bibcatalog queue to create tickets in
-    :type  queue: str
+# opt_no_reporters = Option(
+#     '--no-reporters', '-R', dest='reporters_enabled', action='store_true',
+#     help='Disable reporters'
+# )
+# opt_reports = Option(
+#     '--reports', '-r', dest='reports_disabled', action='store_false',
+#     help='Enable reporters'
+# )
 
-    :param tickets: whether to create tickets
-    :type  tickets: bool
+opt_no_commit = Option(
+    '--no-commit', '-c0', dest='commit', action='store_false',
+    help='Disable committing changes to the database'
+)
+opt_commit = Option(
+    '--commit', '-c1', dest='commit', action='store_true',
+    help='Enable committing changes to the database (default)'
+)
 
-    :param upload: whether to upload amended records
-    :type  upload: bool
+opt_temporary = Option(
+    '--temporary', '-t1', dest='temporary', action='store_true',
+    help='Task should be temporary'
+)
+opt_no_temporary = Option(
+    '--no-temporary', '-t0', dest='temporary', action='store_false',
+    help='Task should not be temporary (default)'
+)
 
-    :returns: TODO
-    :rtype:   TODO
+opt_filter_records = Option(
+    '--filter-records', '-fr', dest='filter_records', type=ids_from_input,
+    help='Records IDs to run on'
+)
+opt_filter_pattern = Option(
+    '--filter-pattern', '-fp', dest='filter_pattern',
+    help='The filter pattern string'
+)
 
-    :raises: invenio.modules.checker.errors:PluginMissing
-    """
+opt_consider_deleted_records = Option(
+    '--consider-deleted-records', '-cdr',
+    dest='consider_deleted_records', action='store_true',
+    help='Whether the rule should consider deleted records'
+)
 
-    from .supervisor import run_task
-    for rule in rules:
-        run_task(rule.name)
+opt_arguments = Option(
+    '--arguments', '-a', dest='arguments',
+    help='Arguments that will be passed to the task'
+)
 
-    # return bool(z)
+opt_check_spec = Option(
+    '--check-spec', '-c', dest='check_spec',
+    help='The check import specifier (eg invenio_thing.foo.bar.test_baz)'
+)
+opt_check_spec_pos = Option(
+    'check-spec', metavar='check_spec',
+    help='The check import specifier (eg invenio_thing.foo.bar.test_baz)'
+)
 
+opt_schedule = Option(
+    '--schedule', '-s', dest='schedule', type=lambda x: None if not(x) else x,
+    help='Schedule that the task will have (cronjob format)'
+)
+opt_schedule_enable = Option(
+    '--schedule-enable', '-s1', dest='schedule_enabled', action='store_true',
+    help='Enable the schedule (Default)',
+)
+opt_schedule_disable = Option(
+    '--schedule-disable', '-s0', dest='schedule_enabled', action='store_false',
+    help='Disable the schedule',
+)
 
-################################################################################
-
-from json_import import json2models
-
-
-@manager.option('--temporary', '-t', dest='temporary', action='store_true',
-                help='Whether the new rule is a temporary one')
-@manager.option('--filter-records', '-fr', dest='filter_records',
-                help='')
-@manager.option('--filter-pattern', '-fp', dest='filter_pattern',
-                help='The filter pattern string')
-@manager.option('--consider-deleted-records', '-cdr',
-                dest='option_consider_deleted_records', action='store_true',
-                help='Whether the new rule to consider deleted records')
-@manager.option('--holding-pen', '-hp', dest='option_holdingpen',
-                action='store_true',
-                help='Holdingpen option')
-@manager.option('--arguments', '-a', dest='arguments',
-                help='Any arguments you want the new rule to have')
-@manager.option('--plugin-file', '-pf', dest='plugin_file',
-                help='The plugin file of the new rule')
-@manager.option('--plugin-module', '-pm', dest='plugin_module',
-                help='The plugin module of the new rule')
-@manager.option('--name', '-n', dest='name',
-                help='The name (id) of the new rule')
-@change_command_name
-def create_rule(**kwargs):
-    """
-    Creates a new rule.
-    """
-    new_rule = CheckerRule(**kwargs)
-    db.session.add(new_rule)
-    db.session.commit()
-
-
-@manager.option('--temporary', '-t', dest='temporary', action='store_true',
-                help='Whether the rule is a temporary one')
-@manager.option('--filter-records', '-fr', dest='filter_records',
-                help='')
-@manager.option('--filter-pattern', '-fp', dest='filter_pattern',
-                help='The filter pattern string')
-@manager.option('--consider-deleted-records', '-cdr',
-                dest='option_consider_deleted_records', action='store_true',
-                help='Whether the rule to consider deleted records')
-@manager.option('--holding-pen', '-hp', dest='option_holdingpen',
-                action='store_true',
-                help='Holdingpen option')
-@manager.option('--arguments', '-a', dest='arguments',
-                help='Any arguments you want the rule to have')
-@manager.option('--plugin-file', '-pf', dest='plugin_file',
-                help='The plugin file of the new rule')
-@manager.option('--plugin-module', '-pm', dest='plugin_module',
-                help='The plugin module of the rule')
-@manager.option('--name', '-n', dest='name',
-                help='The name (id) of the rule you want to edit')
-@change_command_name
-def edit_rule(rule_uuid, **updates):
-    """
-    Edits an existing rule.
-    """
-    print rule_uuid
-    if 'name' in updates:
-        updates.pop('name', None)
-    rule = CheckerRule.query.filter(CheckerRule.name == rule_uuid).first()
-    # Check keys and update as needed.
-    for key, value in updates.iteritems():
-        if not str.isalpha(key[0]):
-            raise AttributeError(
-                "Invalid update attribute specified: {}".format(key)
-            )
-        rule.__setattr__(key, value)
-    db.session.commit()
+# opt_dry_run = Option( # TODO
+#     '--dry-run', '-d', action='store_true',
+#     help='Same as --no-reports --no-commit'
+# )
 
 
-@manager.option('--name', '-n', dest='rule_uuid',
-                help='')
-@change_command_name
-def delete_rule(rule_uuid):
-    """
-    Deletes (and de-schedules) a rule.
-    """
-    rule = CheckerRule.query.filter(CheckerRule.name == rule_uuid).first()
-    try:
-        db.session.delete(rule)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
+class CreateTask(Command):
 
-@manager.option('--name', '-n', dest='rule_uuid',
-                help='')
-@change_command_name
-def display_rule(rule_uuid):
-    """
-    Displays (?) a rule.
-    """
-    rule = CheckerRule.query.filter(CheckerRule.name == rule_uuid).first()
-    # print rule
-    if rule is None:
-        print >>sys.stderr,\
-            "Sorry, no rule with id \"{}\" was found.".format(rule_uuid)
-    else:
+    option_list = (
+        opt_task_name_pos, opt_check_spec_pos,
+        opt_no_commit, opt_commit,
+        opt_no_temporary, opt_temporary,
+        opt_filter_records, opt_filter_pattern,
+        opt_consider_deleted_records,
+        opt_arguments,
+        opt_schedule, opt_schedule_disable, opt_schedule_enable,
+    )
+
+    def run(self, **options):
+        """
+        Creates a new rule.
+        """
+        options['name'] = options.pop('task_name_pos')
+        options['plugin'] = options.pop('check_spec')
+        create_task(options)
+
+manager.add_command('create-task', CreateTask())
+
+
+class ModifyTask(Command):
+
+    option_list = (
+        opt_task_name_pos,
+        opt_task_name,
+        opt_check_spec,
+        opt_no_commit, opt_commit,
+        opt_no_temporary, opt_temporary,
+        opt_filter_records, opt_filter_pattern,
+        opt_consider_deleted_records,
+        opt_arguments,
+        opt_schedule, opt_schedule_disable, opt_schedule_enable,
+    )
+
+    def run(self, **kwargs):
+        """
+        Edit an existing task.
+        """
+        current_task_name = kwargs.pop('task_name_pos')
+        modifications = {key: val for key, val in kwargs.items()
+                         if val is not None}
+
+        edit_task(current_task_name, modifications)
+
+
+manager.add_command('modify-task', ModifyTask())
+
+
+class DeleteTask(Command):
+
+    option_list = (
+        opt_task_name_pos,
+    )
+
+    def run(self, task_name_pos):
+        """
+        Deletes a rule.
+        """
+        delete_task(task_name_pos)
+
+
+manager.add_command('delete-task', DeleteTask())
+
+
+class RunTask(Command):
+
+    # TODO: Dry run
+    option_list = (
+        opt_task_name_pos,
+    )
+
+    def run(self, task_name_pos):
+        run_task(task_name_pos)
+
+
+manager.add_command('run-task', RunTask())
+
+
+class ShowTask(Command):
+
+    option_list = (
+        opt_task_name_pos,
+    )
+
+    def run(self, task_name_pos):
+        """
+        Displays (?) a rule.
+        """
+        rule = CheckerRule.query.filter(CheckerRule.name == task_name_pos).first()
         print rule
 
 
-def start_rules(*rule_uuids):
-    """
-    Starts a rule.
-    """
-    from .supervisor import run_task
-    for rule_uuid in rule_uuids:
-        run_task(rule_uuid)
+manager.add_command('show-task', ShowTask())
 
 
-def json_import(json_file):
-    """
-    Imports all models for the JSON files specified into the database.
-    """
-    # TODO: Fix hard-coded model name (CheckerRule)
-    db_objs = json2models(json_file, 'CheckerRule')
-    db.session.add_all(db_objs)
+class ImportTask(Command):
+
+    option_list = (
+        Option(
+            'task-name', metavar='task_name_pos', nargs='+',
+            help='The task name'
+        ),
+    )
+
+    def json_import(self, json_files):
+        """
+        Imports all models for the JSON files specified into the database.
+        """
+        for json_file in json_files:
+            import_task_from_json_file(json_file)
 
 
-################################################################################
+manager.add_command('import-task', ImportTask())
 
-@rules_dec
-@change_command_name
-def list_plugins(rules):
-    """List all rules (and any associated plug-ins) and exit."""
-    # TODO (grouped by plugin, because they can be considered supersets)
-    pass
 
-def main():
-    """Run manager."""
-    manager.app = create_app()
-    manager.run()
-
-if __name__ == '__main__':
-    main()
+# @change_command_name
+# def list_plugins():
+#     """List all rules (and any associated plug-ins) and exit."""
+#     # TODO (grouped by plugin, because they can be considered supersets)
+#     pass

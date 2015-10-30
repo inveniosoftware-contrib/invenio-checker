@@ -95,18 +95,28 @@ task_mapping = {
         "type": "string",
         "friendly": "Filter records",
     },
+    # "last_run": {
+    #     "index": 7,
+    #     "type": "date",
+    #     "friendly": "Last run",
+    # },
     "schedule": {
-        "index": 7,
+        "index": 8,
         "type": "string",
         "friendly": "Schedule",
     },
+    "schedule_enabled": {
+        "index": 9,
+        "type": "bool",
+        "friendly": "Schedule enabled",
+    },
     "temporary": {
-        "index": 8,
+        "index": 10,
         "type": "bool",
         "friendly": "Temporary",
     },
     "force_run_on_unmodified_records": {
-        "index": 9,
+        "index": 11,
         "type": "bool",
         "friendly": "Force run on unmodified records",
     },

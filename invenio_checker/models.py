@@ -126,11 +126,14 @@ class CheckerRule(db.Model):
 
     schedule = db.Column(db.String(255), nullable=True)
 
-    schedule_enabled = db.Column(db.Boolean, default=False, nullable=False)
+    schedule_enabled = db.Column(db.Boolean, default=True, nullable=False)
 
     temporary = db.Column(db.Boolean, default=False)  # TODO: use
 
     force_run_on_unmodified_records = db.Column(db.Boolean, default=False)
+
+    # TODO
+    # commit = db.Column(db.Boolean, default=True)
 
     @db.hybrid_property
     def filepath(self):
@@ -215,22 +218,6 @@ class CheckerRule(db.Model):
             recids &= self.filter_records
 
         return recids
-
-    @classmethod
-    def from_input(cls, user_rule_names):
-        """Return the rules that should run from user input.
-
-        :param user_rule_names: comma-separated list of rule specifiers
-            example: 'my_rule,other_rule'
-        :type  user_rule_names: str
-
-        :returns: set of rules
-        """
-        rule_names = set(user_rule_names.split(','))
-        if ALL in rule_names:
-            return set(cls.query.all())
-        else:
-            return cls.from_ids(rule_names)
 
     @classmethod
     def from_ids(cls, rule_names):
@@ -343,7 +330,6 @@ class CheckerRuleExecution(db.Model):
         #             yield pretty_format(loads(line))
 
 
-
 class CheckerRecord(db.Model):
 
     """Connect checks with their executions on records."""
@@ -384,9 +370,7 @@ class CheckerReporter(db.Model):
     rule_name = db.Column(
         db.String(127),
         db.ForeignKey('checker_rule.name'),
-        nullable=False,
         index=True,
-        primary_key=True,
     )
 
     @db.hybrid_property
