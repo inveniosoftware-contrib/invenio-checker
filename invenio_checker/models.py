@@ -234,15 +234,20 @@ class CheckerRule(db.Model):
         name_len = len(self.name)
         trails = 61 - name_len
         return '\n'.join((
-            '=== Checker Rule: {} {}'.format(self.name, trails * '='),
+            '=== Checker Task: {} {}'.format(self.name, trails * '='),
             '* Name: {}'.format(self.name),
             '* Plugin: {}'.format(self.plugin),
             '* Arguments: {}'.format(self.arguments),
             '* Consider deleted records: {}'.format(
                 self.consider_deleted_records),
             '* Filter Pattern: {}'.format(self.filter_pattern),
-            '* Filter Records: {}'.format(self.filter_records),
-            # '* Temporary: {}'.format(self.temporary),
+            '* Filter Records: {}'.format(ranges_str(self.filter_records)),
+            '* Last run {}'.format(self.last_run),
+            '* Schedule {} [{}]'.format(self.schedule, 'enabled' if
+                                        self.schedule_enabled else 'disabled'),
+            '* Temporary: {}'.format(self.temporary),
+            '* Force-run on unmodified records {}'
+            .format(self.force_run_on_unmodified_records),
             '{}'.format(80 * '='),
         ))
 
@@ -377,6 +382,30 @@ class CheckerReporter(db.Model):
     def module(self):
         return reporters_files[self.plugin]
 
+
+def _get_ranges(items):
+    """Convert a set of integers to sorted lists of sorted grouped ranges.
+
+    example: {1,2,3,10,5} --> [[1, 2, 3], [5], [10]]
+    """
+    from operator import itemgetter
+    from itertools import groupby
+    for _, g in groupby(enumerate(sorted(set(items))), lambda (i, x): i - x):
+        yield map(itemgetter(1), g)  # pylint: disable=bad-builtin
+
+def ranges_str(items):
+    """Convert a set of integers to ordered textual ranges.
+
+    example: {1,2,3,10,5} --> '1-3,5,10'
+    """
+    output = ""
+    for cont_set in _get_ranges(items):
+        if len(cont_set) == 1:
+            output = output + "," + str(cont_set[0])
+        else:
+            output = output + "," + str(cont_set[0]) + "-" + str(cont_set[-1])
+    output = output.lstrip(",")
+    return output
 
 __all__ = (
     'CheckerRule',

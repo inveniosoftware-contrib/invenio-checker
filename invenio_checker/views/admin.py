@@ -64,6 +64,8 @@ CheckerReporter = \
     lazy_import('invenio_checker.models.CheckerReporter')
 default_date = \
     lazy_import('invenio_checker.models.default_date')
+ranges_str = \
+    lazy_import('invenio_checker.models.ranges_str')
 
 blueprint = Blueprint(
     'invenio_checker_admin',
@@ -488,27 +490,3 @@ def task_delete():
     for task_name in task_names:
         delete_task(task_name)
     return jsonify({})
-
-def get_ranges(items):
-    """Convert a set of integers to sorted lists of sorted grouped ranges.
-
-    example: {1,2,3,10,5} --> [[1, 2, 3], [5], [10]]
-    """
-    from operator import itemgetter
-    from itertools import groupby
-    for _, g in groupby(enumerate(sorted(set(items))), lambda (i, x): i - x):
-        yield map(itemgetter(1), g)  # pylint: disable=bad-builtin
-
-def ranges_str(items):
-    """Convert a set of integers to ordered textual ranges.
-
-    example: {1,2,3,10,5} --> '1-3,5,10'
-    """
-    output = ""
-    for cont_set in get_ranges(items):
-        if len(cont_set) == 1:
-            output = output + "," + str(cont_set[0])
-        else:
-            output = output + "," + str(cont_set[0]) + "-" + str(cont_set[-1])
-    output = output.lstrip(",")
-    return output
