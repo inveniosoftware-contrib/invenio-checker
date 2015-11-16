@@ -25,7 +25,7 @@
 from invenio.ext.email import send_email
 from invenio_checker.models import CheckerReporter, CheckerRule
 from sqlalchemy.orm.exc import NoResultFound
-from invenio.base.config import CFG_SITE_ADMIN_EMAIL
+from invenio_base.config import CFG_SITE_ADMIN_EMAIL
 from enum import Enum
 
 argument_schema = {

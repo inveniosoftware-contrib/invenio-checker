@@ -34,7 +34,7 @@ services:
     - elasticsearch
 
 before_script:
-  - sleep 10
+  - sleep 10  # travis docs recommend this for elasticsearch
 
 language: python
 
@@ -60,7 +60,7 @@ before_install:
   - "requirements-builder --level=dev --req requirements-devel.txt setup.py > .travis-devel-requirements.txt"
 
   - "travis_retry pip install git+https://github.com/inveniosoftware/invenio-demosite.git"
-  - "pip install git+git://github.com/inveniosoftware/invenio.git@c081060e9cb048beb29c03ce21becaeae5f4787d"
+  - "travis_retry pip install git+git://github.com/inveniosoftware/invenio.git@c081060e9cb048beb29c03ce21becaeae5f4787d"
 
 install:
   - "travis_retry pip install -r .travis-${REQUIREMENTS}-requirements.txt"

@@ -33,9 +33,9 @@ from .redis_helpers import (
     SetterProperty,
 )
 from warnings import warn
-from .enums import StatusMaster, StatusWorker
+from invenio_checker.enums import StatusMaster, StatusWorker
 
-from invenio.ext.sqlalchemy import db
+from invenio.ext.sqlalchemy import db  # pylint: disable=no-name-in-module
 
 # Master
 master_all_recids = prefix_master + ':all_recids'
@@ -56,17 +56,17 @@ keys_master = {
 class HasWorkers(PleasePylint):
     """Give master the ability to set and reason about its workers."""
 
-    # FIXME: Return actual workers (redis_workers)
     @property
-    @set_identifier(master_workers)
     def workers(self):
-        """Get all the worker IDs associated with this master.
+        """Get all the workers associated with this master.
 
         :rtype: set of :py:class:`WorkerRedis`
         """
-        return self.conn.smembers(self._identifier)
+        from .worker import RedisWorker
+        return {RedisWorker(worker_id) for worker_id in self.workers}
 
     @workers.setter
+    @set_identifier(master_workers)
     def workers(self, worker_ids):
         """Associate workers with this master.
 
@@ -75,15 +75,6 @@ class HasWorkers(PleasePylint):
         self.conn.delete(self._identifier)
         if worker_ids:
             return self.conn.sadd(self._identifier, *worker_ids)
-
-    @property
-    def redis_workers(self):
-        """Get all the workers associated with this master.
-
-        :rtype: set of :py:class:`WorkerRedis`
-        """
-        from .worker import RedisWorker
-        return {RedisWorker(worker_id) for worker_id in self.workers}
 
     @set_identifier(master_workers)
     def workers_append(self, worker_id):
@@ -112,7 +103,9 @@ class HasAllRecids(PleasePylint):
         :type recids: :py:class:`intbitset`
         """
         if self.all_recids is not None:
-            raise Exception('Thou shall not set `all_recids` twice.')
+            raise Exception('Do not set `all_recids` twice. You will break '
+                            'conflict resolution if a worker has already '
+                            'started.')
         else:
             return self.conn.set(self._identifier, intbitset(recids).fastdump())
 
@@ -148,7 +141,7 @@ class HasStatusMaster(PleasePylint):
             raise
 
     def get_execution(self):
-        from .models import CheckerRuleExecution
+        from invenio_checker.models import CheckerRuleExecution
         return CheckerRuleExecution.query.filter(
                 CheckerRuleExecution.uuid == self.uuid).one()
 
@@ -168,7 +161,7 @@ class HasRule(PleasePylint):
 
     @property
     def rule(self):
-        from .models import CheckerRule
+        from invenio_checker.models import CheckerRule
         return CheckerRule.query.get(self.rule_name)
 
 
@@ -210,7 +203,7 @@ class RedisMaster(RedisClient, HasRule, HasWorkers, HasAllRecids, HasStatusMaste
         """
         signal.signal(signal.SIGINT, lambda rcv_signal, frame: None)
         # Kill workers
-        for redis_worker in self.redis_workers:
-            redis_worker.zap()
+        for worker in self.workers:
+            worker.zap()
         warn('Zapping master ' + str(self.master_id))
         self._cleanup()

@@ -22,28 +22,39 @@ from __future__ import unicode_literals
 import os
 import errno
 from celery.schedules import crontab
+from invenio_checker.clients.worker import RedisWorker
 
 from flask import current_app
 
 def mkdir_p(path):
     try:
         os.makedirs(path)
-    except OSError as exc: # Python >2.5
+    except OSError as exc:
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
-        else: raise
+        else:
+            raise
 
-def get_eliot_log_path():
+def get_eliot_log_file(master_id=None, worker_id=None):
+    """Get the log file of a master or a worker."""
+    assert bool(master_id) ^ bool(worker_id)
 
     eliot_log_path = os.path.join(
         current_app.instance_path,
         current_app.config.get('CFG_LOGDIR', ''),
         'checker',
     )
-
     mkdir_p(eliot_log_path)
 
-    return eliot_log_path
+    if worker_id:
+        master_id = RedisWorker(worker_id).master.master_id
+        return open(os.path.join(eliot_log_path,
+                                 master_id + '.' + worker_id), "ab")
+    else:
+        return open(os.path.join(eliot_log_path, master_id), "ab")
+
+def clear_logger_destinations(Logger):
+    Logger._destinations._destinations[:]
 
 CHECKER_CELERYBEAT_SCHEDULE = {
 
@@ -52,3 +63,10 @@ CHECKER_CELERYBEAT_SCHEDULE = {
         'schedule': crontab(minute='*/1'),
     }
 }
+
+# XXX DO NOT COMMIT
+CELERYBEAT_SCHEDULE = CHECKER_CELERYBEAT_SCHEDULE
+
+# TODO Perhaps support this so that overlays can have default reporters,
+# but this requires some effort(?) because interfaces will have to accomodate.
+# CHECKER_DEFAULT_REPORTERS =

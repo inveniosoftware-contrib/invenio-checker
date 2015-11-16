@@ -44,13 +44,13 @@ from intbitset import intbitset  # pylint: disable=no-name-in-module
 from wtforms import Form, \
     ValidationError, fields, validators  # pylint: disable=no-name-in-module
 
-from invenio.base.decorators import templated
-from invenio.base.i18n import _
-from invenio.base.wrappers import lazy_import
+from invenio_base.decorators import templated
+from invenio_base.i18n import _
+from invenio_base.wrappers import lazy_import
 from invenio.ext.principal import permission_required
 from invenio.ext.sqlalchemy import db
 from invenio.utils import forms
-from invenio_checker.api import create_task, delete_task, edit_task, run_task
+from invenio_checker.api import create_task, delete_task, edit_task, run_task, create_reporter
 
 from ..acl import modifychecker, viewchecker
 from ..recids import ids_from_input
@@ -209,10 +209,7 @@ def get_task_data(rule):
     # Serialize unserializable things
     rule_d['arguments'] = json.dumps(rule_d['arguments'],
                                      default=default_date)
-    if rule_d['filter_records'].is_infinite():
-        rule_d['filter_records'] = ''
-    else:
-        rule_d['filter_records'] = ranges_str(rule_d['filter_records'])
+    rule_d['filter_records'] = ranges_str(rule_d['filter_records'])
     rule_d['reporters'] = [rep.plugin for rep in rule.reporters]
     return rule_d
 
@@ -446,6 +443,7 @@ def submit_task():
                 attach_to_tasks=(task,),
                 commit=False
             )
+            db.session.commit()
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -464,7 +462,7 @@ def submit_task():
 @permission_required(viewchecker.name)
 def translate():
     """Returns the columns of the checks table."""
-    from invenio.base.i18n import _
+    from invenio_base.i18n import _
     return str(_(request.args['english']))
 
 @blueprint.route('/task_run', methods=['GET'])

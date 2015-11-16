@@ -38,9 +38,9 @@ from .redis_helpers import (
     set_identifier,
     SetterProperty,
 )
-from .master import master_workers
-from .enums import StatusWorker
-from .redis_helpers import get_lock_partial
+from invenio_checker.clients.master import master_workers
+from invenio_checker.enums import StatusWorker
+from invenio_checker.clients.redis_helpers import get_lock_partial
 
 
 _prefix = 'invenio_checker'
@@ -216,9 +216,12 @@ class HasRetryAfterIds(PleasePylint):
         ..note::
             Must be executed in a lock.
 
-        :type worker_ids: list of str
+        :type worker_ids: iterable of str
         """
-        return self.conn.sadd(self._identifier, *worker_ids)
+        self.conn.delete(self._identifier)
+        if worker_ids:
+            return self.conn.sadd(self._identifier, *worker_ids)
+        return 0
 
     @set_identifier(worker_retry_after_ids)
     def retry_after_ids_pop(self, task_id_to_remove):
@@ -243,7 +246,6 @@ class HasStatusWorker(PleasePylint):
         except TypeError:
             return StatusWorker.dead_parrot
 
-
     @status.setter
     @set_identifier(worker_status)
     def status(self, new_status):
@@ -258,8 +260,6 @@ class HasStatusWorker(PleasePylint):
             self._on_ran()
         elif new_status == StatusWorker.failed:
             self._on_own_failure()
-        elif new_status == StatusWorker.running:
-            pass
 
     def _on_own_failure(self):
         with self.lock():
@@ -272,11 +272,11 @@ class HasStatusWorker(PleasePylint):
             self._disappear_as_depender()
             self._cleanup()
 
-    def on_others_failure(self):
-        with self.lock():
-            self._disappear_as_depender()
-            self._clear_own_patches()
-            self._cleanup()
+    # def on_others_failure(self):
+    #     with self.lock():
+    #         self._disappear_as_depender()
+    #         self._clear_own_patches()
+    #         self._cleanup()
 
     def _disappear_as_depender(self):
         """Remove this task from being a dependency of all other tasks."""
@@ -291,6 +291,7 @@ class HasStatusWorker(PleasePylint):
 
     def _cleanup(self):
         """Remove this worker from redis."""
+        return
         for key in keys_worker:
             self.conn.delete(self.fmt(key))
 

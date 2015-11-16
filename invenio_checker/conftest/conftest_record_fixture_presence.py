@@ -22,27 +22,17 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-"""Record ID handling for checker."""
+"""Conftest for checking if the selected item uses the `records` fixture.
 
-from intbitset import intbitset  # pylint: disable=no-name-in-module
+This is used for deciding whether a check is record-centric or not before
+starting the actual task.
+"""
 
-from .common import ALL
+import pytest
 
-
-def ids_from_input(ids_input, all_repr=ALL):
-    """Return the list of IDs to check for from user-input.
-
-    :param ids_input: Comma-separated list of requested record IDs.
-        May contain, or be ALL.
-    :type  ids_input: str
-
-    :returns: intbitset of IDs or ALL
-    :rtype:   seq
-
-    :raises:  ValueError
-    """
-    if ALL in ids_input.split(','):
-        return all_repr
+def pytest_collection_modifyitems(session, config, items):
+    item = items[0]
+    if 'record' not in item.fixturenames:
+        raise Exception('records fixture unused')
     else:
-        from invenio_utils.shell import split_cli_ids_arg
-        return intbitset(split_cli_ids_arg(ids_input), sanity_checks=True)
+        del items[:]

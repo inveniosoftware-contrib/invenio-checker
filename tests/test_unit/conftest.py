@@ -28,19 +28,9 @@
 from __future__ import absolute_import, print_function
 
 import pytest
-from flask import Flask
 
 from _pytest.python import SubRequest
 from _pytest.main import Session
-
-@pytest.fixture()
-def app():
-    """Flask application fixture."""
-    app = Flask('testapp')
-    app.config.update(
-        TESTING=True
-    )
-    return app
 
 
 @pytest.fixture(scope="function")
@@ -74,9 +64,9 @@ def m_conn(mocker):
     return m_conn
 
 @pytest.fixture
-def get_TestRedisWorker(m_get_record_orig_or_mem):
+def get_TestRedisWorker(mocker, m_get_record_orig_or_mem):
     def inner(uuid, m_conn):
-        from invenio_checker.worker import RedisWorker
+        from invenio_checker.clients.worker import RedisWorker
 
         class TestRedisWorker(RedisWorker):  # pylint: disable=missing-docstring
             def __init__(self):  # pylint: disable=super-init-not-called
@@ -113,9 +103,7 @@ def m_session(mocker, m_config):
     m_session_.invenio_eliot_action = mocker.MagicMock(
         return_value=mocker.MagicMock(spec=file))
 
-    m_Session = mocker.Mock(object)
-    m_Session.session = m_session_
-    mocker.patch('invenio_checker.conftest2.Session', m_Session)
+    # mocker.patch('invenio_checker.conftest.conftest2.Session', m_session_)
 
     return m_session_
 

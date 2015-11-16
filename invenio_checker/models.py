@@ -29,22 +29,19 @@ import simplejson as json
 
 from sqlalchemy import types
 from intbitset import intbitset  # pylint: disable=no-name-in-module
-from invenio.ext.sqlalchemy import db
+from invenio_ext.sqlalchemy import db
 from invenio_search.api import Query
 from invenio_records.models import Record as Bibrec
-from sqlalchemy import orm
-from invenio.ext.sqlalchemy.utils import session_manager
+from invenio_ext.sqlalchemy.utils import session_manager
 from datetime import datetime, date
 from bson import json_util  # included in `pymongo`, not `bson`
-from invenio_accounts.models import User
 
-from .common import ALL
-from .errors import PluginMissing
 from .registry import plugin_files, reporters_files
 
 from sqlalchemy_utils.types.choice import ChoiceType
-from .master import StatusMaster
+from invenio_checker.clients.master import StatusMaster, RedisMaster
 
+from sqlalchemy.orm import backref
 from sqlalchemy.ext import mutable
 
 
@@ -132,13 +129,18 @@ class CheckerRule(db.Model):
 
     force_run_on_unmodified_records = db.Column(db.Boolean, default=False)
 
+    confirm_hash_on_commit = db.Column(db.Boolean, default=False)
+
     # TODO
     # commit = db.Column(db.Boolean, default=True)
 
     @db.hybrid_property
     def filepath(self):
         """Resolve a the filepath of this rule's plugin."""
-        path = inspect.getfile(plugin_files[self.plugin])
+        try:
+            path = inspect.getfile(plugin_files[self.plugin])
+        except KeyError:
+            return None
         if path.endswith('.pyc'):
             path = path[:-1]
         return path
@@ -153,7 +155,7 @@ class CheckerRule(db.Model):
         try:
             associated_records = intbitset(zip(
                 *db.session
-                .query(CheckerRecord.bibrec_id)
+                .query(CheckerRecord.rec_id)
                 .filter(
                     CheckerRecord.rule_name == self.name
                 ).all()
@@ -164,7 +166,7 @@ class CheckerRule(db.Model):
         # Store requested records that were until now unknown to this rule
         requested_ids = self.requested_recids
         for requested_id in requested_ids - associated_records:
-            new_record = CheckerRecord(bibrec_id=requested_id,
+            new_record = CheckerRecord(rec_id=requested_id,
                                        rule_name=self.name)
             db.session.add(new_record)
         db.session.commit()
@@ -174,10 +176,10 @@ class CheckerRule(db.Model):
         try:
             recids = zip(
                 *db.session
-                .query(CheckerRecord.bibrec_id)
+                .query(CheckerRecord.rec_id)
                 .outerjoin(Bibrec)
                 .filter(
-                    CheckerRecord.bibrec_id.in_(requested_ids),
+                    CheckerRecord.rec_id.in_(requested_ids),
                     CheckerRecord.rule_name == self.name,
                     db.or_(
                         self.force_run_on_unmodified_records,
@@ -197,7 +199,7 @@ class CheckerRule(db.Model):
         now = datetime.now()
         db.session.query(CheckerRecord).filter(
             db.and_(
-                CheckerRecord.bibrec_id == recids,
+                CheckerRecord.rec_id == recids,
                 CheckerRecord.rule_name == self.name,
             )
         ).update(
@@ -242,11 +244,11 @@ class CheckerRule(db.Model):
                 self.consider_deleted_records),
             '* Filter Pattern: {}'.format(self.filter_pattern),
             '* Filter Records: {}'.format(ranges_str(self.filter_records)),
-            '* Last run {}'.format(self.last_run),
-            '* Schedule {} [{}]'.format(self.schedule, 'enabled' if
-                                        self.schedule_enabled else 'disabled'),
+            '* Last run: {}'.format(self.last_run),
+            '* Schedule: {} [{}]'.format(self.schedule, 'enabled' if
+                                         self.schedule_enabled else 'disabled'),
             '* Temporary: {}'.format(self.temporary),
-            '* Force-run on unmodified records {}'
+            '* Force-run on unmodified records: {}'
             .format(self.force_run_on_unmodified_records),
             '{}'.format(80 * '='),
         ))
@@ -295,6 +297,27 @@ class CheckerRuleExecution(db.Model):
         server_default='1900-01-01 00:00:00',
     )
 
+    dry_run = db.Column(
+        db.Boolean,
+        default=False
+    )
+
+    @db.hybrid_property
+    def should_commit(self):
+        return not self.dry_run
+
+    @db.hybrid_property
+    def should_report_logs(self):
+        return not self.dry_run
+
+    @db.hybrid_property
+    def should_report_exceptions(self):
+        return not self.dry_run
+
+    @db.hybrid_property
+    def master(self):
+        return RedisMaster(self.uuid)
+
     @db.hybrid_property
     def status(self):
         return self._status
@@ -309,30 +332,37 @@ class CheckerRuleExecution(db.Model):
         import os
         from glob import glob
         import subprocess
-        from .config import get_eliot_log_path
+        from .config import get_eliot_log_file
 
-        eliot_log_path = get_eliot_log_path()
-
-        filenames = glob(os.path.join(eliot_log_path, self.uuid + "*"))
-
+        filenames = glob(get_eliot_log_file(master_id=self.uuid).name + "*")
         eliottree_subp = subprocess.Popen(['eliot-tree', '--field-limit', '0'],
                                           stdout=subprocess.PIPE,
                                           stdin=subprocess.PIPE)
+        eliottree_failed = False
         with eliottree_subp.stdin:
-            for filename in filenames:
-                with open(filename, 'r') as file_:
-                    eliottree_subp.stdin.write(file_.read())
+            try:
+                for filename in filenames:
+                    with open(filename, 'r') as file_:
+                            eliottree_subp.stdin.write(file_.read())
+            except (IOError, MemoryError):
+                eliottree_failed = True
+
         with eliottree_subp.stdout:
             for line in eliottree_subp.stdout:
                 yield line
 
-        # If you ever decide to switch to eliot-prettyprint..
-        # from eliot.prettyprint import pretty_format
-        # from eliot._bytesjson import loads
-        # for filename in filenames:
-        #     with open(filename, 'r') as file_:
-        #         for line in file_:
-        #             yield pretty_format(loads(line))
+        if eliottree_failed or (eliottree_subp.wait() != 0):
+            # eliot-tree can fail on unfinished logging. We still want output
+            # for debugging, so we use the less structured eliot-prettyprint
+            from eliot.prettyprint import pretty_format
+            from eliot._bytesjson import loads
+            yield '\n`eliot-tree` failed to format output. ' \
+                'Retrying with eliot-prettyprint:\n'
+            for filename in filenames:
+                yield "{}:\n".format(filename)
+                with open(filename, 'r') as file_:
+                    for line in file_:
+                        yield pretty_format(loads(line))
 
 
 class CheckerRecord(db.Model):
@@ -341,11 +371,16 @@ class CheckerRecord(db.Model):
 
     __tablename__ = 'checker_record'
 
-    bibrec_id = db.Column(
+    rec_id = db.Column(
         db.MediumInteger(8, unsigned=True),
-        db.ForeignKey('bibrec.id'),
-        primary_key=True, nullable=False
+        db.ForeignKey(Bibrec.id),
+        primary_key=True,
+        nullable=False,
+        autoincrement=True,
     )
+    record = db.relationship(Bibrec, backref=backref(
+        "checker_record", cascade="all, delete-orphan"))
+    # record = db.relationship(Bibrec, cascade="all, delete-orphan", single_parent=True)
 
     rule_name = db.Column(
         db.String(127),
@@ -398,6 +433,12 @@ def ranges_str(items):
 
     example: {1,2,3,10,5} --> '1-3,5,10'
     """
+    try:
+        if items.is_infinite():
+            return ''
+    except AttributeError:
+        # Not intbitset
+        pass
     output = ""
     for cont_set in _get_ranges(items):
         if len(cont_set) == 1:

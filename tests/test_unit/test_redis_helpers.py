@@ -29,7 +29,7 @@ from mock import (
 )
 import pytest
 
-from invenio_checker.redis_helpers import (
+from invenio_checker.clients.redis_helpers import (
     get_all_tasks_in_celery,
     _get_all_masters,
     _get_things_in_redis,
@@ -43,7 +43,7 @@ class TestRedisHelpers(object):
         m_insp.active = mocker.Mock(return_value={'a': [1, 2]})
         m_insp.scheduled = mocker.Mock(return_value={'b': [3, 2]})
 
-        m_inspect = mocker.patch('invenio_checker.redis_helpers.inspect',
+        m_inspect = mocker.patch('invenio_checker.clients.redis_helpers.inspect',
                                  return_value=m_insp)
 
         ret = get_all_tasks_in_celery()
@@ -55,7 +55,7 @@ class TestRedisHelpers(object):
         m_insp.active = mocker.Mock(return_value=None)
         m_insp.scheduled = mocker.Mock(return_value=None)
 
-        m_inspect = mocker.patch('invenio_checker.redis_helpers.inspect',
+        m_inspect = mocker.patch('invenio_checker.clients.redis_helpers.inspect',
                                  return_value=m_insp)
 
         ret = get_all_tasks_in_celery()
@@ -69,7 +69,7 @@ class TestRedisHelpers(object):
                                       'invenio_checker:master:uuid2:workers'))
         )
 
-        m_RedisMaster = mocker.patch('invenio_checker.master.RedisMaster')
+        m_RedisMaster = mocker.patch('invenio_checker.clients.master.RedisMaster')
 
         ret = _get_all_masters(m_conn)
         assert len(ret) == 2
@@ -92,14 +92,14 @@ class TestRedisHelpers(object):
         m_conn = mocker.Mock()
         m_conn.scan_iter = mocker.Mock(return_value=(i for i in existing))
 
-        mocker.patch('invenio_checker.redis_helpers.get_redis_conn',
+        mocker.patch('invenio_checker.clients.redis_helpers.get_redis_conn',
                      mocker.Mock(return_value=m_conn))
 
         assert _get_things_in_redis(prefixes) == {'1', '2', '3'}
 
     @pytest.mark.parametrize("cls_import, fn_call, keys_str", [
-        ('invenio_checker.master.RedisMaster', 'get_masters_in_redis', 'keys_master'),
-        ('invenio_checker.worker.RedisWorker', 'get_workers_in_redis', 'keys_worker'),
+        ('invenio_checker.clients.master.RedisMaster', 'get_masters_in_redis', 'keys_master'),
+        ('invenio_checker.clients.worker.RedisWorker', 'get_workers_in_redis', 'keys_worker'),
     ])
     def test_get_x_in_redis_rets_x(self, cls_import, fn_call, keys_str, mocker):
 
@@ -108,14 +108,14 @@ class TestRedisHelpers(object):
             side_effect=lambda x: x,
         )
         m_get_things_in_redis = mocker.patch(
-            'invenio_checker.redis_helpers._get_things_in_redis',
+            'invenio_checker.clients.redis_helpers._get_things_in_redis',
             return_value={'1', '2', '3'}
         )
-        helpers = importlib.import_module('invenio_checker.redis_helpers')
+        helpers = importlib.import_module('invenio_checker.clients.redis_helpers')
         get_clients_in_redis = getattr(helpers, fn_call)
 
-        from invenio_checker.master import keys_master
-        from invenio_checker.worker import keys_worker
+        from invenio_checker.clients.master import keys_master
+        from invenio_checker.clients.worker import keys_worker
         keys = {'keys_master': keys_master,
                 'keys_worker': keys_worker}
 
@@ -127,7 +127,7 @@ class TestRedisHelpers(object):
 
     def test_set_identifier_sets_identifier(self, mocker):
 
-        from invenio_checker.redis_helpers import set_identifier
+        from invenio_checker.clients.redis_helpers import set_identifier
 
         class Test(object):
 
@@ -144,7 +144,7 @@ class TestRedisHelpers(object):
 
     def test_SetterProperty(self):
 
-        from invenio_checker.redis_helpers import SetterProperty
+        from invenio_checker.clients.redis_helpers import SetterProperty
 
         class Test(object):
 

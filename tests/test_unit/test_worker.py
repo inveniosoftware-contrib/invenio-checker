@@ -24,7 +24,7 @@
 
 from invenio_checker.enums import StatusWorker
 import redis
-from invenio_checker.worker import (
+from invenio_checker.clients.worker import (
     RedisWorker,
     get_lock_partial,
 )
@@ -32,6 +32,7 @@ from intbitset import intbitset  # pylint: disable=no-name-in-module
 from pytest_mock import mock_module
 import pytest
 import mock
+import redis
 
 # from .conftest import get_TestRedisWorker
 
@@ -53,10 +54,10 @@ class TestWorker(object):
         w_C_ran.in_celery = False
         w_C_ran.status = StatusWorker.ran
 
-        mocker.patch('invenio_checker.worker.get_workers_in_redis',
+        mocker.patch('invenio_checker.clients.worker.get_workers_in_redis',
                      mocker.Mock(return_value={w_c_run, w_c_ran, w_c_failed}))
 
-        from invenio_checker.worker import get_workers_with_unprocessed_results
+        from invenio_checker.clients.worker import get_workers_with_unprocessed_results
         assert get_workers_with_unprocessed_results() == {w_c_run, w_c_ran}
 
 class TestFullpatch(object):
@@ -69,7 +70,7 @@ class TestFullpatch(object):
             'patch': {'a': 'b'},
         }
 
-        from invenio_checker.worker import id_to_fullpatch
+        from invenio_checker.clients.worker import id_to_fullpatch
         assert id_to_fullpatch('invenio_checker:patches:ab:10:123',
                                {'a': 'b'}) == \
             expected_fullpatch
@@ -93,9 +94,9 @@ class TestFullpatch(object):
             for patch in fullpatch_storage['invenio_checker:patches:ab:10:123']:
                 yield patch
             yield None
-        import redis; c = redis.StrictRedis()
-        foo = lpop()
-        m_conn.lpop = mock.create_autospec(c.lpop, side_effect=lambda x: next(foo))
+        c = redis.StrictRedis()
+        lpopper = lpop()
+        m_conn.lpop = mock.create_autospec(c.lpop, side_effect=lambda x: next(lpopper))
         # TODO: Assert that x is the right thing
 
         m_conn.scan_iter.return_value = (
@@ -106,11 +107,11 @@ class TestFullpatch(object):
         m_conn.ttl.side_effect = lambda x: \
             4 if x == 'invenio_checker:patches:ab:10:123' else 5
 
-        m_get_conn = mocker.patch('invenio_checker.worker.get_redis_conn',
+        m_get_conn = mocker.patch('invenio_checker.clients.worker.get_redis_conn',
                                   return_value=m_conn)
 
         # Run
-        from invenio_checker.worker import get_sorted_fullpatches
+        from invenio_checker.clients.worker import get_sorted_fullpatches
         fullpatches = tuple(get_sorted_fullpatches(10, 'ab'))
         assert fullpatches == (
             {'recid': 10, 'record_hash': '123',
@@ -128,12 +129,11 @@ class TestFullpatch(object):
         (None, TypeError()),
     ])
     def test_can_set_recids(self, input_, intbitset_str,
-                            f_intbitset, m_conn, mocker,
-                            get_TestRedisWorker):
+                            f_intbitset, m_conn, get_TestRedisWorker):
 
         # Mock
         m_intbitset, m_intbitset_inst = \
-            f_intbitset('invenio_checker.worker.intbitset',
+            f_intbitset('invenio_checker.clients.worker.intbitset',
                         on_fastdump=intbitset_str)
         worker = get_TestRedisWorker('abc', m_conn)
 
@@ -160,7 +160,7 @@ class TestFullpatch(object):
 
         # Mock
         m_intbitset, m_intbitset_inst = \
-            f_intbitset('invenio_checker.worker.intbitset')
+            f_intbitset('invenio_checker.clients.worker.intbitset')
         worker = get_TestRedisWorker('abc', m_conn)
         m_conn.get.return_value = intbitset_str
 

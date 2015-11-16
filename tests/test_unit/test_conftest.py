@@ -24,7 +24,7 @@
 
 from invenio_checker.enums import StatusWorker
 import redis
-from invenio_checker.worker import (
+from invenio_checker.clients.worker import (
     RedisWorker,
     get_lock_partial,
 )
@@ -33,61 +33,64 @@ import pytest
 from copy import deepcopy
 from mock import call
 import mock
+from frozendict import frozendict as fd
 
-from invenio.base.wrappers import lazy_import
-get_record = lazy_import('invenio_checker.conftest2.get_record')
-pytest_sessionfinish = lazy_import('invenio_checker.conftest2.pytest_sessionfinish')
-pytest_sessionstart = lazy_import('invenio_checker.conftest2.pytest_sessionstart')
-get_fullpatches_of_last_run = lazy_import('invenio_checker.conftest2.get_fullpatches_of_last_run')
+from invenio_base.wrappers import lazy_import
+get_record = lazy_import('invenio_checker.conftest.conftest2.get_record')
+_pytest_sessionfinish = lazy_import('invenio_checker.conftest.conftest2._pytest_sessionfinish')
+pytest_sessionstart = lazy_import('invenio_checker.conftest.conftest2.pytest_sessionstart')
+_get_fullpatches_of_last_run = lazy_import('invenio_checker.conftest.conftest2._get_fullpatches_of_last_run')
 
 import mock
 from functools import wraps
 
 
 class TestConftest(object):
-    def test_sessionfinish_sends_patches_to_redis(self,
-                                                  mocker,
-                                                  m_session):
-#         def dummy_decorator(*whatever, **whatever_dude):
-#             def outer(func):
-#                 def inner(*args, **kwargs):
-#                     return func(*args, **kwargs)
-#                 return inner
-#             return outer
-#         mocker.patch('invenio_checker.conftest2.start_action_dec',
-#                      dummy_decorator)
+    def test_sessionfinish_sends_patches_to_redis(self, mocker, m_conn):
 
+        # Given some expected patches
         patch1 = {'task_id': 'abc', 'recid': 1, 'patch': '[{"path": "/recid", "value": 10, "op": "replace"}]'}
         patch2 = {'task_id': 'abc', 'recid': 2, 'patch': '[{"path": "/recid", "value": 20, "op": "replace"}]'}
         m_get_fullpatches_of_last_run = mocker.Mock(return_value=(patch1, patch2))
-        mocker.patch('invenio_checker.conftest2.get_fullpatches_of_last_run',
-                     m_get_fullpatches_of_last_run)
+        mocker.patch('invenio_checker.conftest.conftest2._get_fullpatches_of_last_run', m_get_fullpatches_of_last_run)
 
-        # Run
-        pytest_sessionfinish(m_session, 0)
+        # for eliotify
+        mocker.patch('invenio_checker.conftest.conftest2.Session', mocker.MagicMock())
 
-        # Ensure that two patches were sent to redis
-        redis_worker = m_session.config.option.redis_worker
-        assert redis_worker.patch_to_redis.call_count == 2
-        redis_worker.patch_to_redis.assert_has_calls([
+        # ..and some names the code expects
+        worker = mocker.Mock(uuid='abc', conn=m_conn, patch_to_redis=mocker.Mock(), retry_after_ids={})
+        invenio_eliot_action = mocker.Mock()
+        invenio_reporters = []
+        exitstatus = 0
+        invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
+
+        # Run sessionfinish on success
+        _pytest_sessionfinish(invenio_eliot_action, worker, invenio_reporters, invenio_records, exitstatus)
+
+        # Assert that two patches were sent to redis
+        assert worker.patch_to_redis.call_count == 2
+        worker.patch_to_redis.assert_has_calls([
             call({'task_id': 'abc', 'recid': 1, 'patch': '[{"path": "/recid", "value": 10, "op": "replace"}]'}),
             call({'task_id': 'abc', 'recid': 2, 'patch': '[{"path": "/recid", "value": 20, "op": "replace"}]'}),
         ], any_order=True)
-        m_get_fullpatches_of_last_run.assert_called_once_with('modified')
-
-        # Assert that the storage so that it doesn't expand forever
-        invenio_records = m_session.invenio_records
+        # Assert mocked get_fullpatches_of_last_run was called as expected
+        m_get_fullpatches_of_last_run.assert_called_once_with('modified', invenio_records, worker)
+        # Assert that the storage is cleared
         assert not invenio_records['original']
         assert not invenio_records['modified']
         assert not invenio_records['temporary']
+        # Assert eliot action was closed
+        invenio_eliot_action.finish.assert_called_once_with()
 
-    def test_get_fullpatches_of_last_run(self, mocker, m_session):
+    def test_get_fullpatches_of_last_run(self, mocker):
 
-        invenio_records = m_session.invenio_records
-        records_o = {1: {'recid': 1}, 2: {'recid': 2}, 3: {'recid': 3}}
-        records_m = {1: {'recid': 10}, 2: {'recid': 20}, 3: {'recid': 3}}
-        invenio_records['modified'] = deepcopy(records_m)
-        invenio_records['original'] = deepcopy(records_o)
+        # Given some fullpatches
+        records_o = {1: fd({'recid': 1}), 2: fd({'recid': 2}), 3: fd({'recid': 3})}
+        records_m = {1: fd({'recid': 10}), 2: fd({'recid': 20}), 3: fd({'recid': 3})}
+
+        # And some mocks
+        invenio_records = {'modified': deepcopy(records_m), 'original': deepcopy(records_o)}
+        worker = mocker.Mock(task_id='abc')
 
         def jsonpatch(r1, r2):
             """Return objects that act like jsonpatches when bool is called."""
@@ -109,15 +112,15 @@ class TestConftest(object):
         # Mock jsonpatch  --  Returns jsonpatch.JsonPatch
         m_jsonpatch = mocker.Mock()
         m_jsonpatch.make_patch = jsonpatch
-        mocker.patch('invenio_checker.conftest2.jsonpatch', m_jsonpatch)
+        mocker.patch('invenio_checker.conftest.conftest2.jsonpatch', m_jsonpatch)
 
         # Mock make_fullpatch
-        from invenio_checker.worker import make_fullpatch
+        from invenio_checker.clients.worker import make_fullpatch
         m_make_fullpatch = mock.create_autospec(make_fullpatch)
-        mocker.patch('invenio_checker.conftest2.make_fullpatch', m_make_fullpatch)
+        mocker.patch('invenio_checker.conftest.conftest2.make_fullpatch', m_make_fullpatch)
 
         # Run
-        ret = tuple(get_fullpatches_of_last_run('modified'))
+        ret = tuple(_get_fullpatches_of_last_run('modified', invenio_records, worker))
 
         # Ensure that two patches were sent to redis
         assert len(ret) == 2
@@ -128,29 +131,30 @@ class TestConftest(object):
 
     #def test_make_fullpatch(self):
 
-    @pytest.mark.skipif(True, reason="not sure if worth it")
-    def test_pytest_sessionstart_initializes(self, mocker, m_config):
-        session = type('session', (object,), {})()
-        session.config = m_config
+    # @pytest.mark.skipif(True, reason="not sure if worth it")
+    # def test_pytest_sessionstart_initializes(self, mocker, m_config):
+    #     session = type('session', (object,), {})()
+    #     session.config = m_config
 
-        Session = type('Session', (object,), {})()
-        mocker.patch('invenio_checker.conftest2.Session', Session)
+    #     Session = type('Session', (object,), {})()
+    #     mocker.patch('invenio_checker.conftest.conftest2.Session', Session)
 
-        pytest_sessionstart(session)
-        assert session.invenio_records == {  # pylint: disable=no-member
-            'original': {}, 'modified': {}, 'temporary': {}}
-        assert Session.session is session  # pylint: disable=no-member
+    #     pytest_sessionstart(session)
+    #     assert session.invenio_records == {  # pylint: disable=no-member
+    #         'original': {}, 'modified': {}, 'temporary': {}}
+    #     assert Session.session is session  # pylint: disable=no-member
 
     # TODO: Split into multiple
-    def test_worker_clears_items_when_blocked(self, mocker, m_session):
-        mocker.patch('invenio_checker.conftest2.ensure_only_one_test_function_exists_in_check',
+    @pytest.mark.skipif(True, reason='too complex')
+    def test_worker_clears_items_when_blocked(self, mocker):
+        mocker.patch('invenio_checker.conftest.conftest2._ensure_only_one_test_function_exists_in_check',
                      mocker.Mock())
 
-        mocker.patch('invenio_checker.conftest2.get_restrictions_from_check_class',
+        mocker.patch('invenio_checker.conftest.conftest2._get_restrictions_from_check_class',
                      mocker.Mock(return_value=('abc', 'def')))
 
         m_worker_conflicts_with_currently_running = \
-            mocker.patch('invenio_checker.conftest2.worker_conflicts_with_currently_running',
+            mocker.patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
                          mocker.Mock(
                              return_value=(
                                  mocker.Mock(uuid='ID1'),
@@ -166,29 +170,31 @@ class TestConftest(object):
 
         m_task_arguments = mocker.Mock()
 
+        m_session = mocker.Mock()
+
         # This manager is used so that we can assert the order at which its
         # attached mocks were called.
         mock_manager = mocker.Mock()
         mock_manager.attach_mock(m_worker.lock(), 'lock')
         mock_manager.attach_mock(m_worker, 'worker')
         mock_manager.attach_mock(m_worker_conflicts_with_currently_running,
-                                 'worker_conflicts_with_currently_running')
+                                 '_worker_conflicts_with_currently_running')
         # mock_manager end
 
-        from invenio_checker.conftest2 import _pytest_collection_modifyitems
+        from invenio_checker.conftest.conftest2 import _pytest_collection_modifyitems
         _pytest_collection_modifyitems(m_session, m_task_arguments, m_worker,
-                                       m_items)
+                                       m_items, invenio_rule, option)
 
         assert m_worker.status == StatusWorker.ready
         assert m_items == []
         assert m_worker.retry_after_ids == {'ID1', 'ID2'}
 
-        # FIXME: sparse sublist
+        from ..conftest import contains_sparse_sublist
         assert contains_sparse_sublist(
             mock_manager.mock_calls,
             [
                 call.lock.__enter__(),
-                call.worker_conflicts_with_currently_running(m_worker),
+                call._worker_conflicts_with_currently_running(m_worker),
                 call.lock.__exit__(None, None, None),
             ]
         )
@@ -205,129 +211,86 @@ class TestConftest(object):
     ])
     def test_workers_touch_common_paths_resolves(self, _, paths1, paths2,
                                                  expected_result):
-        from invenio_checker.worker import _workers_touch_common_paths
+        from invenio_checker.clients.worker import _workers_touch_common_paths
         assert _workers_touch_common_paths(paths1, paths2) == expected_result
         assert _workers_touch_common_paths(paths2, paths1) == expected_result
 
-class TestFixtures(object):
+# class TestFixtures(object):
 
-    def test_search_fixture_returns_from_get_record(self, mocker, m_request):
-        m_query = mocker.patch('invenio_checker.conftest2.Query', \
-        mocker.Mock(                                 # Query
-            return_value=mocker.Mock(                #      ()
-                search=mocker.Mock(                  #        .search
-                    return_value=mocker.Mock(        #               ()
-                        recids=[1, 2, 3])))))        #                 .recids
+#     def test_search_fixture_returns_from_get_record(self, mocker, m_request):
+#         m_query = mocker.patch('invenio_checker.conftest.check_fixtures.Query', \
+#         mocker.Mock(                                 # Query
+#             return_value=mocker.Mock(                #      ()
+#                 search=mocker.Mock(                  #        .search
+#                     return_value=mocker.Mock(        #               ()
+#                         recids=[1, 2, 3])))))        #                 .recids
 
-        m_request.session.config.option.redis_worker.get_record_orig_or_mem = \
-            mocker.Mock(
-                side_effect=lambda recid: {'recid': recid})
+#         m_request.session.config.option.redis_worker.get_record_orig_or_mem = \
+#             mocker.Mock(
+#                 side_effect=lambda recid: {'recid': recid})
 
-        from invenio_checker.conftest2 import search
-        result = search(m_request)('foobar')
-        lresult = list(result.records)
+#         from invenio_checker.conftest.check_fixtures import search
+#         result = search(m_request)('foobar')
+#         lresult = list(result.records)
 
-        recs = m_request.session.invenio_records
-        assert recs == \
-            {'temporary': {1: {'recid': 1}, 2: {'recid': 2}, 3: {'recid': 3}},
-             'original': {1: {'recid': 1}, 2: {'recid': 2}, 3: {'recid': 3}},
-             'modified': {1: {'recid': 1}, 2: {'recid': 2}, 3: {'recid': 3}}}
+#         recs = m_request.session.invenio_records
+#         assert recs == \
+#             {'temporary': {1: {'recid': 1}, 2: {'recid': 2}, 3: {'recid': 3}},
+#              'original': {1: {'recid': 1}, 2: {'recid': 2}, 3: {'recid': 3}},
+#              'modified': {1: {'recid': 1}, 2: {'recid': 2}, 3: {'recid': 3}}}
 
-        assert recs['original'] is not recs['modified']
+#         assert recs['original'] is not recs['modified']
 
-        m_query.assert_called_once_with('foobar')
-        assert lresult == [{'recid': 1}, {'recid': 2}, {'recid': 3}]
+#         m_query.assert_called_once_with('foobar')
+#         assert lresult == [{'recid': 1}, {'recid': 2}, {'recid': 3}]
 
-    def test_record_fixture_uses_get_record_on_param(self, mocker, m_request):
+#     def test_get_record_sets_all_on_first_call(
+#             self, mocker,
+#             m_request,
+#     ):
+#         invenio_records = m_request.session.invenio_records
 
-        m_query = mocker.patch('invenio_checker.conftest2.Query', \
-        mocker.Mock(                                 # Query
-            return_value=mocker.Mock(                #      ()
-                search=mocker.Mock(                  #        .search
-                    return_value=mocker.Mock(        #               ()
-                        recids=[1, 2, 3])))))        #                 .recids
+#         # Mock
+#         rec = {'a': 1, 'recid': 1}
+#         get_record_orig_or_mem = mocker.Mock(return_value=rec)
+#         m_request.session.config.option.redis_worker.get_record_orig_or_mem = \
+#             get_record_orig_or_mem
 
-        m_request.session.config.option.redis_worker.get_record_orig_or_mem = \
-            mocker.Mock(
-                side_effect=lambda recid: {'recid': recid})
+#         # Run
+#         ret = get_record(m_request)(1)
 
-        m_request.param = 39
+#         # Assert
+#         assert invenio_records['original'][1] is rec
 
-        from invenio_checker.conftest2 import record
-        result = record(m_request)
+#         assert invenio_records['modified'][1] is not rec
+#         assert invenio_records['modified'][1] == rec
 
-        recs = m_request.session.invenio_records
-        assert recs == \
-            {'temporary': {39: {'recid': 39}},
-             'original': {39: {'recid': 39}},
-             'modified': {39: {'recid': 39}}}
+#         assert invenio_records['temporary'][1] is invenio_records['modified'][1]
 
-        assert recs['original'] is not recs['modified']
-        assert result == {'recid': 39}
+#         get_record_orig_or_mem.asset_called_once_with(1)
 
-    def test_get_record_sets_all_on_first_call(
-            self, mocker,
-            m_request,
-    ):
-        invenio_records = m_request.session.invenio_records
+#         assert ret is invenio_records['temporary'][1]
 
-        # Mock
-        rec = {'a': 1, 'recid': 1}
-        get_record_orig_or_mem = mocker.Mock(return_value=rec)
-        m_request.session.config.option.redis_worker.get_record_orig_or_mem = \
-            get_record_orig_or_mem
+#     def test_get_record_returns_same_on_second_call(
+#             self, mocker,
+#             m_request,
+#     ):
+#         invenio_records = m_request.session.invenio_records
 
-        # Run
-        ret = get_record(m_request)(1)
+#         # Add a record
+#         rec = {1: 'a'}
+#         rec_copy = deepcopy(rec)
 
-        # Assert
-        assert invenio_records['original'][1] is rec
+#         # Prepare store
+#         invenio_records['original'] = rec
+#         invenio_records['modified'] = rec_copy
+#         invenio_records['temporary'] = rec
 
-        assert invenio_records['modified'][1] is not rec
-        assert invenio_records['modified'][1] == rec
+#         # Run
+#         ret = get_record(m_request)(1)
 
-        assert invenio_records['temporary'][1] is invenio_records['modified'][1]
+#         # Assert
+#         assert invenio_records['original'] is invenio_records['temporary']
+#         assert invenio_records['modified'] is not invenio_records['original']
 
-        get_record_orig_or_mem.asset_called_once_with(1)
-
-        assert ret is invenio_records['temporary'][1]
-
-    def test_get_record_returns_same_on_second_call(
-            self, mocker,
-            m_request,
-    ):
-        invenio_records = m_request.session.invenio_records
-
-        # Add a record
-        rec = {1: 'a'}
-        rec_copy = deepcopy(rec)
-
-        # Prepare store
-        invenio_records['original'] = rec
-        invenio_records['modified'] = rec_copy
-        invenio_records['temporary'] = rec
-
-        # Run
-        ret = get_record(m_request)(1)
-
-        # Assert
-        assert invenio_records['original'] is invenio_records['temporary']
-        assert invenio_records['modified'] is not invenio_records['original']
-
-        assert ret is m_request.session.invenio_records['temporary'][1]
-
-
-def contains_sublist(lst, sublst):
-    n = len(sublst)
-    return any((sublst == lst[i:i+n]) for i in xrange(len(lst)-n+1))
-
-def contains_sparse_sublist(lst, sublst):
-    for i in range(len(sublst)-1):
-        e1 = sublst[i]
-        e2 = sublst[i+1]
-        try:
-            if lst.index(e1) > lst.index(e2):
-                return False
-        except IndexError:
-            return False
-    return True
+#         assert ret is m_request.session.invenio_records['temporary'][1]

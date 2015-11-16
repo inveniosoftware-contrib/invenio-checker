@@ -22,27 +22,38 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-"""Record ID handling for checker."""
 
-from intbitset import intbitset  # pylint: disable=no-name-in-module
+"""Pytest configuration."""
 
-from .common import ALL
+from __future__ import absolute_import, print_function
+
+import pytest
+from flask import Flask
+
+from _pytest.python import SubRequest
+from _pytest.main import Session
 
 
-def ids_from_input(ids_input, all_repr=ALL):
-    """Return the list of IDs to check for from user-input.
+@pytest.fixture()
+def app():
+    """Flask application fixture."""
+    app = Flask('testapp')
+    app.config.update(
+        TESTING=True
+    )
+    return app
 
-    :param ids_input: Comma-separated list of requested record IDs.
-        May contain, or be ALL.
-    :type  ids_input: str
+def contains_sublist(lst, sublst):
+    n = len(sublst)
+    return any((sublst == lst[i:i+n]) for i in xrange(len(lst)-n+1))
 
-    :returns: intbitset of IDs or ALL
-    :rtype:   seq
-
-    :raises:  ValueError
-    """
-    if ALL in ids_input.split(','):
-        return all_repr
-    else:
-        from invenio_utils.shell import split_cli_ids_arg
-        return intbitset(split_cli_ids_arg(ids_input), sanity_checks=True)
+def contains_sparse_sublist(lst, sublst):
+    for i in range(len(sublst)-1):
+        e1 = sublst[i]
+        e2 = sublst[i+1]
+        try:
+            if lst.index(e1) > lst.index(e2):
+                return False
+        except IndexError:
+            return False
+    return True

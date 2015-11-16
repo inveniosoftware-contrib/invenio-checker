@@ -33,7 +33,7 @@ from .common import ALL
 from .recids import ids_from_input
 from .registry import plugin_files
 from .models import CheckerRule, CheckerRecord
-from invenio.base.factory import create_app
+from invenio_base.factory import create_app
 from invenio.ext.script import Manager, change_command_name
 from flask.ext.script import (  # pylint: disable=no-name-in-module,import-error
     Command,
@@ -45,6 +45,7 @@ from .api import (
     delete_task,
     run_task,
     import_task_from_json_file,
+    branch_task,
 )
 
 
@@ -76,11 +77,19 @@ def interpret_dry_run(func):
 Option = partial(Option, default=None)
 
 opt_task_name_pos = Option(
-    'task_name_pos', metavar='task_name',
+    'task_name_pos', metavar='task_name_pos',
     help='The task name'
 )
+opt_task_name_pos_multi = Option(
+    'task_name_pos_multi', metavar='task_name_pos_multi', nargs='+',
+    help='Task names to act upon'
+)
+opt_task_name_pos_multi_maybe = Option(
+    'task_name_pos_multi_maybe', metavar='task_name_pos_multi_maybe', nargs='*',
+    help='Task names to act upon'
+)
 opt_task_name = Option(
-    '--task-name', '-t', dest='task_name',
+    '--task-name', '-n', dest='task_name',
     help='The task name'
 )
 
@@ -113,17 +122,22 @@ opt_no_temporary = Option(
 
 opt_filter_records = Option(
     '--filter-records', '-fr', dest='filter_records', type=ids_from_input,
-    help='Records IDs to run on'
+    help='Records IDs to run on. Intersected with --filter-pattern'
 )
 opt_filter_pattern = Option(
     '--filter-pattern', '-fp', dest='filter_pattern',
-    help='The filter pattern string'
+    help='The filter pattern string. Intersected with --filter-records'
 )
 
 opt_consider_deleted_records = Option(
-    '--consider-deleted-records', '-cdr',
+    '--consider-deleted-records', '-cdr1',
     dest='consider_deleted_records', action='store_true',
-    help='Whether the rule should consider deleted records'
+    help='Do not consider deleted records in search'
+)
+opt_no_consider_deleted_records = Option(
+    '--no-consider-deleted-records', '-cdr0',
+    dest='consider_deleted_records', action='store_false',
+    help='Consider deleted records in search'
 )
 
 opt_arguments = Option(
@@ -132,11 +146,11 @@ opt_arguments = Option(
 )
 
 opt_check_spec = Option(
-    '--check-spec', '-c', dest='check_spec',
+    '--check-spec', '-c', dest='plugin',
     help='The check import specifier (eg invenio_thing.foo.bar.test_baz)'
 )
 opt_check_spec_pos = Option(
-    'check-spec', metavar='check_spec',
+    'check-spec', metavar='plugin',
     help='The check import specifier (eg invenio_thing.foo.bar.test_baz)'
 )
 
@@ -166,7 +180,7 @@ class CreateTask(Command):
         opt_no_commit, opt_commit,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
-        opt_consider_deleted_records,
+        opt_consider_deleted_records, opt_no_consider_deleted_records,
         opt_arguments,
         opt_schedule, opt_schedule_disable, opt_schedule_enable,
     )
@@ -176,10 +190,38 @@ class CreateTask(Command):
         Creates a new rule.
         """
         options['name'] = options.pop('task_name_pos')
-        options['plugin'] = options.pop('check_spec')
         create_task(options)
 
 manager.add_command('create-task', CreateTask())
+
+
+class BranchTask(Command):
+
+    option_list = (
+        opt_task_name_pos,
+        opt_task_name,
+        opt_check_spec,
+        opt_no_commit, opt_commit,
+        opt_no_temporary, opt_temporary,
+        opt_filter_records, opt_filter_pattern,
+        opt_consider_deleted_records, opt_no_consider_deleted_records,
+        opt_arguments,
+        opt_schedule, opt_schedule_disable, opt_schedule_enable,
+    )
+
+    def run(self, **kwargs):
+        """
+        Branch from an existing task
+        """
+        blueprint_task_name = kwargs.pop('task_name_pos')
+        kwargs['name'] = kwargs.pop('task_name', None)
+        modifications = {key: val for key, val in kwargs.items()
+                         if val is not None}
+
+        branch_task(blueprint_task_name, modifications)
+
+
+manager.add_command('branch-task', BranchTask())
 
 
 class ModifyTask(Command):
@@ -191,7 +233,7 @@ class ModifyTask(Command):
         opt_no_commit, opt_commit,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
-        opt_consider_deleted_records,
+        opt_consider_deleted_records, opt_no_consider_deleted_records,
         opt_arguments,
         opt_schedule, opt_schedule_disable, opt_schedule_enable,
     )
@@ -201,6 +243,7 @@ class ModifyTask(Command):
         Edit an existing task.
         """
         current_task_name = kwargs.pop('task_name_pos')
+        kwargs['task_name'] = kwargs.pop('task_name', None)
         modifications = {key: val for key, val in kwargs.items()
                          if val is not None}
 
@@ -213,14 +256,15 @@ manager.add_command('modify-task', ModifyTask())
 class DeleteTask(Command):
 
     option_list = (
-        opt_task_name_pos,
+        opt_task_name_pos_multi,
     )
 
-    def run(self, task_name_pos):
+    def run(self, task_name_pos_multi):
         """
-        Deletes a rule.
+        Deletes given tasks.
         """
-        delete_task(task_name_pos)
+        for task_name_pos in task_name_pos_multi:
+            delete_task(task_name_pos)
 
 
 manager.add_command('delete-task', DeleteTask())
@@ -230,11 +274,12 @@ class RunTask(Command):
 
     # TODO: Dry run
     option_list = (
-        opt_task_name_pos,
+        opt_task_name_pos_multi,
     )
 
-    def run(self, task_name_pos):
-        run_task(task_name_pos)
+    def run(self, task_name_pos_multi):
+        for task_name_pos in task_name_pos_multi:
+            run_task(task_name_pos)
 
 
 manager.add_command('run-task', RunTask())
@@ -243,15 +288,19 @@ manager.add_command('run-task', RunTask())
 class ShowTask(Command):
 
     option_list = (
-        opt_task_name_pos,
+        opt_task_name_pos_multi_maybe,
     )
 
-    def run(self, task_name_pos):
+    def run(self, task_name_pos_multi_maybe):
         """
         Displays (?) a rule.
         """
-        rule = CheckerRule.query.filter(CheckerRule.name == task_name_pos).first()
-        print rule
+        if not task_name_pos_multi_maybe:
+            for rule in CheckerRule.query.all():
+                print rule
+        else:
+            for rule_name in task_name_pos_multi_maybe:
+                print CheckerRule.query.filter(CheckerRule.name == rule_name).first()
 
 
 manager.add_command('show-task', ShowTask())
@@ -261,12 +310,12 @@ class ImportTask(Command):
 
     option_list = (
         Option(
-            'task-name', metavar='task_name_pos', nargs='+',
-            help='The task name'
+            'json_files', nargs='+',
+            help='JSON files to import from'
         ),
     )
 
-    def json_import(self, json_files):
+    def run(self, json_files):
         """
         Imports all models for the JSON files specified into the database.
         """

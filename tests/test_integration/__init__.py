@@ -21,28 +21,3 @@
 # In applying this license, CERN does not
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
-
-"""Record ID handling for checker."""
-
-from intbitset import intbitset  # pylint: disable=no-name-in-module
-
-from .common import ALL
-
-
-def ids_from_input(ids_input, all_repr=ALL):
-    """Return the list of IDs to check for from user-input.
-
-    :param ids_input: Comma-separated list of requested record IDs.
-        May contain, or be ALL.
-    :type  ids_input: str
-
-    :returns: intbitset of IDs or ALL
-    :rtype:   seq
-
-    :raises:  ValueError
-    """
-    if ALL in ids_input.split(','):
-        return all_repr
-    else:
-        from invenio_utils.shell import split_cli_ids_arg
-        return intbitset(split_cli_ids_arg(ids_input), sanity_checks=True)

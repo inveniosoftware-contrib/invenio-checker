@@ -45,7 +45,7 @@ class TestSupervisor(object):
 
         mocker.patch('invenio_checker.config.current_app', app)
 
-        from invenio_checker.supervisor import chunk_recids
+        from invenio_checker.clients.supervisor import chunk_recids
         result = chunk_recids(recids, max_chunks, max_chunk_size)
         lresult = list(result)
 
@@ -60,5 +60,3 @@ class TestSupervisor(object):
         # Did we get all the records back out?
         from itertools import chain
         assert set(chain(*lresult)) == recids
-
-    # def test_integration(self, mocker):

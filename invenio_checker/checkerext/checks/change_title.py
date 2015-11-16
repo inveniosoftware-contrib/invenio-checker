@@ -43,7 +43,7 @@ class CheckWhatever(object):
     #     return ''.join(cfg_args)
 
     # @staticmethod
-    # def allowed_recids(cfg_args, requested_recids, all_recids, perform_request_search):
+    # def allowed_recids(cfg_args, requested_recids, all_recids):
     #     # Must return: set of recids
     #     return requested_recids
 
@@ -51,8 +51,18 @@ class CheckWhatever(object):
     #     raise KeyError
 
     def check_fail(self, log, batch_recids, get_record, search, record, arguments):
-        log('test')
-        raise KeyError("OH NO")
+        from uuid import uuid4
+        record['foobar'] = 'baz ' + str(record['recid']) + str(uuid4())
+        log('sup brah')
+        return
+        if record['control_number'] == 1:
+            record['main_entry_personal_name']['personal_name'] = str(uuid4())
+        if record['control_number'] in (1,2,3):
+            log('whee')
+        # if record['control_number'] in (4,5):
+        #     raise KeyError('OMG WTF!?!?!')
+        return
+        # raise KeyError("OH NO")
 
         if 'title' not in record:
             log('Whoops. The author name was missing')

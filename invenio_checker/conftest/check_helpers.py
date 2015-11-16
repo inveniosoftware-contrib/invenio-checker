@@ -22,27 +22,24 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-"""Record ID handling for checker."""
-
-from intbitset import intbitset  # pylint: disable=no-name-in-module
-
-from .common import ALL
+import os
 
 
-def ids_from_input(ids_input, all_repr=ALL):
-    """Return the list of IDs to check for from user-input.
+class LocationTuple(object):
+    """Common structure to identify the location of some code.
 
-    :param ids_input: Comma-separated list of requested record IDs.
-        May contain, or be ALL.
-    :type  ids_input: str
+    This is useful for sending the same kind of tuple to the reporters, no
+    matter what it is that we are reporting.
 
-    :returns: intbitset of IDs or ALL
-    :rtype:   seq
-
-    :raises:  ValueError
+    The format is: (absolute_path, line number, domain)
     """
-    if ALL in ids_input.split(','):
-        return all_repr
-    else:
-        from invenio_utils.shell import split_cli_ids_arg
-        return intbitset(split_cli_ids_arg(ids_input), sanity_checks=True)
+
+    @staticmethod
+    def from_report_location(report_location):
+        """Convert a `report_location` to a `LocationTuple`.
+
+        :type report_location: tuple
+        """
+        fspath, lineno, domain = report_location
+        return os.path.abspath(str(fspath)), lineno, domain
+

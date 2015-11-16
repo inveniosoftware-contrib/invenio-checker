@@ -27,5 +27,5 @@ pep257 invenio_checker && \
 isort -rc -c -df **/*.py && \
 check-manifest --ignore ".travis-*" && \
 sphinx-build -qnNW docs docs/_build/html && \
-python setup.py test && \
+python setup.py test -a 'tests/ -vv --cov=invenio_checker' && \
 sphinx-build -qnNW -b doctest docs docs/_build/doctest

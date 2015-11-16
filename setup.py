@@ -66,6 +66,12 @@ install_requires = [
     'Flask-BabelEx>=0.9.2',
     'six>=1.9.0',
     'Invenio>=2.0.3',
+    'invenio-utils==0.2.0',
+    'invenio-search==0.1.5',
+    'invenio-base==0.3.1',
+    'invenio-celery==0.1.1',
+    'invenio-ext==0.3.3',
+    'invenio-records==0.3.3',
     # Used for running checks
     'pytest==2.8.2',
     # Internal communication of check runners
@@ -88,6 +94,8 @@ install_requires = [
     # Figuring out users who own tasks
     'flask-login>=0.3.1',
     'invenio-accounts>=0.1.2',
+    # HoldingPen reporter
+    'invenio-workflows',
 ]
 
 if platform.python_version_tuple() < ('3', '2'):
