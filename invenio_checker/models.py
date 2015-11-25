@@ -449,8 +449,8 @@ def _get_ranges(items):
 
     example: {1,2,3,10,5} --> [[1, 2, 3], [5], [10]]
     """
-    from operator import itemgetter
-    from itertools import groupby
+    if items is None:
+        items = set()
     for _, g in groupby(enumerate(sorted(set(items))), lambda (i, x): i - x):
         yield map(itemgetter(1), g)  # pylint: disable=bad-builtin
 
