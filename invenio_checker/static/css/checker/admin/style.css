@@ -50,12 +50,6 @@
     display: none;
 }
 
-#task-insertion-failure {
-    display: none;
-    clear: both;
-    margin-top: 15px;
-}
-
 .submit-button-right {
     float: right;
     margin-left: 3px;
@@ -71,9 +65,8 @@
     margin:auto;
 }
 
-#side-floater {
+.floater {
     float: right;
-    display: none;
     opacity: 0.90;
 }
 
@@ -81,26 +74,17 @@
     margin-left: 3px;
     margin-top: -0.5px;
     margin-bottom: -1px;
-}
-
-.badge {
     color: #777 !important;
     background-color: #DDD !important;
-}
-
-.list-group-item {
-    padding: 4 8 4 8 !important;
-}
-
-.list-group-horizontal .list-group-item {
-	display: inline-block;
-    white-space: normal !important;
 }
 
 .list-group-horizontal .list-group-item {
 	margin-bottom: 0;
 	margin-left: -4px;
 	margin-right: 0;
+	display: inline-block;
+    white-space: normal !important;
+    padding: 5px 8px 5px 8px !important;
 }
 
 .list-group-horizontal .list-group-item:first-child {
@@ -113,6 +97,10 @@
 	border-bottom-left-radius: 0;
 }
 
-.tbl_alert {
+/* Check/uncheck all items in watable. We don't support this right now. */
+.checkToggle {
     display: none;
+}
+
+.btn-toolbar {
 }

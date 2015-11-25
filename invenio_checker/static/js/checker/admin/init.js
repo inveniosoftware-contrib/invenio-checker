@@ -17,21 +17,32 @@
  * 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-'use strict';
-
 require(
     [
+      "jquery",
       "bootstrap",
       "bootstrap-datepicker-eyecon",
       "bootstrap-datetimepicker",
       "watable",
       "jqcron",
       "jqcron.en",
-      "js/checker/admin/watable",
+
+      "js/checker/admin/flight_controls",
+
+      "js/checker/admin/page_changer",
+      "js/checker/admin/main_menu",
+
+      "js/checker/admin/table",
+      "js/checker/admin/floater",
+
+      "js/checker/admin/task_form",
+      "js/checker/admin/task_form_buttons",
+      "js/checker/admin/task_form_filler",
     ],
 
     function() {
-      console.info("js/checker/admin/init is loaded")
+      'use strict';
+      console.info("js/checker/admin/init loaded");
     }
 
-    );
+);

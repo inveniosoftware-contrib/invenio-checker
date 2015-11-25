@@ -30,8 +30,8 @@ import json
 import sys
 from collections import defaultdict
 from functools import partial
-from importlib import import_module
 from itertools import chain
+from traceback import format_exc
 
 import six
 from croniter import croniter
@@ -47,25 +47,24 @@ from wtforms import Form, \
 from invenio_base.decorators import templated
 from invenio_base.i18n import _
 from invenio_base.wrappers import lazy_import
-from invenio.ext.principal import permission_required
-from invenio.ext.sqlalchemy import db
+from invenio_ext.principal import permission_required
+from invenio_ext.sqlalchemy import db
 from invenio.utils import forms
-from invenio_checker.api import create_task, delete_task, edit_task, run_task, create_reporter
+from invenio_checker.api import create_task, delete_task, edit_task, run_task, create_reporter, edit_reporter, remove_reporter
 
-from ..acl import modifychecker, viewchecker
+from invenio_checker.acl import modifychecker, viewchecker
 from ..recids import ids_from_input
 from ..registry import plugin_files, reporters_files
 from ..views.config import check_mapping, log_mapping, task_mapping
+from invenio_checker.models import get_reporter_db
+from sqlalchemy.orm.exc import NoResultFound
 
 CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 CheckerRuleExecution = \
     lazy_import('invenio_checker.models.CheckerRuleExecution')
-CheckerReporter = \
-    lazy_import('invenio_checker.models.CheckerReporter')
-default_date = \
-    lazy_import('invenio_checker.models.default_date')
-ranges_str = \
-    lazy_import('invenio_checker.models.ranges_str')
+CheckerReporter = lazy_import('invenio_checker.models.CheckerReporter')
+default_date = lazy_import('invenio_checker.models.default_date')
+ranges_str = lazy_import('invenio_checker.models.ranges_str')
 
 blueprint = Blueprint(
     'invenio_checker_admin',
@@ -90,7 +89,6 @@ def get_NewTaskForm(*args, **kwargs):
         )
         reporters = fields.SelectMultipleField(
             'Reporters',
-            # XXX If you rename `reporter` to `plugin`, all hell breaks loose.
             choices=[(reporter, reporter) for reporter in reporters_files],
         )
         consider_deleted_records = fields.BooleanField(
@@ -116,6 +114,9 @@ def get_NewTaskForm(*args, **kwargs):
                 ('submit_schedule',) * 2,
                 ('submit_run',) * 2,
             ]
+        )
+        confirm_hash_on_commit = fields.BooleanField(
+            'Ensure record hash did not change during execution',
         )
         allow_chunking = fields.BooleanField(
             'Allow chunking this task to multiple workers',
@@ -180,8 +181,17 @@ def record_brief():
 @register_breadcrumb(blueprint, 'admin.checker_admin', _('Checker'))
 def view(page_name):
     """Have javascript load the correct page."""
-    return {'page_name': page_name,
-            'new_task_form': get_NewTaskForm()}
+    if page_name in ('task_modify', 'task_branch'):
+        # These are only supported by via javascript at the moment
+        return redirect(url_for('.view', page_name='task_create'))
+    return {'page_name': page_name}
+
+@blueprint.route('/render/new_task_form')
+@login_required
+@permission_required(viewchecker.name)
+def new_task_form():
+    return render_template('checker/admin/task_form.html',
+                           new_task_form=get_NewTaskForm())
 
 # Tasks
 @blueprint.route('/api/tasks/get/data', methods=['GET'])
@@ -202,7 +212,7 @@ def get_all_tasks_data():
 @permission_required(viewchecker.name)
 def get_single_task(task_name):
     """Return the data for a single task."""
-    return jsonify(get_task_data(CheckerRule.query.get(task_name)))
+    return jsonify(get_task_data(CheckerRule.query.filter(CheckerRule.name==task_name).one()))
 
 def get_task_data(rule):
     """Extract a serializable dict for a rule."""
@@ -210,9 +220,15 @@ def get_task_data(rule):
     rule_d = rule.__dict__  # Work around inveniosoftware/invenio-ext#16
     rule_d = {key: val for key, val in rule_d.items()
               if not key.startswith('_')}
+    # Watable expects integers instead of booleans
+    for key, val in rule_d.items():
+        if isinstance(val, bool):
+            rule_d[key] = int(val)
+    # Filter out underscored keys
+    rule_d = {key: val for key, val in rule_d.items()
+              if not key.startswith('_')}
     # Serialize unserializable things
-    rule_d['arguments'] = json.dumps(rule_d['arguments'],
-                                     default=default_date)
+    rule_d['arguments'] = json.dumps(rule_d['arguments'], default=default_date)
     rule_d['filter_records'] = ranges_str(rule_d['filter_records'])
     rule_d['reporters'] = [rep.plugin for rep in rule.reporters]
     return rule_d
@@ -303,7 +319,8 @@ def task_create():
             task = CheckerRule.query.get(task_name)
         elif plugin_name in reporters_files:
             task = CheckerReporter.query.filter(
-                CheckerReporter.rule_name == task_name).first()
+                CheckerReporter.rule_name == task_name,
+                CheckerReporter.plugin == plugin_name).first()
         # The query will only have returned something if the specified
         # task_name already has a relationship with a `plugin_name` type
         # reporter.
@@ -338,7 +355,7 @@ def get_ArgForm(plugin_name, *args, **kwargs):
         @property
         def data_for_db(self):
             ret = {}
-            for key, val in self.data.items():  # pylint: disable=3o-member
+            for key, val in self.data.items():  # pylint: disable=no-member
                 stripped_key = key[len(ArgForm.prefix+"_"):]
                 field = getattr(self, key)
                 schema = ArgForm.schema
@@ -403,8 +420,8 @@ def get_ArgForm(plugin_name, *args, **kwargs):
 @login_required
 @permission_required(viewchecker.name)
 def submit_task():
-    """Record a user-created task to the database and run."""
-    from ..supervisor import run_task
+    """Insert or modify an existing task and its reporters."""
+    from invenio_checker.clients.supervisor import run_task
 
     def failure(type_, errors):
         assert type_ in ('general', 'validation')
@@ -469,7 +486,7 @@ def translate():
     from invenio_base.i18n import _
     return str(_(request.args['english']))
 
-@blueprint.route('/task_run', methods=['GET'])
+@blueprint.route('/api/task_run', methods=['GET'])
 @login_required
 @permission_required(modifychecker.name)
 def task_run():
@@ -482,7 +499,7 @@ def task_run():
         run_task(task.name)
     return jsonify({})
 
-@blueprint.route('/task_delete', methods=['GET'])
+@blueprint.route('/api/task_delete', methods=['GET'])
 @login_required
 @permission_required(modifychecker.name)
 def task_delete():

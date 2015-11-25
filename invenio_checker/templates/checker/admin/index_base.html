@@ -17,22 +17,33 @@
 # 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #}
 
-<script> var requested_page = '{{ page_name }}'; </script>
-
-{% import 'checker/admin/macros_bootstrap.html' as bt %}
 {% extends "page.html" %}
+
+{% block header %}
+    {{ super() }}
+    {% bundles "checker.css", "checker_task_view.js" %}
+{% endblock header %}
+
+{% block javascript %}
+ {{ super() }}
+ <script type="text/javascript">
+     require([
+         "js/checker/admin/flight_controls",
+         ], function(
+             initialize
+         ) {
+             initialize();
+             $(document).trigger("switchTo", {page_name: "{{page_name}}" });
+         });
+ </script>
+{% endblock javascript %}
 
 {% set title = _("Checker Admin") %}
 {% block title %}
-<div class="page-header">
-    <h1>{{ title }} <small id='subtitle'></small></h1>
-</div>
+    <div class="page-header">
+        <h1>{{ title }} <small id='subtitle'></small></h1>
+    </div>
 {% endblock title %}
-
-{% block header %}
-{{ super() }}
-{% bundles "checker.css", "checker_task_view.js" %}
-{% endblock header %}
 
 {% block body %}
 
@@ -65,53 +76,28 @@
 </nav>
 
 {# Tables #}
-<div class="switchable" id="table-container"> </div>
-<div id="side-floater">
-    <div class="list-group-horizontal">
-        <a href="#" class="list-group-item list-group-item-success table-action-btn table-action-multi table-action-signle task_run">Run <span class="badge">0</span></a>
-        <a href="#" class="list-group-item list-group-item-danger table-action-btn table-action-multi table-action-signle task_delete">Delete <span class="badge">0</span></a>
-        <a href="#" class="list-group-item list-group-item-warning table-action-btn table-action-single task_modify">Modify</a>
-        <a href="#" class="list-group-item list-group-item-info table-action-btn table-action-single task_new_with_task_tpl">Use as template</a>
-    </div>
-</div>
+<div class="switchable" id="table-container-checks"> </div>
+<div class="switchable" id="table-container-tasks"> </div>
+<div class="switchable" id="table-container-executions"> </div>
 
 {# Creation #}
 <div class="switchable" id="creation" class="panel panel-default">
+    {#
     <div class="panel-heading">
-        <!-- <h3 class="panel-title">{{ _('Please enter the new task details') }}</h3> -->
+        <h3 class="panel-title">{{ _('Please enter the new task details') }}</h3>
     </div>
+    #}
     <div class="panel-body">
 
-        <div id="new-task-form">
-            {{ bt.render_form(new_task_form, action_url=url_for(".submit_task"), action_text='Save task', id_='new_task_form', class_='form-horizontal') }}
-        </div>
-        <div id='task-insertion-failure' class="alert alert-danger col-md-10"></div>
+        <div id="new-task-form"></div>
 
         <div class="clearfix"></div>
         <div id='matching-records'></div>
-        {#
-        {% call bt.render_form(form, action_url=url_for('login_view'), action_text='Login',
-                                    class_='login-form') %}
-            {{ bt.render_field(form.email, label_visible=false, placeholder='Email', type='email') }}
-            {{ bt.render_field(form.password, label_visible=false, placeholder='Password', type='password') }}
-            {{ bt.render_checkbox_field(form.remember_me) }}
-        {% endcall %}
-        <span>
-            <p style="display:inline;">Name</p>
-            <input type="text" class="form-control" style="width:50%;display:inline;float:right" aria-describedby="basic-addon1">
-        </span>
-        #}
 
     </div>
 </div>
 
-<div class="clearfix"></div>
-<div class="alert alert-dismissible tbl_alert" role="alert">
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-        <span aria-hidden="true">&times;</span>
-    </button>
-  <p></p>
-</div>
+<div id="alerts"></div>
 
 {# Modal #}
 <div class="modal fade" id="dialogModal" tabindex="-1" role="dialog" aria-labelledby="dialogModalLabel">

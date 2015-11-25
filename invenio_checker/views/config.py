@@ -95,11 +95,11 @@ task_mapping = {
         "type": "string",
         "friendly": "Filter records",
     },
-    # "last_run": {
-    #     "index": 7,
-    #     "type": "date",
-    #     "friendly": "Last run",
-    # },
+    "last_run": {
+        "index": 7,
+        "type": "date",
+        "friendly": "Last run",
+    },
     "schedule": {
         "index": 8,
         "type": "string",
