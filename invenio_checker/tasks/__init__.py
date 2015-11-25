@@ -33,14 +33,14 @@ import traceback
 # from datetime import datetime
 # from dictdiffer import diff
 # from invenio_base.globals import cfg
-from invenio.celery import celery
+from invenio_celery import celery
 from celery.result import AsyncResult
 # from invenio.ext.sqlalchemy import db
 # from invenio.legacy.bibsched.bibtask import task_low_level_submission
 # from invenio_records.api import get_record, Record
 
 
-from ..supervisor import *
+from invenio_checker.clients.supervisor import *
 
 # def _ensure_key(key, dict_):
 #     if key not in dict_:
