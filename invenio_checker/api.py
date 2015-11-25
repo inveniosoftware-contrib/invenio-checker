@@ -35,7 +35,6 @@ def create_task(arguments, add=True, commit=True):
     """
     :param options: kwargs to pass to the database model
     """
-    # with db.session.begin_nested():
     new_task = CheckerRule(**arguments)
     if add:
         db.session.add(new_task)
@@ -44,25 +43,12 @@ def create_task(arguments, add=True, commit=True):
         db.session.commit()
     return new_task
 
-def create_reporter(arguments, attach_to_tasks=frozenset(), add=True, commit=True):
-    """
-    :param attach_to_tasks: task objects to attach this reporter to
-    :type attach_to_tasks: list/set/tuple of CheckerRule
-    """
-    if attach_to_tasks and not add:
-        raise AssertionError("Cannot attach a new reporter to a task without adding it to the session first.")
+def create_reporter(arguments, add=True, commit=True):
     new_reporter = CheckerReporter(**arguments)
-
-    # db.session.begin_nested()
     if add:
         db.session.add(new_reporter)
-        if attach_to_tasks:
-            db.session.flush()
-            for task in attach_to_tasks:
-                attach_reporter(new_reporter, task.name)
         if commit:
             db.session.commit()
-
     return new_reporter
 
 def remove_reporter(reporter, commit=True):
@@ -81,12 +67,6 @@ def edit_reporter(reporter, modifications, commit=True):
     if commit:
         db.session.commit()
     return reporter
-
-def attach_reporter(reporter, task_name, commit=True):
-    task = CheckerRule.query.get(task_name)
-    task.reporters.append(reporter)
-    if commit:
-        db.session.commit()
 
 def edit_task(current_task_name, modifications, commit=True):
     """

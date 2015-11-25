@@ -17,8 +17,7 @@
 ## along with Invenio; if not, write to the Free Software Foundation, Inc.,
 ## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from tests.test_integration.test_api import ReporterA
 
-
-def get_reporter(db_entry, execution):
-    return ReporterA(db_entry, execution)
+def check_fail(get_record):
+    r = get_record(5000000)
+    r['this_record_has_id_1'] = True

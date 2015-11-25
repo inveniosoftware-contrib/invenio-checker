@@ -293,7 +293,6 @@ def pytest_sessionfinish(session, exitstatus):
 @eliotify
 def _pytest_sessionfinish(invenio_eliot_action, worker, invenio_reporters, invenio_records, exitstatus):
     """Push the stored patches to redis."""
-    # import pytest; pytest.set_trace()
     # Finalize the reporters
     for reporter in invenio_reporters:
         reporter.finalize()

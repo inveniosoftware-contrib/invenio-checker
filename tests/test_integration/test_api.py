@@ -33,14 +33,19 @@
 
     Q: What about nested transactions?
     A: Let's not abuse the session any more than we do in the actual code.
+
+    Q: Some executions report failure, but how do I know why?
+    A: `eliot-prettyprint < $(ls -1tr $VIRTUAL_ENV/var/log/checker/* | tail -n1 | head -n1) | less`
 """
 
 import pytest
+import sys
 import os
 from os.path import join as pjoin
 
 from invenio_base.wrappers import lazy_import
 from sqlalchemy.orm.exc import NoResultFound
+from importlib import import_module
 
 from invenio.testsuite import InvenioTestCase
 from intbitset import intbitset  # pylint: disable=no-name-in-module
@@ -52,20 +57,12 @@ CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 CheckerRuleExecution = lazy_import('invenio_checker.models.CheckerRuleExecution')
 CheckerReporter = lazy_import('invenio_checker.models.CheckerReporter')
 
-# TODO: check file that raises
-    # * is detected
-    # * reported
-    # * chunk is cancelled
-# TODO: checked records should not be checked again when not forced
-# TODO: logs in the tests call the reporters
-# TODO: non-conflicting tests are allowed to run in parallel (non-integration)
-# TODO: check file that doesn't have `records` fixture
-# TODO: check file with bad number of functions
-# TODO: check performance hints that return bad values
-# TODO: test SIGINT. oh boy.
 # TODO: test mid-check changing of record hash
-# TODO: check beat
-# TODO: dry_run dry runs
+# TODO: check beat runs only when it should
+# TODO: non-conflicting tests are allowed to run in parallel (non-integration)
+# TODO: test stale redis data
+# TODO: check performance hints that return bad values
+# TODO: def load_task_loads_from_json(self):
 
 CLEANUP_AT_END = False
 celery.conf['CELERY_ALWAYS_EAGER'] = True
@@ -77,13 +74,37 @@ large_rng = range(_start, _start + 1000)
 
 # Resolve the location demo check files for patching.
 _current_dir = os.path.dirname(__file__)
-tests_dir = os.path.dirname(_current_dir)
-demo_pkg_dir = pjoin(tests_dir, 'demo_package')
-demo_checks_dir = pjoin(demo_pkg_dir, 'checkerext', 'checks')
+_tests_dir = os.path.dirname(_current_dir)
+_demo_pkg_dir = pjoin(_tests_dir, 'demo_package')
+demo_checks_dir = pjoin(_demo_pkg_dir, 'checkerext', 'checks')
+
+# Prepare mocks of check files
 filepath_with_class = PropertyMock(return_value=pjoin(demo_checks_dir, 'with_class.py'))
-filepath_without_class = PropertyMock(return_value=pjoin(demo_checks_dir, 'without_class.py'))
 assert os.path.isfile(filepath_with_class())
+
+filepath_without_class = PropertyMock(return_value=pjoin(demo_checks_dir, 'without_class.py'))
 assert os.path.isfile(filepath_without_class())
+
+filepath_without_record_fixture = PropertyMock(return_value=pjoin(demo_checks_dir, 'without_record_fixture.py'))
+assert os.path.isfile(filepath_without_record_fixture())
+
+filepath_raises_exception_every_time = PropertyMock(return_value=pjoin(demo_checks_dir, 'raises_exception_every_time.py'))
+assert os.path.isfile(filepath_raises_exception_every_time())
+
+filepath_two_check_functions = PropertyMock(return_value=pjoin(demo_checks_dir, 'two_check_functions.py'))
+assert os.path.isfile(filepath_two_check_functions())
+
+filepath_non_record_centric = PropertyMock(return_value=pjoin(demo_checks_dir, 'non_record_centric.py'))
+assert os.path.isfile(filepath_non_record_centric())
+
+
+def reimport_module(module_name):
+    """Import a module to use as a mock without `sys.modules` cache."""
+    try:
+        del sys.modules[module_name]
+    except KeyError:
+        pass
+    return import_module(module_name)
 
 def get_Query(task_data):
     """Mock for invenio_record.api.Query.
@@ -99,8 +120,6 @@ def setup_db(username, password):
     from invenio_base.scripts.database import drop, create, init
 
     init(user=username, password=password, yes_i_know=True)
-    db_initialized = True
-
     drop(yes_i_know=True, quiet=False)
     create(quiet=False)
 
@@ -129,10 +148,6 @@ class CheckerTestCase(InvenioTestCase):
         config_ = super(CheckerTestCase, self).config
         config_['CFG_DATABASE_NAME'] = 'invenio_checker_integration_tests'
         return config_
-
-    @pytest.fixture(autouse=True)
-    def setupBenchmark(self, benchmark):
-        self.benchmark = benchmark
 
 
 class TestApi(CheckerTestCase):
@@ -179,8 +194,13 @@ class TestApi(CheckerTestCase):
     task_edited = task_branched.copy()
     task_edited.update(task_edit_data)
 
+    reporter_data = {
+        'plugin': 'tests.demo_package.checkerext.reporters.reporterA',
+        'rule_name': task_data['name'],
+    }
+
     def setUp(self):
-        pass
+        reset_reporter()
 
     def tearDown(self):
         pass
@@ -270,27 +290,43 @@ class TestApi(CheckerTestCase):
 
     def test_033_reporter_is_registered(self):
         """Attach a reporter to a task and see if it's actually attached."""
-        from invenio_checker.api import create_task, create_reporter, attach_reporter
+        from invenio_checker.api import create_task, create_reporter
+        from invenio_checker.models import get_reporter_db
 
         # Given a task
         new_task = create_task(TestApi.task_data)
 
-        # Attach reporters to it via two methods
-        reporter_data = {
-            'plugin': 'tests.demo_package.checkerext.reporters.reporterA',
-        }
+        # Attach a reporter to it
+        new_reporter = create_reporter(TestApi.reporter_data)
 
-        #   One-step attaching
-        new_reporter = create_reporter(reporter_data, attach_to_tasks=[new_task])
+        # Make sure the reporter was created
+        reporter_from_db = get_reporter_db(**TestApi.reporter_data)
+        assert reporter_from_db.plugin == TestApi.reporter_data['plugin']
+        assert reporter_from_db.rule_name == TestApi.reporter_data['rule_name']
 
-        #   Two-step attaching
-        new_reporter2 = create_reporter(reporter_data)
-        attach_reporter(new_reporter2.uuid, new_task.name)
+        # and attached to the task
+        assert new_task.reporters == [new_reporter]
 
-        # Make sure they are now associated with the task
-        task_from_db = CheckerRule.query.get(TestApi.task_data['name'])
-        assert new_reporter.uuid in (rep.uuid for rep in task_from_db.reporters)
-        assert new_reporter2.uuid in (rep.uuid for rep in task_from_db.reporters)
+    def test_034_creating_reporter_demands_presence_of_task(self):
+        from invenio_checker.api import create_reporter
+        from sqlalchemy.exc import IntegrityError
+
+        # Create a reporter for a task that does not exist
+        with pytest.raises(IntegrityError):
+            create_reporter(TestApi.reporter_data)
+
+    def test_035_one_reporter_of_each_plugin_allowed_per_task(self):
+        """Attach a reporter to a task and see if it's actually attached."""
+        from invenio_checker.api import create_task, create_reporter
+        from sqlalchemy.orm.exc import FlushError
+
+        # Given a task that has a reporter
+        create_task(TestApi.task_data)
+        create_reporter(TestApi.reporter_data)
+
+        # Try to attach the same reporter on it
+        with pytest.raises(FlushError):
+            create_reporter(TestApi.reporter_data)
 
     def test_036_run_task_with_missing_name_raises(self):
         from invenio_checker.api import run_task
@@ -361,7 +397,7 @@ class TestApi(CheckerTestCase):
         from invenio_checker.api import create_task, run_task
         from invenio_records.api import get_record
 
-        # Given a task
+        # Given a task that forces re-running on unmodified records
         task_data = TestApi.task_data
         Query = get_Query(task_data)
         create_task(task_data)
@@ -387,7 +423,135 @@ class TestApi(CheckerTestCase):
         for i in small_rng:
             assert get_record(i)['field1'] == 3.4 * 2
 
-    def test_0077_worker_that_spun_returns_result(self):
+    # TODO: test success when no records are found in the query
+    #def test_074_run_reports_sucess_when_no_records_found(self):
+
+    def test_075_run_with_dry_run_does_not_modify_records(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+        from invenio_records.api import get_record
+
+        # Given a task that forces re-running on unmodified records
+        task_data = TestApi.task_data
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_with_class):
+            with patch('invenio_checker.models.Query', Query):
+                task_id = run_task(task_data['name'], dry_run=True)
+
+        # Ensure that it modifies the records as coded
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.completed
+        for i in small_rng:
+            assert 'field1' not in get_record(i)
+
+    def test_076_run_with_dry_run_does_not_call_reporters_for_logs(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+        from invenio_records.api import get_record
+
+        # Given a task that forces re-running on unmodified records
+        task_data = TestApi.task_data
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_with_class):
+            with patch('invenio_checker.models.Query', Query):
+                task_id = run_task(task_data['name'], dry_run=True)
+
+        # Ensure that it modifies the records as coded
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.completed
+        assert reported_reports == 0
+
+    def test_077_run_with_dry_run_does_not_call_reporters_for_exceptions(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+        from invenio_records.api import get_record
+
+        # Given a task that forces re-running on unmodified records
+        task_data = TestApi.task_data
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_raises_exception_every_time):
+            with patch('invenio_checker.models.Query', Query):
+                task_id = run_task(task_data['name'], dry_run=True)
+
+        # Ensure that it modifies the records as coded
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.failed
+        assert reported_exceptions == 0
+
+    # @pytest.skip('Nesting pytest is apparently a bad idea.')
+    def test_077_run_on_non_record_centric_calls_check_function(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+        from invenio_records.api import get_record
+
+        # Given a task that does not force re-running on unmodified records
+        task_data = dict(TestApi.task_data)
+        task_data['force_run_on_unmodified_records'] = False
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records([6000000, 6000001])
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_non_record_centric):
+            with patch('invenio_checker.models.Query', Query):
+                run_task(task_data['name'])
+                task_id = run_task(task_data['name'])
+
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.completed
+        assert get_record(6000000)['a_field'] == 'a_value_2'
+        assert get_record(6000001)['a_field'] == 'another_value'
+
+    def test_0100_run_does_not_run_twice_on_records_that_did_no_change_since_last_run(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+        from invenio_records.api import get_record
+
+        # Given a task that does not force re-running on unmodified records
+        task_data = dict(TestApi.task_data)
+        task_data['force_run_on_unmodified_records'] = False
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_with_class):
+            with patch('invenio_checker.models.Query', Query):
+                run_task(task_data['name'])
+                task_id = run_task(task_data['name'])
+
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.completed
+        for i in small_rng:
+            assert get_record(i)['field1'] == 3.4
+
+    def test_0101_run_without_record_fixture_runs_once(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+        from invenio_records.api import get_record
+
+        # Given a task
+        task_data = TestApi.task_data
+        # Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_without_record_fixture):
+            task_id = run_task(task_data['name'])
+
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.completed
+        assert get_record(small_rng[0])['this_record_has_id_1'] == True
+        assert 'this_record_has_id_1' not in get_record(small_rng[1])
+
+    def test_0102_worker_that_spun_returns_result(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import create_task, run_task
 
@@ -413,22 +577,19 @@ class TestApi(CheckerTestCase):
         execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
         assert execution.status == StatusMaster.completed
 
-    def test_0100_run_initialized_reporters_only_when_not_spinning(self):
+    def test_0103_run_initialized_reporters_only_when_not_spinning(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import create_task, run_task, create_reporter
 
         # Given a task with a reporter
         task_data = TestApi.task_data
         new_task = create_task(task_data)
-        new_reporter = create_reporter(
-            {'plugin': 'tests.demo_package.checkerext.reporters.reporterA'},
-            attach_to_tasks=[new_task])
+        new_reporter = create_reporter(TestApi.reporter_data)
         Query = get_Query(task_data)
         self.create_records(small_rng)
 
         # ..while tracking the reporter's initialization
-        from importlib import import_module
-        reporterA = import_module('tests.demo_package.checkerext.reporters.reporterA')
+        reporterA = reimport_module('tests.demo_package.checkerext.reporters.reporterA')
         reporterA.get_reporter = MagicMock()
 
         # ..as well as calls to the task conflict resolver
@@ -482,7 +643,7 @@ class TestApi(CheckerTestCase):
 
         # TODO Use this elsewhere too?
         try:
-            Query.assert_called_once_with(TestApi.task_data['filter_pattern'])
+            Query.assert_called_once_with(task_data['filter_pattern'])
         except KeyError:
             pass
 
@@ -490,36 +651,72 @@ class TestApi(CheckerTestCase):
         execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
         assert execution.status == StatusMaster.failed
 
-    def test_0112_run_calls_reporters_when_there_is_exception(self):
-        return
-        raise
+    def test_0107_run_calls_reporters_when_there_is_exception(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import run_task, create_task, create_reporter
 
         # Given a task..
         task_data = TestApi.task_data
-        Query = get_Query(task_data)
         new_task = create_task(task_data)
+        # ..with a reporter attached
+        new_reporter = create_reporter(TestApi.reporter_data)
+        # and some records in the database
         self.create_records(small_rng)
 
-        # ..with a reporter
-        reporter_data = {
-            'plugin': 'tests.demo_package.checkerext.reporters.reporterA',
-        }
+        reporterA = reimport_module('tests.demo_package.checkerext.reporters.reporterA')
+        Query = get_Query(task_data)
 
-        #   One-step attaching
-        new_reporter = create_reporter(reporter_data, attach_to_tasks=[new_task])
-
-        with patch('invenio_checker.models.CheckerRule.filepath', filepath_without_class):
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_raises_exception_every_time):
             with patch('invenio_checker.models.Query', Query):
-                task_id = run_task(task_data['name'])
+                with patch('invenio_checker.models.CheckerReporter.module', reporterA):
+                    task_id = run_task(task_data['name'])
+
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.failed
+        assert reported_exceptions == len(small_rng)
+
+    def test_0110_run_calls_reporters_when_check_wants_to_log(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import run_task, create_task, create_reporter
+
+        # Given a task..
+        task_data = TestApi.task_data
+        new_task = create_task(task_data)
+        # ..with a reporter attached
+        new_reporter = create_reporter(TestApi.reporter_data)
+        # and some records in the database
+        self.create_records(small_rng)
+
+        reporterA = reimport_module('tests.demo_package.checkerext.reporters.reporterA')
+        Query = get_Query(task_data)
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_with_class):
+            with patch('invenio_checker.models.Query', Query):
+                with patch('invenio_checker.models.CheckerReporter.module', reporterA):
+                    task_id = run_task(task_data['name'])
 
         execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
         assert execution.status == StatusMaster.completed
+        assert reported_reports == len(small_rng)
 
-        raise # TODO
+    def test_0110_run_with_multiple_functions_in_check_file_fails(self):
+        from invenio_checker.api import create_task, run_task
+        from invenio_checker.clients.master import StatusMaster
 
-    # TODO def load_task_loads_from_json(self):
+        # Given a task..
+        task_data = TestApi.task_data
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        # ..where the file has too many check functions
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_two_check_functions):
+            with patch('invenio_checker.models.Query', Query):
+                task_id = run_task(task_data['name'])
+
+        # Ensure that it failed
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.failed
 
     def test_0113_delete_task_deletes_task(self):
         from invenio_checker.api import delete_task, create_task
@@ -535,6 +732,25 @@ class TestApi(CheckerTestCase):
         with pytest.raises(NoResultFound):
             CheckerRule.query.filter(CheckerRule.name == TestApi.task_edited['name']).one()
 
+    def test_0115_delete_task_with_reporter_deletes_task_and_reporter(self):
+        from invenio_checker.api import create_task, create_reporter
+        from invenio_checker.api import delete_task
+
+        # Given a task..
+        task_data = TestApi.task_data
+        Query = get_Query(task_data)
+        new_task = create_task(task_data)
+        self.create_records(small_rng)
+
+        # ..with a reporter attached
+        new_reporter = create_reporter(TestApi.reporter_data)
+
+        # Delete the task
+        delete_task(task_data['name'])
+
+        # Assert the reporter is gone as well
+        assert CheckerReporter.query.filter(CheckerReporter.rule_name == task_data['name']).first() == None
+
     def test_0120_deleting_non_existing_task_raises(self):
         from invenio_checker.api import delete_task
 
@@ -546,6 +762,38 @@ class TestApi(CheckerTestCase):
         if CLEANUP_AT_END:
             self.test_005_setup()
 
+
+reported_reports = 0
+reported_exceptions = 0
+
+def reset_reporter():
+    global reported_reports
+    global reported_exceptions
+    reported_reports = 0
+    reported_exceptions = 0
+
+
+class ReporterA(object):
+    """
+    ..note::
+        This reporter is located here so that we can check how its functions
+        are called.
+    """
+
+    def __init__(self, db_entry, execution):
+        self.db_entry = db_entry
+        self.execution = execution
+
+    def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None, patches=None):
+        global reported_exceptions
+        reported_exceptions += 1
+
+    def report(self, user_readable_msg, location_tuple=None):
+        global reported_reports
+        reported_reports += 1
+
+    def finalize(self):
+        pass
 
 from invenio.testsuite import make_test_suite, run_test_suite
 TEST_SUITE = make_test_suite(TestApi)
