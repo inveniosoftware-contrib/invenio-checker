@@ -210,7 +210,7 @@ class CheckerRule(db.Model):
         now = datetime.now()
         db.session.query(CheckerRecord).filter(
             db.and_(
-                CheckerRecord.rec_id == recids,
+                CheckerRecord.rec_id.in_(recids),
                 CheckerRecord.rule_name == self.name,
             )
         ).update(
