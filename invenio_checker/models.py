@@ -135,6 +135,13 @@ class CheckerRule(db.Model):
     confirm_hash_on_commit = db.Column(db.Boolean, default=False)
 
     allow_chunking = db.Column(db.Boolean, default=True)
+
+    last_modification_date = db.Column(
+        db.DateTime(),
+        nullable=False,
+        server_default='1900-01-01 00:00:00',
+    )
+
     owner_id = db.Column(
         db.Integer(15, unsigned=True),
         db.ForeignKey('user.id'),
@@ -263,6 +270,13 @@ class CheckerRule(db.Model):
             .format(self.force_run_on_unmodified_records),
             '{}'.format(80 * '='),
         ))
+
+    @staticmethod
+    def update_time(mapper, connection, instance):
+        instance.last_modification_date = datetime.now()
+
+event.listen(CheckerRule, 'before_insert', CheckerRule.update_time)
+event.listen(CheckerRule, 'before_update', CheckerRule.update_time)
 
 
 class CheckerRuleExecution(db.Model):
