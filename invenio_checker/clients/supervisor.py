@@ -198,30 +198,35 @@ def _run_task(rule_name, master_id):
         record_centric = _get_record_fixture_presence(rule.filepath)
 
         if record_centric:
-            recid_chunks = tuple(chunk_recids(rule.modified_requested_recids))
+            if rule.allow_chunking:
+                recid_chunks = tuple(chunk_recids(rule.modified_requested_recids))
+            else:
+                recid_chunks = (rule.modified_requested_recids,)
             Message.log(message_type='creating subtasks', count=len(recid_chunks),
-                        mode='record_centric')
-            for chunk in recid_chunks:
-                task_id = uuid()
-                # Must tell the master first so that the worker can detect it
-                redis_master.workers_append(task_id)
-                subtasks.append(create_task(task_id, redis_master.master_id,
-                                            rule, chunk, eliot_task))
+                        mode='record_centric', recid_count=len(rule.modified_requested_recids))
         else:
+            recid_chunks = (set(),)
             Message.log(message_type='creating subtasks', count=1,
                         mode='not_record_centric')
-            subtasks.append(create_task(task_id, redis_master.master_id,
-                                        rule, frozenset(), eliot_task))
 
-        # FIXME: handle_all_completion should be called after the CALLBACKS!
+        for chunk in recid_chunks:
+            task_id = uuid()
+            # Must tell the master first so that the worker can detect it
+            redis_master.workers_append(task_id)
+            subtasks.append(create_celery_task(task_id, redis_master.master_id,
+                                               rule, chunk, eliot_task))
+
         if not subtasks:
+            # In record-centric, there's the chance that no records matched
             redis_master.status = StatusMaster.completed
         else:
             redis_master.status = StatusMaster.running
+            # FIXME: handle_all_completion should be called after the CALLBACKS!
             callback = handle_all_completion.subtask()
             chord(subtasks)(callback)
 
-def create_task(task_id, master_id, rule, chunk, eliot_task):
+def create_celery_task(task_id, master_id, rule, chunk, eliot_task):
+    """Return a celery task for a given recid chunk, linked to a master."""
     eliot_task_id = eliot_task.serialize_task_id()
     RedisWorker.create(task_id, eliot_task_id, chunk)
     return run_test.subtask(
@@ -281,9 +286,9 @@ def handle_worker_completion(task_id):
                     jsonpatch.apply_patch(record, patch, in_place=True)
                     record.commit()
                     patches_count += 1
-            db.session.commit()
             Message.log(message_type='committing complete', patches_count=patches_count)
             worker.master.rule.mark_recids_as_checked(worker.bundle_requested_recids)
+            db.session.commit()
         worker.status = StatusWorker.committed
 
 @celery.task

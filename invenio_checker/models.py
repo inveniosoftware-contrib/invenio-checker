@@ -134,6 +134,7 @@ class CheckerRule(db.Model):
 
     confirm_hash_on_commit = db.Column(db.Boolean, default=False)
 
+    allow_chunking = db.Column(db.Boolean, default=True)
     owner_id = db.Column(
         db.Integer(15, unsigned=True),
         db.ForeignKey('user.id'),

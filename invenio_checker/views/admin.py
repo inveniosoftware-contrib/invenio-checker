@@ -117,6 +117,10 @@ def get_NewTaskForm(*args, **kwargs):
                 ('submit_run',) * 2,
             ]
         )
+        allow_chunking = fields.BooleanField(
+            'Allow chunking this task to multiple workers',
+            default=True,
+        )
         # Hidden
         schedule_enabled = fields.BooleanField(
             'Run this rule periodically',
