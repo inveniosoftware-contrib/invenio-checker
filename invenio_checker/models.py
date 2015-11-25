@@ -41,8 +41,11 @@ from .registry import plugin_files, reporters_files
 from sqlalchemy_utils.types.choice import ChoiceType
 from invenio_checker.clients.master import StatusMaster, RedisMaster
 
+from operator import itemgetter
+from itertools import groupby
 from sqlalchemy.orm import backref
 from sqlalchemy.ext import mutable
+from sqlalchemy import event
 
 
 def default_date(obj):
@@ -131,8 +134,15 @@ class CheckerRule(db.Model):
 
     confirm_hash_on_commit = db.Column(db.Boolean, default=False)
 
-    # TODO
-    # commit = db.Column(db.Boolean, default=True)
+    owner_id = db.Column(
+        db.Integer(15, unsigned=True),
+        db.ForeignKey('user.id'),
+        nullable=False,
+        default=1,
+    )
+    owner = db.relationship(
+        'User'
+    )
 
     @db.hybrid_property
     def filepath(self):

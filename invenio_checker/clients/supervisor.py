@@ -24,23 +24,18 @@
 
 """Load, construct and supervise tasks."""
 
-import signal
-import sys
-import time
 import os
 import math
 
 import jsonpatch
 import pytest
 from celery import chord, uuid
-from six import reraise
 from invenio_celery import celery
 from invenio_base.helpers import with_app_context
 from functools import partial
 
 from .master import RedisMaster, StatusMaster
 from .worker import RedisWorker, StatusWorker
-from .redis_helpers import cleanup_failed_runs
 from eliot import (
     Message,
     to_file,
@@ -64,6 +59,7 @@ from _pytest.main import (
 )
 
 from invenio_base.wrappers import lazy_import
+from sqlalchemy.orm.exc import NoResultFound
 
 from datetime import datetime
 from flask_login import current_user
@@ -122,10 +118,8 @@ def chunk_recids(recids, max_chunks=10, max_chunk_size=1000000):
 
     return _chunks(recids, chunk_size)
 
-def run_task(task_name):
+def run_task(task_name, owner=None):
     # Fail as early as possible if it's missing
-    from sqlalchemy.orm.exc import NoResultFound
-    from six import reraise
     try:
         CheckerRule.query.filter(CheckerRule.name == task_name).one()
     except NoResultFound as e:
@@ -134,10 +128,12 @@ def run_task(task_name):
         raise
 
     master_id = uuid()
-    cur_user_id = current_user.get_id()
-    owner = User.query.get(cur_user_id)
+    # Try to use the currently logged in user as the owner.
     if owner is None:
-        owner = User.query.filter(User.nickname == 'admin').one()
+        cur_user_id = current_user.get_id()
+        owner = User.query.get(cur_user_id)
+        if owner is None:
+            owner = User.query.filter(User.nickname == 'admin').one()
 
     try:
         new_exec = CheckerRuleExecution(
@@ -190,7 +186,7 @@ def _run_task(rule_name, master_id):
 
         # Load rule
         rule = CheckerRule.from_ids((rule_name,)).pop()
-        Message.log(message_type='loading rule', rule_name=rule.name)
+        Message.log(message_type='loaded rule', rule_name=rule.name)
 
         # Ensure test file is present
         if not rule.filepath:
@@ -409,7 +405,8 @@ def beat():
             next_run = iterator.get_next(datetime)
             now = datetime.now()
             if next_run <= now:
-                run_task(rule.name)
+                # Nobody is logged in, so we'll use the owner of the task
+                run_task(rule.name, owner=rule.owner)
                 rule.last_run = now
                 try:
                     db.session.add(rule)
