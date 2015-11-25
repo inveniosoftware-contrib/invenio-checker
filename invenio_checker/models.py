@@ -474,6 +474,20 @@ def ranges_str(items):
     output = output.lstrip(",")
     return output
 
+def get_reporter_db(plugin, rule_name):
+    """
+    # TODO
+    plugin example: invenio_checker.foo.bar.baz
+    rule_name example
+
+    :rtype CheckerReporter:
+
+    :raises: sqlalchemy.orm.exc.NoResultFound
+    """
+    return CheckerReporter.query.filter_by(
+        rule_name=rule_name,
+        plugin=plugin).one()
+
 __all__ = (
     'CheckerRule',
     'CheckerRecord',

@@ -22,24 +22,22 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-from invenio_checker.models import CheckerReporter
 from invenio_workflows.api import start_delayed
 from sqlalchemy.orm.exc import NoResultFound
 
 
 class WorkflowReporter(object):
-    def __init__(self, rule_name):
-        try:
-            self.reporter = CheckerReporter.query.filter_by(rule_name=rule_name).one()
-        except NoResultFound:
-            raise Exception("Missing or wrong reporter name!")
+    def __init__(self, db_entry, execution):
+        self.reporter = db_entry
+        self.execution = execution
 
     def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None, patches=None):
         error_data = {'rule_name': self.reporter.rule_name,
                       'when': when,
                       'outrep_summary': outrep_summary,
                       'location_tuple': location_tuple,
-                      'formatted_exception': formatted_exception}
+                      'formatted_exception': formatted_exception,
+                      'patches': patches}
         start_delayed('simple_reporting_workflow', [error_data], module_name="checker")
 
     def report(self, user_readable_msg, location_tuple=None):
@@ -48,7 +46,5 @@ class WorkflowReporter(object):
     def finalize(self):
         pass
 
-# TODO make reporter load correct settings from DB on initialization basing on name taken from task
-def get_reporter(name):
-    print "Initializing reporter %s" % (name,)
-    return WorkflowReporter(name)
+def get_reporter(db_entry, execution):
+    return WorkflowReporter(db_entry, execution)

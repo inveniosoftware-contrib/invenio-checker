@@ -45,14 +45,13 @@ from invenio_checker.clients.worker import (
     workers_are_compatible,
 )
 import eliot
-from eliot import (
-    Message,
-)
+from eliot import Message
 import mock
 from invenio_checker.config import get_eliot_log_file
 from .check_helpers import LocationTuple
 from _pytest.main import EXIT_OK
 from intbitset import intbitset  # pylint: disable=no-name-in-module
+from invenio_checker.models import get_reporter_db
 
 Session = None
 
@@ -161,7 +160,7 @@ def _pytest_collection_modifyitems(task_arguments, worker, items, invenio_rule,
             Message.log(message_type='detected conflicting workers', value=str(blockers))
             del items[:]
         else:
-            option.invenio_reporters = load_reporters(invenio_rule)
+            option.invenio_reporters = load_reporters(invenio_rule, option.invenio_execution)
             worker.status = StatusWorker.running
 
 def _ensure_only_one_test_function_exists_in_check(items):
@@ -319,6 +318,8 @@ def _get_fullpatches_of_last_run(step, invenio_records, redis_worker):
 
     ..note::
         `invenio_records` is populated by the `get_record` function.
+
+    :raises TypeError: when non-JSON serializable content exists in the patch
     """
     assert step in ('temporary', 'modified')
     for recid, modified_record in invenio_records[step].items():
@@ -440,12 +441,12 @@ class InvenioReporter(TerminalReporter):
             exc_info = sys.exc_info()
         formatted_exception = ''.join(traceback.format_exception(*exc_info))
 
-        # TODO: eliotify
-        # Remove ambiguous patches and inform all enabled reporters
+        # Remove patches of failed runs and inform all enabled reporters
         invenio_records = Session.invenio_records
         worker = Session.config.option.redis_worker
         patches = []
-        for fullpatch in _get_fullpatches_of_last_run('temporary', invenio_records, worker):
+        patches_of_failed_run = _get_fullpatches_of_last_run('temporary', invenio_records, worker)
+        for fullpatch in patches_of_failed_run:
             del invenio_records['temporary'][fullpatch['recid']]
             patches.append(fullpatch)
 
@@ -488,8 +489,8 @@ def _pytest_internalerror(excrepr, excinfo):
 
     # Eliot does introspection, so we have to HACK around that.
     with mock.patch(
-            'eliot._traceback.sys.exc_info',
-            mock.Mock(return_value=(excinfo.type, excinfo.value, excinfo.tb))
+        'eliot._traceback.sys.exc_info',
+        mock.Mock(return_value=(excinfo.type, excinfo.value, excinfo.tb))
     ):
         eliot.write_traceback()
     Session.invenio_eliot_action.finish(excinfo.value)
@@ -531,10 +532,16 @@ def _pytest_exception_interact(node, call, report):
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
 
-def load_reporters(invenio_rule):
-    return [reporter.module.get_reporter(invenio_rule.name)
-            for reporter in invenio_rule.reporters]
+def load_reporters(invenio_rule, execution):
+    all_reporters = []
+    for reporter in invenio_rule.reporters:
+        db_reporter = get_reporter_db(reporter.module.__name__,
+                                      invenio_rule.name)
+        all_reporters.append(reporter.module.get_reporter(db_reporter,
+                                                          execution))
+    return all_reporters
 
+@eliotify
 def report_log(reporters, user_readable_msg, location_tuple):
     # Log to eliot
     Message.log(message_type="check log", msg=user_readable_msg, location=location_tuple)
@@ -544,10 +551,11 @@ def report_log(reporters, user_readable_msg, location_tuple):
             reporter.report(user_readable_msg, location_tuple)
 
 def report_exception(reporters, when, outrep_summary,
-                     location_tuple, formatted_exception):
-    for reporter in reporters:
-        reporter.report_exception(when, outrep_summary, location_tuple,
-                                  formatted_exception)
+                     location_tuple, formatted_exception, patches=None):
+    if Session.config.option.invenio_execution.should_report_exceptions:
+        for reporter in reporters:
+            reporter.report_exception(when, outrep_summary, location_tuple,
+                                      formatted_exception, patches=patches)
 
 def finalize_reporters(reporters):
     for reporter in reporters:

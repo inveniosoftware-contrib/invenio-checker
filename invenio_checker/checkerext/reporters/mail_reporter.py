@@ -22,7 +22,7 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-from invenio.ext.email import send_email
+from invenio_ext.email import send_email
 from invenio_checker.models import CheckerReporter, CheckerRule
 from sqlalchemy.orm.exc import NoResultFound
 from invenio_base.config import CFG_SITE_ADMIN_EMAIL
@@ -39,14 +39,10 @@ class SendEmail(Enum):
 
 
 class MailReporter(object):
-    def __init__(self, rule_name):
-        try:
-            self.reporter = CheckerReporter.query.filter_by(rule_name=rule_name).one()
-        except NoResultFound:
-            raise Exception("Missing or wrong reporter name!")
-        task = CheckerRule.query.filter_by(rule_name=rule_name).one()
-        self.rule_name = rule_name
-        self.email = task.owner.email
+    def __init__(self, db_entry, execution):
+        self.reporter = db_entry
+        self.rule_name = db_entry.rule.name
+        self.email = execution.owner.email
         self.settings = self.reporter.arguments
 
     def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None, patches=None):
@@ -65,6 +61,5 @@ class MailReporter(object):
         pass
 
 
-# TODO make reporter load correct settings from DB on initialization basing on name taken from task
-def get_reporter(name):
-    return MailReporter(name)
+def get_reporter(db_entry, execution):
+    return MailReporter(db_entry, execution)
