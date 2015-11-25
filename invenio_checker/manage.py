@@ -102,13 +102,9 @@ opt_task_name = Option(
 #     help='Enable reporters'
 # )
 
-opt_no_commit = Option(
-    '--no-commit', '-c0', dest='commit', action='store_false',
-    help='Disable committing changes to the database'
-)
-opt_commit = Option(
-    '--commit', '-c1', dest='commit', action='store_true',
-    help='Enable committing changes to the database (default)'
+opt_dry_run = Option(
+    '--dry-run', '-d', dest='dry_run', action='store_true',
+    help='Disable committing changes to the database and reporting'
 )
 
 opt_temporary = Option(
@@ -150,7 +146,7 @@ opt_check_spec = Option(
     help='The check import specifier (eg invenio_thing.foo.bar.test_baz)'
 )
 opt_check_spec_pos = Option(
-    'check-spec', metavar='plugin',
+    'plugin', metavar='plugin',
     help='The check import specifier (eg invenio_thing.foo.bar.test_baz)'
 )
 
@@ -177,7 +173,6 @@ class CreateTask(Command):
 
     option_list = (
         opt_task_name_pos, opt_check_spec_pos,
-        opt_no_commit, opt_commit,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
         opt_consider_deleted_records, opt_no_consider_deleted_records,
@@ -201,7 +196,6 @@ class BranchTask(Command):
         opt_task_name_pos,
         opt_task_name,
         opt_check_spec,
-        opt_no_commit, opt_commit,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
         opt_consider_deleted_records, opt_no_consider_deleted_records,
@@ -230,7 +224,6 @@ class ModifyTask(Command):
         opt_task_name_pos,
         opt_task_name,
         opt_check_spec,
-        opt_no_commit, opt_commit,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
         opt_consider_deleted_records, opt_no_consider_deleted_records,
@@ -275,11 +268,12 @@ class RunTask(Command):
     # TODO: Dry run
     option_list = (
         opt_task_name_pos_multi,
+        opt_dry_run,
     )
 
-    def run(self, task_name_pos_multi):
+    def run(self, task_name_pos_multi, dry_run):
         for task_name_pos in task_name_pos_multi:
-            run_task(task_name_pos)
+            run_task(task_name_pos, dry_run=dry_run)
 
 
 manager.add_command('run-task', RunTask())

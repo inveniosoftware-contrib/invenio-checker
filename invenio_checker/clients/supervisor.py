@@ -118,7 +118,7 @@ def chunk_recids(recids, max_chunks=10, max_chunk_size=1000000):
 
     return _chunks(recids, chunk_size)
 
-def run_task(task_name, owner=None):
+def run_task(task_name, owner=None, dry_run=False):
     # Fail as early as possible if it's missing
     try:
         CheckerRule.query.filter(CheckerRule.name == task_name).one()
@@ -142,6 +142,7 @@ def run_task(task_name, owner=None):
             start_date=datetime.now(),
             status=StatusMaster.booting,
             owner=owner,
+            dry_run=dry_run,
         )
         db.session.add(new_exec)
         db.session.commit()

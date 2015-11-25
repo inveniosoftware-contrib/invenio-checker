@@ -113,12 +113,12 @@ def delete_task(task_name):
         db.session.rollback()
         raise
 
-def run_task(task_name):
+def run_task(task_name, dry_run=False):
     """
     :param task_name: name of task to delete
     """
     from invenio_checker.clients.supervisor import run_task
-    return run_task(task_name)
+    return run_task(task_name, dry_run=dry_run)
 
 def import_task_from_json_file(json_file):
     """
