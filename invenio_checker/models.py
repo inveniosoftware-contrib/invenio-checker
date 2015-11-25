@@ -292,7 +292,7 @@ class CheckerRuleExecution(db.Model):
         db.Integer(15, unsigned=True),
         db.ForeignKey('user.id'),
         nullable=False,
-        server_default='0'
+        default=1
     )
     owner = db.relationship(
         'User'
@@ -429,14 +429,15 @@ class CheckerReporter(db.Model):
 
     __tablename__ = 'checker_reporter'
 
-    uuid = db.Column(db.Integer, primary_key=True)
-    plugin = db.Column(db.String(127))
-    arguments = db.Column(JsonEncodedDict(1023), default={})
+    plugin = db.Column(db.String(127), primary_key=True)
     rule_name = db.Column(
         db.String(127),
-        db.ForeignKey('checker_rule.name'),
+        db.ForeignKey('checker_rule.name', onupdate="CASCADE", ondelete="CASCADE"),
         index=True,
+        nullable=False,
+        primary_key=True,
     )
+    arguments = db.Column(JsonEncodedDict(1023), default={})
 
     @db.hybrid_property
     def module(self):
