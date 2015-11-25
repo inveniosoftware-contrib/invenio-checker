@@ -54,7 +54,7 @@ def get_eliot_log_file(master_id=None, worker_id=None):
         return open(os.path.join(eliot_log_path, master_id), "ab")
 
 def clear_logger_destinations(Logger):
-    Logger._destinations._destinations[:]
+    del Logger._destinations._destinations[:]
 
 CHECKER_CELERYBEAT_SCHEDULE = {
 
