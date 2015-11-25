@@ -447,34 +447,50 @@ def submit_task():
     modify = form_for_db.pop('modify')
     original_name = form_for_db.pop('original_name')
     requested_action = form_for_db.pop('requested_action')
-    reporter_names = form_for_db.pop('reporters')
+    reporter_names = set(form_for_db.pop('reporters'))
     form_for_db['arguments'] = form_plugin.data_for_db
 
     try:
+
+        # Create or edit task
         if modify:
             task = edit_task(original_name, form_for_db, commit=False)
         else:
             task = create_task(form_for_db, commit=False)
-        # Add reporters
+
+        # Create or edit reporters and attach them as well
         for reporter_name in reporter_names:
             form_reporter = get_ArgForm(reporter_name, request.form)
-            create_reporter(
-                {'plugin': form_reporter.plugin_name,
-                 'arguments': form_reporter.data_for_db},
-                attach_to_tasks=(task,),
-                commit=False
-            )
-            db.session.commit()
+            try:
+                reporter = get_reporter_db(form_reporter.plugin_name, original_name)
+            except NoResultFound:
+                create_reporter({'plugin': form_reporter.plugin_name,
+                                 'rule_name': task.name,
+                                 'arguments': form_reporter.data_for_db},
+                                 commit=False)
+            else:
+                edit_reporter(reporter,
+                              {'plugin': form_reporter.plugin_name,
+                               'rule_name': task.name,
+                               'arguments': form_reporter.data_for_db},
+                              commit=False)
+        if modify:
+            # Delete reporters that are no longer selected
+            attached_reporter_plugin_names = {reporter.plugin for reporter in task.reporters}
+            for plugin_name_to_remove in attached_reporter_plugin_names - reporter_names:
+                ex_reporter = get_reporter_db(plugin_name_to_remove, original_name)
+                remove_reporter(ex_reporter, commit=False)
+
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return failure('general', (str(e),))
+        return failure('general', format_exc())
 
     if requested_action.startswith('submit_run'):
         try:
             run_task(task.name)
         except Exception as e:
-            return failure('general', (str(e),))
+            return failure('general', format_exc())
 
     return success()
 

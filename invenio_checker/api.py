@@ -59,15 +59,31 @@ def create_reporter(arguments, attach_to_tasks=frozenset(), add=True, commit=Tru
         if attach_to_tasks:
             db.session.flush()
             for task in attach_to_tasks:
-                attach_reporter(new_reporter.uuid, task.name)
+                attach_reporter(new_reporter, task.name)
         if commit:
             db.session.commit()
 
     return new_reporter
 
-def attach_reporter(reporter_id, task_name, commit=True):
+def remove_reporter(reporter, commit=True):
+    db.session.delete(reporter)
+    if commit:
+        db.session.commit()
+
+def edit_reporter(reporter, modifications, commit=True):
+    """
+    :param repoter: invenio_checker.models.CheckerReporter
+    :param modifications: modifications to update the database with
+    """
+    for key, value in modifications.iteritems():
+        setattr(reporter, key, value)
+    db.session.merge(reporter)
+    if commit:
+        db.session.commit()
+    return reporter
+
+def attach_reporter(reporter, task_name, commit=True):
     task = CheckerRule.query.get(task_name)
-    reporter = CheckerReporter.query.get(reporter_id)
     task.reporters.append(reporter)
     if commit:
         db.session.commit()

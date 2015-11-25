@@ -22,7 +22,7 @@
 from __future__ import unicode_literals
 
 from invenio_base.bundles import invenio as _i, jquery as _j
-from invenio.ext.assets import Bundle, CleanCSSFilter, RequireJSFilter
+from invenio_ext.assets import Bundle, CleanCSSFilter, RequireJSFilter
 
 
 js = Bundle(
@@ -33,7 +33,7 @@ js = Bundle(
     bower={
         "jquery": "latest",
         "bootstrap-datepicker-eyecon": "latest",
-        "watable": "latest",
+        "watable": "https://github.com/wootapa/watable.git#44856312ea",
         "flight": "latest",
         "jqcron": "https://github.com/arnapou/jqcron.git",
     }
