@@ -59,7 +59,7 @@ def clear_logger_destinations(Logger):
 CHECKER_CELERYBEAT_SCHEDULE = {
 
     'checker-beat': {
-        'task': 'invenio_checker.supervisor.beat',
+        'task': 'invenio_checker.clients.supervisor.beat',
         'schedule': crontab(minute='*/1'),
     }
 }
