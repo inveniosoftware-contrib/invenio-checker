@@ -57,13 +57,14 @@ class HasWorkers(PleasePylint):
     """Give master the ability to set and reason about its workers."""
 
     @property
+    @set_identifier(master_workers)
     def workers(self):
         """Get all the workers associated with this master.
 
         :rtype: set of :py:class:`WorkerRedis`
         """
         from .worker import RedisWorker
-        return {RedisWorker(worker_id) for worker_id in self.workers}
+        return {RedisWorker(worker_id) for worker_id in self.conn.smembers(self._identifier)}
 
     @workers.setter
     @set_identifier(master_workers)
