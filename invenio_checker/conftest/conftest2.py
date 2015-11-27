@@ -51,7 +51,6 @@ from invenio_checker.config import get_eliot_log_file
 from .check_helpers import LocationTuple
 from _pytest.main import EXIT_OK
 from intbitset import intbitset  # pylint: disable=no-name-in-module
-from invenio_checker.models import get_reporter_db
 
 Session = None
 
@@ -144,15 +143,19 @@ def _pytest_collection_modifyitems(task_arguments, worker, items, invenio_rule,
     :type config: :py:class:_pytest.config.Config
     :type items: list
     """
-    # Make sure the check file is sane
     _ensure_only_one_test_function_exists_in_check(items)
+    item = items[0]
 
-    # Inform the worker
-    worker.allowed_paths, worker.allowed_recids = \
-        _get_restrictions_from_check_class(items[0], task_arguments, batch_recids_, all_recids_)
-    worker.status = StatusWorker.ready  # XXX unused?
+    # Inform the worker about allowed paths and recids
+    if _test_func_uses_record_related_fixtures(item):
+        worker.allowed_paths, worker.allowed_recids = \
+            _get_restrictions_from_check_class(item, task_arguments,
+                                               batch_recids_, all_recids_)
+    else:
+        worker.allowed_paths, worker.allowed_recids = None, None
 
     # Check if there are conflicts with other workers
+    worker.status = StatusWorker.ready
     with worker.lock():
         blockers = _worker_conflicts_with_currently_running(worker)
         worker.retry_after_ids = {bl.uuid for bl in blockers}
@@ -162,6 +165,11 @@ def _pytest_collection_modifyitems(task_arguments, worker, items, invenio_rule,
         else:
             option.invenio_reporters = load_reporters(invenio_rule, option.invenio_execution)
             worker.status = StatusWorker.running
+
+def _test_func_uses_record_related_fixtures(item):
+    """Get if a check function uses fixtures that provide access to records."""
+    from invenio_checker.conftest.check_fixtures import record_fetching_fixturenames
+    return record_fetching_fixturenames & item.fixturenames
 
 def _ensure_only_one_test_function_exists_in_check(items):
     """Raise if != 1 check funcs were collected from a single check file."""
@@ -532,6 +540,7 @@ def _pytest_exception_interact(node, call, report):
 ################################################################################
 
 def load_reporters(invenio_rule, execution):
+    from invenio_checker.models import get_reporter_db
     all_reporters = []
     for reporter in invenio_rule.reporters:
         db_reporter = get_reporter_db(reporter.module.__name__,

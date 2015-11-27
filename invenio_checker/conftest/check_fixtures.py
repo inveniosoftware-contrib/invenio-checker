@@ -161,3 +161,11 @@ def pytest_generate_tests(metafunc):
     if 'record' in metafunc.fixturenames:
         metafunc.parametrize("record", batch_recids(metafunc.config),
                              indirect=True)
+
+# Fixture names that provide direct or indirect access to the checker's record
+# storage.
+record_fetching_fixturenames = ('get_record', 'search', 'record')
+
+# Include any functions you expect pytest to detect and use.
+__all__ = ('get_record', 'search', 'arguments', 'all_recids', 'batch_recids',
+           'log', 'record', 'pytest_generate_tests')
