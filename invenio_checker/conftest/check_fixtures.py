@@ -105,7 +105,10 @@ def search(request, get_record):
 
 @pytest.fixture(scope="session")
 def arguments(request):
-    """Get the user-set arguments from the database."""
+    """Return arguments given to the task from the database configuration.
+
+    :type request: :py:class:_pytest.python.SubRequest
+    """
     return request.config.option.invenio_rule.arguments
 
 @pytest.fixture(scope="session")
@@ -141,14 +144,6 @@ def log(request):
         location_tuple = LocationTuple.from_report_location(request.node.reportinfo())
         report_log(request.config.option.invenio_reporters, user_readable_msg, location_tuple)
     return _log
-
-@pytest.fixture(scope="function")
-def cfg_args(request):
-    """Return arguments given to the task from the database configuration.
-
-    :type request: :py:class:_pytest.python.SubRequest
-    """
-    return request.config.option.invenio_rule.arguments
 
 @pytest.fixture(scope="function")
 def record(request, get_record):
