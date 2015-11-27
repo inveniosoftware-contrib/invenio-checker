@@ -175,7 +175,7 @@ class CreateTask(Command):
         opt_task_name_pos, opt_check_spec_pos,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
-        opt_consider_deleted_records, opt_no_consider_deleted_records,
+        # opt_consider_deleted_records, opt_no_consider_deleted_records,
         opt_arguments,
         opt_schedule, opt_schedule_disable, opt_schedule_enable,
     )
@@ -198,7 +198,7 @@ class BranchTask(Command):
         opt_check_spec,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
-        opt_consider_deleted_records, opt_no_consider_deleted_records,
+        # opt_consider_deleted_records, opt_no_consider_deleted_records,
         opt_arguments,
         opt_schedule, opt_schedule_disable, opt_schedule_enable,
     )
@@ -226,7 +226,7 @@ class ModifyTask(Command):
         opt_check_spec,
         opt_no_temporary, opt_temporary,
         opt_filter_records, opt_filter_pattern,
-        opt_consider_deleted_records, opt_no_consider_deleted_records,
+        # opt_consider_deleted_records, opt_no_consider_deleted_records,
         opt_arguments,
         opt_schedule, opt_schedule_disable, opt_schedule_enable,
     )

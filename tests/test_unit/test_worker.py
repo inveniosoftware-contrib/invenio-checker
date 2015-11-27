@@ -28,13 +28,12 @@ from invenio_checker.clients.worker import (
     RedisWorker,
     get_lock_partial,
 )
-from intbitset import intbitset  # pylint: disable=no-name-in-module
 from pytest_mock import mock_module
 import pytest
 import mock
-import redis
 
-# from .conftest import get_TestRedisWorker
+# TODO: Test RedisWorker.allowed_paths
+
 
 class TestWorker(object):
     def test_workers_with_unproc_results(self, mocker):
@@ -59,6 +58,7 @@ class TestWorker(object):
 
         from invenio_checker.clients.worker import get_workers_with_unprocessed_results
         assert get_workers_with_unprocessed_results() == {w_c_run, w_c_ran}
+
 
 class TestFullpatch(object):
     def test_id_to_fullpatch_extracts_the_right_patch(self):
@@ -142,9 +142,7 @@ class TestFullpatch(object):
 
         # Verify
         identifier = 'invenio_checker:worker:abc:allowed_recids'
-        if input_ is None:
-            m_conn.set.assert_called_once_with(identifier, None)
-        else:
+        if input_ is not None:
             m_conn.set.assert_called_once_with(identifier, intbitset_str)
         if not isinstance(intbitset_str, Exception):
             m_intbitset.assert_called_once_with(input_)
@@ -173,7 +171,3 @@ class TestFullpatch(object):
             m_intbitset.assert_called_once_with(intbitset_str)
 
         assert retval == m_intbitset_inst
-
-    #def test_worker_notifies_master_about_status_update(self): #TODO
-
-    # Ensure worker inherits from everything import that we test TODO

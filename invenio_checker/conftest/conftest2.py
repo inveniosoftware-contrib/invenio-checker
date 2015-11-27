@@ -52,6 +52,7 @@ from .check_helpers import LocationTuple
 from _pytest.main import EXIT_OK
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 
+# FIXME: Preferably get rid of this global (Werkzeug ProxyObject)? Globalproxy?
 Session = None
 
 ################################################################################
@@ -122,6 +123,30 @@ def pytest_configure(config):
 
 ################################################################################
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# pytest_sessionstart
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+################################################################################
+
+def pytest_sessionstart(session):
+    """Called at the beginning of the session, after config initialization.
+
+    :type session: :py:class:`_pytest.main.Session`
+    """
+    worker = session.config.option.redis_worker
+    return _pytest_sessionstart(session, worker)
+
+def _pytest_sessionstart(session, worker):
+    """Initialize session-wide variables for record management and caching."""
+    session.invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
+    global Session  # pylint: disable=global-statement
+    Session = session
+
+    # Set the eliot log path
+    eliot.to_file(get_eliot_log_file(worker_id=worker.uuid))
+    session.invenio_eliot_action = eliot.start_action(action_type=u"pytest worker")
+
+################################################################################
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # pytest_collection_modifyitems
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
@@ -146,6 +171,9 @@ def _pytest_collection_modifyitems(task_arguments, worker, items, invenio_rule,
     _ensure_only_one_test_function_exists_in_check(items)
     item = items[0]
 
+    # TODO: There could be a flag that declares whether there are side-effects
+    # in the DB, instead of checking for use of record_fetching_fixturenames
+
     # Inform the worker about allowed paths and recids
     if _test_func_uses_record_related_fixtures(item):
         worker.allowed_paths, worker.allowed_recids = \
@@ -169,7 +197,7 @@ def _pytest_collection_modifyitems(task_arguments, worker, items, invenio_rule,
 def _test_func_uses_record_related_fixtures(item):
     """Get if a check function uses fixtures that provide access to records."""
     from invenio_checker.conftest.check_fixtures import record_fetching_fixturenames
-    return record_fetching_fixturenames & item.fixturenames
+    return record_fetching_fixturenames & set(item.fixturenames)
 
 def _ensure_only_one_test_function_exists_in_check(items):
     """Raise if != 1 check funcs were collected from a single check file."""
@@ -233,30 +261,6 @@ def _worker_conflicts_with_currently_running(worker):
 
 ################################################################################
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# pytest_sessionstart
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-################################################################################
-
-def pytest_sessionstart(session):
-    """Called at the beginning of the session, after config initialization.
-
-    :type session: :py:class:`_pytest.main.Session`
-    """
-    worker = session.config.option.redis_worker
-    return _pytest_sessionstart(session, worker)
-
-def _pytest_sessionstart(session, worker):
-    """Initialize session-wide variables for record management and caching."""
-    session.invenio_records = {'original': {}, 'modified': {}, 'temporary': {}}
-    global Session  # pylint: disable=global-statement
-    Session = session
-
-    # Set the eliot log path
-    eliot.to_file(get_eliot_log_file(worker_id=worker.uuid))
-    session.invenio_eliot_action = eliot.start_action(action_type=u"pytest worker")
-
-################################################################################
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # pytest_runtest_logreport
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
@@ -285,7 +289,6 @@ def _pytest_runtest_logreport(report, invenio_records):
 # pytest_sessionfinish
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 ################################################################################
-
 
 def pytest_sessionfinish(session, exitstatus):
     """Called when the entire check run has completed.

@@ -92,7 +92,10 @@ def _workers_touch_common_paths(paths1, paths2):
     return False
 
 def _workers_touch_common_records(recids1, recids2):
-    return recids1 & recids2
+    # XXX work around inveniosoftware/intbitset#18
+    if any(isinstance(item, type(None)) for item in (recids1, recids2)):
+        return False
+    return bool(recids1 & recids2)
 
 def workers_are_compatible(worker1, worker2):
     return not (
@@ -170,7 +173,7 @@ class HasAllowedRecids(PleasePylint):
         :type allowed_recids: set
         """
         if allowed_recids is None:
-            return self.conn.set(self._identifier, None)
+            return self.conn.delete(self._identifier)
         return self.conn.set(self._identifier,
                              intbitset(allowed_recids).fastdump())
 
@@ -181,10 +184,13 @@ class HasAllowedPaths(PleasePylint):
     @set_identifier(worker_allowed_paths)
     def allowed_paths(self):
         """Get the dictionary paths that this worker is allowed to modify."""
-        paths = self.conn.smembers(self._identifier)
-        if paths is None:
-            return None
-        return frozenset(paths)
+        from redis.exceptions import ResponseError
+        try:
+            paths = self.conn.get(self._identifier)
+            return paths  # can only be None
+        except ResponseError:  # WRONGTYPE
+            paths = self.conn.smembers(self._identifier)
+            return frozenset(paths)
 
     @allowed_paths.setter
     @set_identifier(worker_allowed_paths)
@@ -193,7 +199,6 @@ class HasAllowedPaths(PleasePylint):
 
         :type allowed_paths: set
         """
-        # TODO must be jsonpointers (IETF RFC 6901)
         self.conn.delete(self._identifier)
         if allowed_paths:
             return self.conn.sadd(self._identifier, *allowed_paths)

@@ -22,30 +22,25 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-from invenio_checker.enums import StatusWorker
-import redis
-from invenio_checker.clients.worker import (
-    RedisWorker,
-    get_lock_partial,
-)
-from pytest_mock import mock_module
+# from invenio_checker.clients.worker import (
+#     RedisWorker,
+#     get_lock_partial,
+# )
 import pytest
 from copy import deepcopy
-from mock import call
-import mock
+from mock import call, create_autospec
 from frozendict import frozendict as fd
-
 from invenio_base.wrappers import lazy_import
+from intbitset import intbitset as ibs
+
 get_record = lazy_import('invenio_checker.conftest.conftest2.get_record')
 _pytest_sessionfinish = lazy_import('invenio_checker.conftest.conftest2._pytest_sessionfinish')
 pytest_sessionstart = lazy_import('invenio_checker.conftest.conftest2.pytest_sessionstart')
 _get_fullpatches_of_last_run = lazy_import('invenio_checker.conftest.conftest2._get_fullpatches_of_last_run')
 
-import mock
-from functools import wraps
-
 
 class TestConftest(object):
+
     def test_sessionfinish_sends_patches_to_redis(self, mocker, m_conn):
 
         # Given some expected patches
@@ -116,7 +111,7 @@ class TestConftest(object):
 
         # Mock make_fullpatch
         from invenio_checker.clients.worker import make_fullpatch
-        m_make_fullpatch = mock.create_autospec(make_fullpatch)
+        m_make_fullpatch = create_autospec(make_fullpatch)
         mocker.patch('invenio_checker.conftest.conftest2.make_fullpatch', m_make_fullpatch)
 
         # Run
@@ -129,29 +124,17 @@ class TestConftest(object):
             m_make_fullpatch(2, 'hash1', '[{"path": "/recid", "value": 20, "op": "replace"}]', 'abc'),
         }
 
-    #def test_make_fullpatch(self):
+    def test_worker_clears_items_when_blocked(self, mocker, m_option):
+        from invenio_checker.enums import StatusWorker
 
-    # @pytest.mark.skipif(True, reason="not sure if worth it")
-    # def test_pytest_sessionstart_initializes(self, mocker, m_config):
-    #     session = type('session', (object,), {})()
-    #     session.config = m_config
-
-    #     Session = type('Session', (object,), {})()
-    #     mocker.patch('invenio_checker.conftest.conftest2.Session', Session)
-
-    #     pytest_sessionstart(session)
-    #     assert session.invenio_records == {  # pylint: disable=no-member
-    #         'original': {}, 'modified': {}, 'temporary': {}}
-    #     assert Session.session is session  # pylint: disable=no-member
-
-    # TODO: Split into multiple
-    @pytest.mark.skipif(True, reason='too complex')
-    def test_worker_clears_items_when_blocked(self, mocker):
         mocker.patch('invenio_checker.conftest.conftest2._ensure_only_one_test_function_exists_in_check',
                      mocker.Mock())
 
         mocker.patch('invenio_checker.conftest.conftest2._get_restrictions_from_check_class',
                      mocker.Mock(return_value=('abc', 'def')))
+
+        mocker.patch('invenio_checker.conftest.conftest2.load_reporters',
+                     mocker.Mock())
 
         m_worker_conflicts_with_currently_running = \
             mocker.patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
@@ -161,7 +144,15 @@ class TestConftest(object):
                                  mocker.Mock(uuid='ID2'),
                              )))
 
-        m_items = [1, 2, 3]
+        mocker.patch('invenio_checker.conftest.conftest2.Session',
+                     mocker.MagicMock())
+
+        class Item(object):
+            def __init__(self, i):
+                self.i = i
+                self.fixturenames = ''
+
+        m_items = [Item(1), Item(2), Item(3)]
         m_worker = mocker.Mock()
         m_worker.attach_mock(mocker.Mock(), 'retry_after_ids')
 
@@ -170,7 +161,6 @@ class TestConftest(object):
 
         m_task_arguments = mocker.Mock()
 
-        m_session = mocker.Mock()
 
         # This manager is used so that we can assert the order at which its
         # attached mocks were called.
@@ -182,8 +172,8 @@ class TestConftest(object):
         # mock_manager end
 
         from invenio_checker.conftest.conftest2 import _pytest_collection_modifyitems
-        _pytest_collection_modifyitems(m_session, m_task_arguments, m_worker,
-                                       m_items, invenio_rule, option)
+        _pytest_collection_modifyitems(m_task_arguments, m_worker, m_items, None, m_option,
+                                       {1, 2}, {1, 2, 3, 4})
 
         assert m_worker.status == StatusWorker.ready
         assert m_items == []
@@ -214,6 +204,21 @@ class TestConftest(object):
         from invenio_checker.clients.worker import _workers_touch_common_paths
         assert _workers_touch_common_paths(paths1, paths2) == expected_result
         assert _workers_touch_common_paths(paths2, paths1) == expected_result
+
+
+    @pytest.mark.parametrize("_,recids1,recids2,expected_result", [
+        ("both same", ibs({1, 2, 3}), ibs({1, 2, 3}), True),
+        ("subset", ibs({1, 2, 3}), ibs({1, 2}), True),
+        ("different", ibs({1, 2}), ibs({2, 3}), True),
+        ("one none", None, ibs({1, 2}), False),
+        ("both none", None, None, False),
+    ])
+    def test_workers_touch_recids_resolves(self, _, recids1, recids2,
+                                           expected_result):
+        from invenio_checker.clients.worker import _workers_touch_common_records
+        assert _workers_touch_common_records(recids1, recids2) == expected_result
+        assert _workers_touch_common_records(recids2, recids1) == expected_result
+
 
 # class TestFixtures(object):
 

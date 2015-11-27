@@ -164,7 +164,7 @@ def pytest_generate_tests(metafunc):
 
 # Fixture names that provide direct or indirect access to the checker's record
 # storage.
-record_fetching_fixturenames = ('get_record', 'search', 'record')
+record_fetching_fixturenames = {'get_record', 'search', 'record'}
 
 # Include any functions you expect pytest to detect and use.
 __all__ = ('get_record', 'search', 'arguments', 'all_recids', 'batch_recids',

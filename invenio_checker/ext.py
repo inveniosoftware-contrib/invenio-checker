@@ -28,8 +28,6 @@ from __future__ import absolute_import, print_function
 
 from flask_babelex import gettext as _
 
-from .views import blueprint
-
 
 class InvenioChecker(object):
     """Invenio-Checker extension."""
@@ -42,6 +40,7 @@ class InvenioChecker(object):
 
     def init_app(self, app):
         """Flask application initialization."""
+        from .views import blueprint
         self.init_config(app)
         app.register_blueprint(blueprint)
         app.extensions['invenio-checker'] = self

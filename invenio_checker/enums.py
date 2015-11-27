@@ -26,7 +26,7 @@ from enum import Enum
 
 
 class StatusWorker(Enum):
-    dead_parrot = 0
+    dead_parrot = 0  # canary value
     scheduled = 1
     booting = 2
     ready = 3

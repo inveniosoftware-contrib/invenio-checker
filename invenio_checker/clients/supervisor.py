@@ -175,6 +175,7 @@ def _run_task(rule_name, master_id):
     # signal.signal(signal.SIGTERM, sigint_hook)
     # sys.excepthook = except_hook
 
+    from eliot import Logger
     clear_logger_destinations(Logger)
     to_file(get_eliot_log_file(master_id=master_id))
     with start_task(action_type="invenio_checker:supervisor:_run_task",
@@ -199,7 +200,7 @@ def _run_task(rule_name, master_id):
         record_centric = _get_record_fixture_presence(rule.filepath)
 
         if record_centric:
-            if rule.allow_chunking:
+            if rule.allow_chunking:  # XXX unclear name (run_in_parallel)
                 recid_chunks = tuple(chunk_recids(rule.modified_requested_recids))
             else:
                 recid_chunks = (rule.modified_requested_recids,)
@@ -288,6 +289,7 @@ def handle_worker_completion(task_id):
                     record.commit()
                     patches_count += 1
             Message.log(message_type='committing complete', patches_count=patches_count)
+            # FIXME only mark the ones we committed
             worker.master.rule.mark_recids_as_checked(worker.bundle_requested_recids)
             db.session.commit()
         worker.status = StatusWorker.committed
@@ -317,6 +319,8 @@ def handle_worker_error(failed_task_id):
 
 
 class CustomRetry(Exception):
+    times_retried = 0
+
     def __init__(self, reason, last_run_still_valid, countdown=None):
         """
         :param countdown: retry countdown in seconds, if needs overriding
@@ -325,6 +329,7 @@ class CustomRetry(Exception):
         super(CustomRetry, self).__init__(reason)
         self.countdown = countdown
         self.last_run_still_valid = last_run_still_valid
+        CustomRetry.times_retried += 1
 
 
 def _get_record_fixture_presence(check_file):

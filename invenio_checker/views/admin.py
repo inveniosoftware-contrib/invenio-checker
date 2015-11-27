@@ -91,9 +91,9 @@ def get_NewTaskForm(*args, **kwargs):
             'Reporters',
             choices=[(reporter, reporter) for reporter in reporters_files],
         )
-        consider_deleted_records = fields.BooleanField(
-            'Consider deleted records',
-        )
+        # consider_deleted_records = fields.BooleanField(
+        #     'Consider deleted records',
+        # )
         force_run_on_unmodified_records = fields.BooleanField(
             'Force run on unmodified records',
         )

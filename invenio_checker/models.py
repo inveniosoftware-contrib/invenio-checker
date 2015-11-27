@@ -26,12 +26,13 @@
 
 import inspect
 import simplejson as json
+from invenio_base.wrappers import lazy_import
 
 from sqlalchemy import types
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from invenio_ext.sqlalchemy import db
 from invenio_search.api import Query
-from invenio_records.models import Record as Bibrec
+from invenio_records.models import RecordMetadata
 from invenio_ext.sqlalchemy.utils import session_manager
 from datetime import datetime, date
 from bson import json_util  # included in `pymongo`, not `bson`
@@ -195,15 +196,15 @@ class CheckerRule(db.Model):
             recids = zip(
                 *db.session
                 .query(CheckerRecord.rec_id)
-                .outerjoin(Bibrec)
+                .outerjoin(RecordMetadata)
                 .filter(
                     CheckerRecord.rec_id.in_(requested_ids),
                     CheckerRecord.rule_name == self.name,
                     db.or_(
                         self.force_run_on_unmodified_records,
                         db.or_(
-                            CheckerRecord.last_run == None,
-                            CheckerRecord.last_run < Bibrec.modification_date,
+                            CheckerRecord.last_run_version_id == 1,
+                            CheckerRecord.last_run_version_id < RecordMetadata.version_id,
                         ),
                     )
                 )
@@ -214,23 +215,19 @@ class CheckerRule(db.Model):
 
     @session_manager
     def mark_recids_as_checked(self, recids):
-        now = datetime.now()
-        db.session.query(CheckerRecord).filter(
-            db.and_(
-                CheckerRecord.rec_id.in_(recids),
+        db.session.query(CheckerRecord).\
+            filter(
+                CheckerRecord.rec_id == RecordMetadata.id,
                 CheckerRecord.rule_name == self.name,
-            )
-        ).update(
-            {
-                "last_run": now,
-            },
-            synchronize_session=False
-        )
+                CheckerRecord.rec_id.in_(recids),
+            ).\
+            update({"last_run_version_id": RecordMetadata.version_id},
+                   synchronize_session=False)
 
     @db.hybrid_property
     def requested_recids(self):
         """Search using config only."""
-        # TODO: Use self.option_consider_deleted_records
+        # TODO: Use self.option_consider_deleted_records when it's available
         pattern = self.filter_pattern or ''
         recids = Query(pattern).search().recids
 
@@ -398,14 +395,13 @@ class CheckerRecord(db.Model):
 
     rec_id = db.Column(
         db.MediumInteger(8, unsigned=True),
-        db.ForeignKey(Bibrec.id),
+        db.ForeignKey(RecordMetadata.id),
         primary_key=True,
         nullable=False,
         autoincrement=True,
     )
-    record = db.relationship(Bibrec, backref=backref(
+    record = db.relationship(RecordMetadata, backref=backref(
         "checker_record", cascade="all, delete-orphan"))
-    # record = db.relationship(Bibrec, cascade="all, delete-orphan", single_parent=True)
 
     rule_name = db.Column(
         db.String(127),
@@ -415,11 +411,9 @@ class CheckerRecord(db.Model):
         primary_key=True,
     )
 
-    last_run = db.Column(
-        db.DateTime,
-        nullable=True,
-        server_default=None,
-        index=True
+    last_run_version_id = db.Column(
+        db.Integer,
+        nullable=False,
     )
 
 

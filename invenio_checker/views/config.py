@@ -80,11 +80,11 @@ task_mapping = {
         "type": "string",
         "friendly": "Arguments",
     },
-    "consider_deleted_records": {
-        "index": 4,
-        "type": "bool",
-        "friendly": "Consider deleted records",
-    },
+    # "consider_deleted_records": {
+    #     "index": 4,
+    #     "type": "bool",
+    #     "friendly": "Consider deleted records",
+    # },
     "filter_pattern": {
         "index": 5,
         "type": "string",
@@ -121,7 +121,6 @@ task_mapping = {
         "friendly": "Force run on unmodified records",
     },
 }
-# TODO: add last_run? But it's not for users.. But it's useful. FIXME.
 
 check_mapping = {
     "name": {

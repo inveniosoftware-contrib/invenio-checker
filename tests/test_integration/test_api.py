@@ -25,17 +25,24 @@
 
 """Integration tests for the checker module API."""
 
-""" Your friendly Q and A:
-
-    Q: Why are you patching `Query`?
+"""
+    Q: Why are you always patching `Query`?
     A: Because we never commit to the database, elasticsearch is never
-    populated and will never return any results.
+    populated and will therefore never return any results.
 
     Q: What about nested transactions?
     A: Let's not abuse the session any more than we do in the actual code.
 
     Q: Some executions report failure, but how do I know why?
-    A: `eliot-prettyprint < $(ls -1tr $VIRTUAL_ENV/var/log/checker/* | tail -n1 | head -n1) | less`
+    A: `eliot-prettyprint < $(ls -1tr $VIRTUAL_ENV/var/log/checker/* | tail \
+        -n1 | head -n1) | less`
+
+    Q: How do I run just once check from this test?
+    A: `py.test tests/test_integration -x -vv --invenio-db-password=YOURPWD \
+        --invenio-db-username=root -k 'setup or MATCHER_OF_YOUR_TEST'`
+
+    Q: I messed up and old data in redis is causing the tests to spin forever!
+    A: `inveniomanage shell <<< "import redis; redis.StrictRedis().flushall()"`
 """
 
 import pytest
@@ -64,6 +71,7 @@ CheckerReporter = lazy_import('invenio_checker.models.CheckerReporter')
 # TODO: check performance hints that return bad values
 # TODO: def load_task_loads_from_json(self):
 
+conflict_check_count = 0
 CLEANUP_AT_END = False
 celery.conf['CELERY_ALWAYS_EAGER'] = True
 
@@ -97,6 +105,8 @@ assert os.path.isfile(filepath_two_check_functions())
 filepath_non_record_centric = PropertyMock(return_value=pjoin(demo_checks_dir, 'non_record_centric.py'))
 assert os.path.isfile(filepath_non_record_centric())
 
+filepath_without_any_record_fetching_fixture = PropertyMock(return_value=pjoin(demo_checks_dir, 'without_any_record_fetching_fixture.py'))
+assert os.path.isfile(filepath_without_any_record_fetching_fixture())
 
 def reimport_module(module_name):
     """Import a module to use as a mock without `sys.modules` cache."""
@@ -117,10 +127,9 @@ def get_Query(task_data):
 
 def setup_db(username, password):
     """Recreate the database."""
-    from invenio_base.scripts.database import drop, create, init
+    from invenio_base.scripts.database import create, init
 
     init(user=username, password=password, yes_i_know=True)
-    drop(yes_i_know=True, quiet=False)
     create(quiet=False)
 
     # Since we are not running `inveniomanage` for this, signals have not been
@@ -167,7 +176,7 @@ class TestApi(CheckerTestCase):
         'name': test_entry_prefix + 'Task 1',
         'plugin': 'tests.demo_package.checkerext.checks.with_class',
         'arguments': {'field_name': 'field1', 'new_number_for_field': 3.4},
-        'consider_deleted_records': True,
+        # 'consider_deleted_records': True,
         # 'filter_pattern': 'Higgs',
         'filter_records': intbitset(small_rng),
         'schedule': '30 1 * * *',
@@ -208,11 +217,10 @@ class TestApi(CheckerTestCase):
     @pytest.fixture(autouse=True)
     def dbsession(self, request):
         # Roll back at the end of every test
-        request.addfinalizer(lambda:db.session.invenio_really_remove())  # pylint: disable=unnecessary-lambda
+        request.addfinalizer(lambda: db.session.invenio_really_remove())  # pylint: disable=unnecessary-lambda
 
     @pytest.fixture(autouse=True)
     def load_db_config(self, pytestconfig):
-
         self.invenio_db_username = pytestconfig.option.invenio_db_username
         self.invenio_db_password = pytestconfig.option.invenio_db_password
 
@@ -423,8 +431,8 @@ class TestApi(CheckerTestCase):
         for i in small_rng:
             assert get_record(i)['field1'] == 3.4 * 2
 
-    # TODO: test success when no records are found in the query
-    #def test_074_run_reports_sucess_when_no_records_found(self):
+  # TODO: test success when no records are found in the query
+  #def test_074_run_reports_sucess_when_no_records_found(self):
 
     def test_075_run_with_dry_run_does_not_modify_records(self):
         from invenio_checker.clients.master import StatusMaster
@@ -487,7 +495,6 @@ class TestApi(CheckerTestCase):
         assert execution.status == StatusMaster.failed
         assert reported_exceptions == 0
 
-    # @pytest.skip('Nesting pytest is apparently a bad idea.')
     def test_077_run_on_non_record_centric_calls_check_function(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import create_task, run_task
@@ -510,7 +517,7 @@ class TestApi(CheckerTestCase):
         assert get_record(6000000)['a_field'] == 'a_value_2'
         assert get_record(6000001)['a_field'] == 'another_value'
 
-    def test_0100_run_does_not_run_twice_on_records_that_did_no_change_since_last_run(self):
+    def test_0100_run_does_not_run_twice_on_records_that_did_not_change_since_last_run(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import create_task, run_task
         from invenio_records.api import get_record
@@ -532,7 +539,37 @@ class TestApi(CheckerTestCase):
         for i in small_rng:
             assert get_record(i)['field1'] == 3.4
 
-    def test_0101_run_without_record_fixture_runs_once(self):
+    def test_0101_run_reruns_once_record_has_been_modified(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+        from invenio_records.api import get_record
+
+        # Given a task that does not force re-running on unmodified records
+        task_data = dict(TestApi.task_data)
+        task_data['force_run_on_unmodified_records'] = False
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_with_class):
+            with patch('invenio_checker.models.Query', Query):
+                # Run once
+                task_id = run_task(task_data['name'])
+                execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+                assert execution.status == StatusMaster.completed
+                # Mark first record as modified
+                rec = get_record(small_rng[0])
+                rec['unrelated_thing'] = 'unrelated_key'
+                rec.commit()
+                # Run again
+                task_id = run_task(task_data['name'])
+
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.completed
+        assert get_record(small_rng[0])['field1'] == 3.4 * 2
+        assert get_record(small_rng[1])['field1'] == 3.4
+
+    def test_0102_run_without_record_fixture_runs_once(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import create_task, run_task
         from invenio_records.api import get_record
@@ -551,7 +588,7 @@ class TestApi(CheckerTestCase):
         assert get_record(small_rng[0])['this_record_has_id_1'] == True
         assert 'this_record_has_id_1' not in get_record(small_rng[1])
 
-    def test_0102_worker_that_spun_returns_result(self):
+    def test_0103_worker_that_spun_returns_result(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import create_task, run_task
 
@@ -562,22 +599,56 @@ class TestApi(CheckerTestCase):
         self.create_records(small_rng)
 
         # ..that conflicts with other workers for a while
-        conflicts = (
-            {MagicMock(uuid=1), MagicMock(uuid=2)},
-            {MagicMock(uuid=1)},
-            {},
-        )
+        def conflict_yielder():
+            conflicts = (
+                {MagicMock(uuid=1), MagicMock(uuid=2)},
+                {MagicMock(uuid=1)},
+                {},
+            )
+            global conflict_check_count
+            conflict_check_count = 0
+            for conflict in conflicts:
+                conflict_check_count += 1
+                yield conflict
 
         with patch('invenio_checker.models.CheckerRule.filepath', filepath_without_class):
             with patch('invenio_checker.models.Query', Query):
-                with patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running', side_effect=conflicts):
+                with patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
+                           side_effect=conflict_yielder()):
+                    task_id = run_task(task_data['name'])
+
+        # Ensure it finishes successfully
+        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
+        assert execution.status == StatusMaster.completed
+        assert conflict_check_count == 3
+
+    def test_0104_worker_does_not_conflict_with_others_when_not_using_record_related_fixtures(self):
+        from invenio_checker.clients.master import StatusMaster
+        from invenio_checker.api import create_task, run_task
+
+        # Given a task
+        task_data = TestApi.task_data
+        Query = get_Query(task_data)
+        create_task(task_data)
+        self.create_records(small_rng)
+
+        # ..that has no conflicts (since it should have None,None as allowed_{paths,recids})
+        def m_worker_conflicts_with_currently_running(worker):
+            assert worker.allowed_paths is None
+            assert worker.allowed_recids is None
+            return {}
+
+        with patch('invenio_checker.models.CheckerRule.filepath', filepath_without_any_record_fetching_fixture):
+            with patch('invenio_checker.models.Query', Query):
+                with patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
+                           side_effect=m_worker_conflicts_with_currently_running):
                     task_id = run_task(task_data['name'])
 
         # Ensure it finishes successfully
         execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
         assert execution.status == StatusMaster.completed
 
-    def test_0103_run_initialized_reporters_only_when_not_spinning(self):
+    def test_0105_run_initialized_reporters_only_when_not_spinning(self):
         from invenio_checker.clients.master import StatusMaster
         from invenio_checker.api import create_task, run_task, create_reporter
 
