@@ -33,10 +33,10 @@ from frozendict import frozendict as fd
 from invenio_base.wrappers import lazy_import
 from intbitset import intbitset as ibs
 
-get_record = lazy_import('invenio_checker.conftest.conftest2.get_record')
-_pytest_sessionfinish = lazy_import('invenio_checker.conftest.conftest2._pytest_sessionfinish')
-pytest_sessionstart = lazy_import('invenio_checker.conftest.conftest2.pytest_sessionstart')
-_get_fullpatches_of_last_run = lazy_import('invenio_checker.conftest.conftest2._get_fullpatches_of_last_run')
+get_record = lazy_import('invenio_checker.conftest.conftest_checker.get_record')
+_pytest_sessionfinish = lazy_import('invenio_checker.conftest.conftest_checker._pytest_sessionfinish')
+pytest_sessionstart = lazy_import('invenio_checker.conftest.conftest_checker.pytest_sessionstart')
+_get_fullpatches_of_last_run = lazy_import('invenio_checker.conftest.conftest_checker._get_fullpatches_of_last_run')
 
 
 class TestConftest(object):
@@ -47,10 +47,10 @@ class TestConftest(object):
         patch1 = {'task_id': 'abc', 'recid': 1, 'patch': '[{"path": "/recid", "value": 10, "op": "replace"}]'}
         patch2 = {'task_id': 'abc', 'recid': 2, 'patch': '[{"path": "/recid", "value": 20, "op": "replace"}]'}
         m_get_fullpatches_of_last_run = mocker.Mock(return_value=(patch1, patch2))
-        mocker.patch('invenio_checker.conftest.conftest2._get_fullpatches_of_last_run', m_get_fullpatches_of_last_run)
+        mocker.patch('invenio_checker.conftest.conftest_checker._get_fullpatches_of_last_run', m_get_fullpatches_of_last_run)
 
         # for eliotify
-        mocker.patch('invenio_checker.conftest.conftest2.Session', mocker.MagicMock())
+        mocker.patch('invenio_checker.conftest.conftest_checker.Session', mocker.MagicMock())
 
         # ..and some names the code expects
         worker = mocker.Mock(uuid='abc', conn=m_conn, patch_to_redis=mocker.Mock(), retry_after_ids={})
@@ -107,12 +107,12 @@ class TestConftest(object):
         # Mock jsonpatch  --  Returns jsonpatch.JsonPatch
         m_jsonpatch = mocker.Mock()
         m_jsonpatch.make_patch = jsonpatch
-        mocker.patch('invenio_checker.conftest.conftest2.jsonpatch', m_jsonpatch)
+        mocker.patch('invenio_checker.conftest.conftest_checker.jsonpatch', m_jsonpatch)
 
         # Mock make_fullpatch
         from invenio_checker.clients.worker import make_fullpatch
         m_make_fullpatch = create_autospec(make_fullpatch)
-        mocker.patch('invenio_checker.conftest.conftest2.make_fullpatch', m_make_fullpatch)
+        mocker.patch('invenio_checker.conftest.conftest_checker.make_fullpatch', m_make_fullpatch)
 
         # Run
         ret = tuple(_get_fullpatches_of_last_run('modified', invenio_records, worker))
@@ -127,24 +127,24 @@ class TestConftest(object):
     def test_worker_clears_items_when_blocked(self, mocker, m_option):
         from invenio_checker.enums import StatusWorker
 
-        mocker.patch('invenio_checker.conftest.conftest2._ensure_only_one_test_function_exists_in_check',
+        mocker.patch('invenio_checker.conftest.conftest_checker._ensure_only_one_test_function_exists_in_check',
                      mocker.Mock())
 
-        mocker.patch('invenio_checker.conftest.conftest2._get_restrictions_from_check_class',
+        mocker.patch('invenio_checker.conftest.conftest_checker._get_restrictions_from_check_class',
                      mocker.Mock(return_value=('abc', 'def')))
 
-        mocker.patch('invenio_checker.conftest.conftest2.load_reporters',
+        mocker.patch('invenio_checker.conftest.conftest_checker.load_reporters',
                      mocker.Mock())
 
         m_worker_conflicts_with_currently_running = \
-            mocker.patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
+            mocker.patch('invenio_checker.conftest.conftest_checker._worker_conflicts_with_currently_running',
                          mocker.Mock(
                              return_value=(
                                  mocker.Mock(uuid='ID1'),
                                  mocker.Mock(uuid='ID2'),
                              )))
 
-        mocker.patch('invenio_checker.conftest.conftest2.Session',
+        mocker.patch('invenio_checker.conftest.conftest_checker.Session',
                      mocker.MagicMock())
 
         class Item(object):
@@ -171,7 +171,7 @@ class TestConftest(object):
                                  '_worker_conflicts_with_currently_running')
         # mock_manager end
 
-        from invenio_checker.conftest.conftest2 import _pytest_collection_modifyitems
+        from invenio_checker.conftest.conftest_checker import _pytest_collection_modifyitems
         _pytest_collection_modifyitems(m_task_arguments, m_worker, m_items, None, m_option,
                                        {1, 2}, {1, 2, 3, 4})
 

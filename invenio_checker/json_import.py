@@ -22,16 +22,16 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-"""
-The JSON <--> DB objects (sqlalchemy) converter module.
-"""
+"""The JSON <--> DB objects (sqlalchemy) converter module."""
 
 import json
 
 
 def json2models(json_file, model_name):
-    """
-    Given a JSON file and a model name, generates the corresponding objects.
+    """Import database objects from a given JSON file.
+
+    :param json_file: path to json file to import from
+    :param model_name: name of model name to use
     """
     model = __import__('models', globals(), locals(), [model_name])
     with open(json_file) as f:
@@ -40,8 +40,12 @@ def json2models(json_file, model_name):
 
 
 def models2json(db_objs, json_file):
-    """
-    Given an iterable of model objects, dumps them to the JSON file specified.
+    """Dumps database objects to a specificed JSON file.
+
+    :param db_objs: objects to export
+    :type db_objs: iterable
+
+    :param json_file: filepath to dump to
     """
     serialized_list = []
     for db_obj in db_objs:

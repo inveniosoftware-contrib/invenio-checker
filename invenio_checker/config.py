@@ -27,6 +27,7 @@ from invenio_checker.clients.worker import RedisWorker
 from flask import current_app
 
 def mkdir_p(path):
+    """Recursively create directories of a given path."""
     try:
         os.makedirs(path)
     except OSError as exc:
@@ -54,7 +55,10 @@ def get_eliot_log_file(master_id=None, worker_id=None):
         return open(os.path.join(eliot_log_path, master_id), "ab")
 
 def clear_logger_destinations(Logger):
+    """Clear all logging destinations of an eliot logger."""
     del Logger._destinations._destinations[:]
+
+CHECKER_REDIS_URI = 'redis://localhost:6379/1'
 
 CHECKER_CELERYBEAT_SCHEDULE = {
 
@@ -64,9 +68,5 @@ CHECKER_CELERYBEAT_SCHEDULE = {
     }
 }
 
-# XXX DO NOT COMMIT
-CELERYBEAT_SCHEDULE = CHECKER_CELERYBEAT_SCHEDULE
-
-# TODO Perhaps support this so that overlays can have default reporters,
-# but this requires some effort(?) because interfaces will have to accomodate.
-# CHECKER_DEFAULT_REPORTERS =
+# Enable this in your overlay to activate the scheduler:
+# CELERYBEAT_SCHEDULE = CHECKER_CELERYBEAT_SCHEDULE

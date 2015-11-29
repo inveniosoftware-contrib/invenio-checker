@@ -95,10 +95,10 @@ task_mapping = {
         "type": "string",
         "friendly": "Filter records",
     },
-    "last_run": {
+    "last_scheduled_run": {
         "index": 7,
         "type": "date",
-        "friendly": "Last run",
+        "friendly": "Last scheduled run",
     },
     "schedule": {
         "index": 8,
@@ -119,6 +119,14 @@ task_mapping = {
         "index": 11,
         "type": "bool",
         "friendly": "Force run on unmodified records",
+    },
+    "last_modification_date": {
+        "index": 12,
+        "type": "date",
+        "sorting": True,
+        "sortOrder": "desc",
+        "hidden": True,
+        "friendly": "Last task modifation date",
     },
 }
 

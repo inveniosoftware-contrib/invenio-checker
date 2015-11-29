@@ -40,28 +40,24 @@ from .redis_helpers import (
 )
 from invenio_checker.clients.master import master_workers
 from invenio_checker.enums import StatusWorker
-from invenio_checker.clients.redis_helpers import get_lock_partial
 
-
-_prefix = 'invenio_checker'
-_prefix_worker = _prefix + ':worker:{uuid}'
-_prefix_master = _prefix + ':master:{uuid}'
+from invenio_checker.clients.redis_helpers import (
+    get_lock_partial,
+    prefix_worker,
+    client_patches,
+    _prefix,
+)
 
 # Global
 client_examining_lock = _prefix + ':client:examine_lock'
-lock_last_owner = _prefix_master + ':examine_lock'
 
 # Worker
-worker_allowed_recids = _prefix_worker + ':allowed_recids'
-worker_allowed_paths = _prefix_worker + ':allowed_paths'
-worker_requested_recids = _prefix_worker + ':requested_recids'
+worker_allowed_recids = prefix_worker + ':allowed_recids'
+worker_allowed_paths = prefix_worker + ':allowed_paths'
+worker_requested_recids = prefix_worker + ':requested_recids'
 
-worker_status = _prefix_worker + ':status'
-worker_retry_after_ids = _prefix_worker + ':retry_after_ids'
-
-# Common
-client_eliot_task_id = _prefix + ':{uuid}:eliot_task_id'
-client_patches = _prefix + ':patches:{uuid}:{recid}:{record_hash}' # patch
+worker_status = prefix_worker + ':status'
+worker_retry_after_ids = prefix_worker + ':retry_after_ids'
 
 # References
 keys_worker = {
@@ -69,17 +65,12 @@ keys_worker = {
     worker_allowed_paths,
     worker_requested_recids,
     worker_status,
-    #client_eliot_task_id,
     worker_retry_after_ids,
 }
 
 def _workers_touch_common_paths(paths1, paths2):
 
     def paths_are_exclusive(path1, path2):
-        # if not path1.endswith('/'):
-        #     path1 += '/'
-        # if not path2.endswith('/'):
-        #     path2 += '/'
         return path1.startswith(path2) or path2.startswith(path1)
 
     if not paths1:
@@ -277,12 +268,6 @@ class HasStatusWorker(PleasePylint):
             self._disappear_as_depender()
             self._cleanup()
 
-    # def on_others_failure(self):
-    #     with self.lock():
-    #         self._disappear_as_depender()
-    #         self._clear_own_patches()
-    #         self._cleanup()
-
     def _disappear_as_depender(self):
         """Remove this task from being a dependency of all other tasks."""
         for worker in get_workers_in_redis():
@@ -296,7 +281,6 @@ class HasStatusWorker(PleasePylint):
 
     def _cleanup(self):
         """Remove this worker from redis."""
-        return
         for key in keys_worker:
             self.conn.delete(self.fmt(key))
 
@@ -346,7 +330,7 @@ class HasPatches(PleasePylint):
         patches = defaultdict(list)
         for sub_id in self.conn.scan_iter(identifier):
             for patch in self.conn.lrange(sub_id, 0, -1):
-                recid = sub_id.split(':')[3]
+                recid = int(sub_id.split(':')[3])
                 patches[recid].append(patch)
         return patches
 

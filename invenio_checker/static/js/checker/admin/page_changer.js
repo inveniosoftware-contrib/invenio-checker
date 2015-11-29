@@ -85,9 +85,9 @@ define(
       // Components and state
       this._updateSubtitle = function(page_name) {
         var subtitles = {
-          tasks: 'Tasks view',
-          checks: 'Checks view',
-          executions: 'Executions view',
+          tasks: 'Tasks',
+          checks: 'Checks',
+          executions: 'Executions',
           task_create: 'Create task',
           task_modify: 'Modify task',
           task_branch: 'Create task',

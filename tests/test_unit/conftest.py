@@ -103,7 +103,7 @@ def m_session(mocker, m_config):
     m_session_.invenio_eliot_action = mocker.MagicMock(
         return_value=mocker.MagicMock(spec=file))
 
-    # mocker.patch('invenio_checker.conftest.conftest2.Session', m_session_)
+    # mocker.patch('invenio_checker.conftest.conftest_checker.Session', m_session_)
 
     return m_session_
 

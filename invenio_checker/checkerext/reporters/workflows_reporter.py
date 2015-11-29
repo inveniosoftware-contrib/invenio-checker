@@ -23,7 +23,6 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 from invenio_workflows.api import start_delayed
-from sqlalchemy.orm.exc import NoResultFound
 
 
 class WorkflowReporter(object):
@@ -31,14 +30,16 @@ class WorkflowReporter(object):
         self.reporter = db_entry
         self.execution = execution
 
-    def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None, patches=None):
+    def report_exception(self, when, outrep_summary, location_tuple,
+                         formatted_exception=None, patches=None):
         error_data = {'rule_name': self.reporter.rule_name,
                       'when': when,
                       'outrep_summary': outrep_summary,
                       'location_tuple': location_tuple,
                       'formatted_exception': formatted_exception,
                       'patches': patches}
-        start_delayed('simple_reporting_workflow', [error_data], module_name="checker")
+        start_delayed('simple_reporting_workflow', [error_data],
+                      module_name="checker")
 
     def report(self, user_readable_msg, location_tuple=None):
         pass

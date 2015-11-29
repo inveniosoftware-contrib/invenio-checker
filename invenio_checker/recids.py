@@ -29,7 +29,7 @@ from intbitset import intbitset  # pylint: disable=no-name-in-module
 from .common import ALL
 
 
-def ids_from_input(ids_input, all_repr=ALL):
+def ids_from_input(ids_input):
     """Return the list of IDs to check for from user-input.
 
     :param ids_input: Comma-separated list of requested record IDs.
@@ -42,7 +42,8 @@ def ids_from_input(ids_input, all_repr=ALL):
     :raises:  ValueError
     """
     if ALL in ids_input.split(','):
-        return all_repr
+        from invenio_checker.common import ALL
+        return ALL
     else:
         from invenio_utils.shell import split_cli_ids_arg
         return intbitset(split_cli_ids_arg(ids_input), sanity_checks=True)

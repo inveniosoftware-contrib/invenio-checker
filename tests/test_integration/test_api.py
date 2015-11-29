@@ -241,7 +241,7 @@ class TestApi(CheckerTestCase):
     def create_records(self, rng):
         """Place records with specific IDs to the database."""
         from invenio_records.api import Record as Rec
-        from invenio_records.models import Record, RecordMetadata
+        from invenio_records.models import Record
 
         for i in rng:
             rec = Record(id=i)
@@ -613,7 +613,7 @@ class TestApi(CheckerTestCase):
 
         with patch('invenio_checker.models.CheckerRule.filepath', filepath_without_class):
             with patch('invenio_checker.models.Query', Query):
-                with patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
+                with patch('invenio_checker.conftest.conftest_checker._worker_conflicts_with_currently_running',
                            side_effect=conflict_yielder()):
                     task_id = run_task(task_data['name'])
 
@@ -640,7 +640,7 @@ class TestApi(CheckerTestCase):
 
         with patch('invenio_checker.models.CheckerRule.filepath', filepath_without_any_record_fetching_fixture):
             with patch('invenio_checker.models.Query', Query):
-                with patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
+                with patch('invenio_checker.conftest.conftest_checker._worker_conflicts_with_currently_running',
                            side_effect=m_worker_conflicts_with_currently_running):
                     task_id = run_task(task_data['name'])
 
@@ -672,7 +672,7 @@ class TestApi(CheckerTestCase):
         with patch('invenio_checker.models.CheckerRule.filepath', filepath_without_class):
             with patch('invenio_checker.models.Query', Query):
                 with patch('invenio_checker.models.CheckerReporter.module', reporterA):
-                    with patch('invenio_checker.conftest.conftest2._worker_conflicts_with_currently_running',
+                    with patch('invenio_checker.conftest.conftest_checker._worker_conflicts_with_currently_running',
                                conflict_resolver):
                         task_id = run_task(task_data['name'])
 
@@ -692,7 +692,7 @@ class TestApi(CheckerTestCase):
         )
 
     # AFTERWARDS, we test failure
-    def test_0106_run_fails_when_file_is_missing(self):
+    def test_0106_run_does_not_start_when_file_is_missing(self):
         """
         ..note::
             It shouldn't be necessary to have records for this to fail but
@@ -710,17 +710,8 @@ class TestApi(CheckerTestCase):
         # ..whose check file is absent
         with patch('invenio_checker.models.CheckerRule.filepath', None):
             with patch('invenio_checker.models.Query', Query):
-                task_id = run_task(task_data['name'])
-
-        # TODO Use this elsewhere too?
-        try:
-            Query.assert_called_once_with(task_data['filter_pattern'])
-        except KeyError:
-            pass
-
-        # Ensure that it failed
-        execution = CheckerRuleExecution.query.filter(CheckerRuleExecution.uuid == task_id).one()
-        assert execution.status == StatusMaster.failed
+                with pytest.raises(Exception):
+                    task_id = run_task(task_data['name'])
 
     def test_0107_run_calls_reporters_when_there_is_exception(self):
         from invenio_checker.clients.master import StatusMaster

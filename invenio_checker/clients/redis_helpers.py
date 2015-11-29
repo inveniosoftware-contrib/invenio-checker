@@ -29,23 +29,18 @@ from celery.task.control import inspect  # pylint: disable=no-name-in-module, im
 from six import string_types
 from functools import wraps, partial
 from redlock import RedLock
+from invenio_base.globals import cfg
 
 _prefix = 'invenio_checker'
 prefix_master = _prefix + ':master:{uuid}'
 prefix_worker = _prefix + ':worker:{uuid}'
 
-# Generic
-lock_last_key = prefix_worker + ':examine_lock'
-
 # Common
 client_eliot_task_id = _prefix + ':{uuid}:eliot_task_id'
 client_patches = _prefix + ':patches:{uuid}:{recid}:{record_hash}' # patch
 
-
-# config['CACHE_REDIS_URL']  # FIXME
-redis_uri_string = 'redis://localhost:6379/1'
-
 def get_lock_partial(identifier, conn):
+    """Return partial for easily getting the lock."""
     return partial(
         RedLock,
         identifier,
@@ -75,7 +70,7 @@ def get_all_tasks_in_celery(tries=3):
 
 def get_redis_conn():
     """Return a connection to redis."""
-    return redis.StrictRedis.from_url(redis_uri_string)
+    return redis.StrictRedis.from_url(cfg['CHECKER_REDIS_URI'])
 
 def _get_all_masters(conn):
     """Return all masters found in redis.
@@ -117,6 +112,10 @@ def get_workers_in_redis():
 
 
 def cleanup_failed_runs():
+    """Cleanup workers in redis that no longer exist in celery.
+
+    XXX Not in use at this point.
+    """
     all_tasks_in_celery = get_all_tasks_in_celery()
     for worker in get_workers_in_redis():
         if not worker.in_celery(all_tasks_in_celery):
@@ -155,8 +154,8 @@ class PleasePylint(object):
             self.task_id = None
 
 
-class SetterProperty(object):
-    """Setter for a property with not getter."""
+class SetterProperty(object):  # pylint: disable=too-few-public-methods
+    """Setter for a property without needing to define a getter."""
 
     def __init__(self, func, doc=None):
         self.func = func
@@ -167,26 +166,33 @@ class SetterProperty(object):
 
 
 class RedisClient(PleasePylint):
+    """Base class for `RedisMaster` and `RedisWorker`."""
+
     def __init__(self, uuid):
         """Initialize a lock handle for a certain client."""
         self.conn = get_redis_conn()
         self.uuid = uuid
 
     def create(self, eliot_task_id):
+        """Store the eliot task ID so that we can log to the right file."""
         self.eliot_task_id = eliot_task_id
 
     @property
     @set_identifier(client_eliot_task_id)
     def eliot_task_id(self):
+        """Get the eliot task ID of this client."""
         return self.conn.get(self._identifier)
 
     @eliot_task_id.setter
     @set_identifier(client_eliot_task_id)
     def eliot_task_id(self, new_id):
+        """Set the eliot task ID of this client."""
         return self.conn.set(self._identifier, new_id)
 
     def fmt(self, string):  # pylint: disable=method-hidden
         """Format a redis string with the current master_id.
+
+        This is useful for easily getting a correct redis key for this client.
 
         :type string: str
         """
@@ -218,12 +224,19 @@ class RedisClient(PleasePylint):
     def __ne__(self, other):
         """Compare with other clients in a rich manner.
 
+        ..note::
+            This takes advantage of `__eq__` above.
+
         :type other: str or RedisClient
         """
         return not self == other
 
     def __hash__(self):
-        """Return the hash of this client's UUID."""
+        """Return a hash for this client. The UUID is already unique enough.
+
+        ..note::
+            necessary for `__eq__` and `__ne__`..
+        """
         return hash(self.uuid)
 
     def __repr__(self):

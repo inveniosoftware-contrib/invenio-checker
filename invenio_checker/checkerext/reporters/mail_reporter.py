@@ -23,14 +23,13 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 
 from invenio_ext.email import send_email
-from invenio_checker.models import CheckerReporter, CheckerRule
-from sqlalchemy.orm.exc import NoResultFound
 from invenio_base.config import CFG_SITE_ADMIN_EMAIL
 from enum import Enum
 
 argument_schema = {
     'send_email': {'type': 'choice', 'values': ['always', 'never', 'on_failure'], 'label': 'Send email'}
 }
+
 
 class SendEmail(Enum):
     on_failure = 0
@@ -39,23 +38,34 @@ class SendEmail(Enum):
 
 
 class MailReporter(object):
+
+    # FIXME: This should not send one e-mail per issue.
+
     def __init__(self, db_entry, execution):
         self.reporter = db_entry
         self.rule_name = db_entry.rule.name
         self.email = execution.owner.email
-        self.settings = self.reporter.arguments
+        self.send_email = self.reporter.arguments['send_email']
 
-    def report_exception(self, when, outrep_summary, location_tuple, formatted_exception=None, patches=None):
-        send_email(CFG_SITE_ADMIN_EMAIL,
-                   self.email,
-                   "CHECKER EXCEPTION - rule: %s raised exception" % (self.reporter.rule_name,),
-                   "%s\n %s\n %s\n %s" % (when, outrep_summary, location_tuple, formatted_exception))
+    def report_exception(self, when, outrep_summary, location_tuple,
+                         formatted_exception=None, patches=None):
+        if self.send_email in (SendEmail.always, SendEmail.on_failure):
+            send_email(
+                CFG_SITE_ADMIN_EMAIL, self.email,
+                "CHECKER EXCEPTION - rule: %s raised exception" %
+                (self.reporter.rule_name,),
+                "%s\n %s\n %s\n %s\n %s" % (when, outrep_summary,
+                                            location_tuple,
+                                            formatted_exception, patches)
+            )
 
     def report(self, user_readable_msg, location_tuple=None):
-        send_email(CFG_SITE_ADMIN_EMAIL,
-                   self.email,
-                   "CHECKER LOG - rule: %s logging" % (self.reporter.rule_name,),
-                   "%s\n %s" % (user_readable_msg, location_tuple))
+        if self.send_email in (SendEmail.always,):
+            send_email(
+                CFG_SITE_ADMIN_EMAIL, self.email,
+                "CHECKER LOG - rule: %s logging" % (self.reporter.rule_name,),
+                "%s\n %s" % (user_readable_msg, location_tuple)
+            )
 
     def finalize(self):
         pass

@@ -26,25 +26,24 @@ import signal
 from intbitset import intbitset  # pylint: disable=no-name-in-module
 from .redis_helpers import (
     RedisClient,
-    get_redis_conn,
     prefix_master,
     PleasePylint,
     set_identifier,
     SetterProperty,
 )
 from warnings import warn
-from invenio_checker.enums import StatusMaster, StatusWorker
+from invenio_checker.enums import StatusMaster
 
-from invenio.ext.sqlalchemy import db  # pylint: disable=no-name-in-module
+from invenio_ext.sqlalchemy import db  # pylint: disable=no-name-in-module
 
-# Master
+# Master keys in redis
 master_all_recids = prefix_master + ':all_recids'
 master_status = prefix_master + ':status'
 master_rule_name = prefix_master + ':rule_name'
 master_workers = prefix_master + ':workers'
 
 
-# References
+# References to all master keys for cleanup/introspection purposes
 keys_master = {
     master_workers,
     master_all_recids,
@@ -148,7 +147,7 @@ class HasStatusMaster(PleasePylint):
 
 
 class HasRule(PleasePylint):
-    """Gives master knowledge about the rule it's assigned."""
+    """Gives master knowledge about the rule it's assigned to."""
 
     @property
     @set_identifier(master_rule_name)
@@ -182,7 +181,7 @@ class RedisMaster(RedisClient, HasRule, HasWorkers, HasAllRecids, HasStatusMaste
         from invenio_records.models import Record
         self = cls(master_id)
         self.status = StatusMaster.booting
-        self.all_recids = Record.allids()  # create is a good time for this.
+        self.all_recids = Record.allids()  # `create` is a good time for this.
         self._rule_name = rule_name
         super(RedisMaster, self).create(eliot_task_id)
         return self

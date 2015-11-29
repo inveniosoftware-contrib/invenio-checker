@@ -25,7 +25,8 @@
 from enum import Enum
 
 
-class StatusWorker(Enum):
+class StatusWorker(Enum):  # pylint: disable=too-few-public-methods
+    """Statuses a RedisWorker can be in."""
     dead_parrot = 0  # canary value
     scheduled = 1
     booting = 2
@@ -36,7 +37,8 @@ class StatusWorker(Enum):
     committed = 7
 
 
-class StatusMaster(Enum):
+class StatusMaster(Enum):  # pylint: disable=too-few-public-methods
+    """Statuses a RedisMaster can be in."""
     unknown = 0
     booting = 1
     running = 2

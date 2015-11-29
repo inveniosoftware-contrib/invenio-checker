@@ -31,9 +31,15 @@ from invenio_base.wrappers import lazy_import
 CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 CheckerReporter = lazy_import('invenio_checker.models.CheckerReporter')
 
+
 def create_task(arguments, add=True, commit=True):
-    """
-    :param options: kwargs to pass to the database model
+    """Create a new checker task.
+
+    :param arguments: kwargs to pass to the database model
+    :param add: add new task to sqlalchemy session
+    :param commit: commit new task to sqlalchemy session
+
+    :returns: new task
     """
     new_task = CheckerRule(**arguments)
     if add:
@@ -44,6 +50,14 @@ def create_task(arguments, add=True, commit=True):
     return new_task
 
 def create_reporter(arguments, add=True, commit=True):
+    """Create a new checker reporter.
+
+    :param arguments: kwargs to pass to the database model
+    :param add: add new reporter to sqlalchemy session
+    :param commit: commit new reporter to sqlalchemy session
+
+    :returns: new task
+    """
     new_reporter = CheckerReporter(**arguments)
     if add:
         db.session.add(new_reporter)
@@ -52,6 +66,13 @@ def create_reporter(arguments, add=True, commit=True):
     return new_reporter
 
 def remove_reporter(reporter, commit=True):
+    """Remove a checker reporter from the database.
+
+    :param reporter: reporter to remove
+    :type reporter: invenio_checker.models.CheckerReporter
+
+    :param commit: commit deletion of the reporter
+    """
     db.session.delete(reporter)
     if commit:
         db.session.commit()
@@ -60,6 +81,7 @@ def edit_reporter(reporter, modifications, commit=True):
     """
     :param repoter: invenio_checker.models.CheckerReporter
     :param modifications: modifications to update the database with
+    :param commit: commit modifications to the database
     """
     for key, value in modifications.iteritems():
         setattr(reporter, key, value)
@@ -69,9 +91,11 @@ def edit_reporter(reporter, modifications, commit=True):
     return reporter
 
 def edit_task(current_task_name, modifications, commit=True):
-    """
+    """Edit a task by intersecting it with given modifications.
+
     :param current_task_name: name targeted task currently has
     :param modifications: modifications to update the database with
+    :param commit: commit modifications to the database
     """
     task = CheckerRule.query.filter(CheckerRule.name == current_task_name).one()
     for key, value in modifications.iteritems():
@@ -82,8 +106,9 @@ def edit_task(current_task_name, modifications, commit=True):
     return task
 
 def delete_task(task_name):
-    """
-    :param task_name: name of task to delete
+    """Delete a task from the database.
+
+    :param task_name: name of checker task to delete
     """
     task = CheckerRule.query.filter(CheckerRule.name == task_name).one()
     try:
@@ -94,14 +119,17 @@ def delete_task(task_name):
         raise
 
 def run_task(task_name, dry_run=False):
-    """
+    """Run an existing task.
+
     :param task_name: name of task to delete
+    :param dry_run: disable committing and reporting during executiong
     """
     from invenio_checker.clients.supervisor import run_task
     return run_task(task_name, dry_run=dry_run)
 
 def import_task_from_json_file(json_file):
-    """
+    """Import checker tasks from a json file.
+
     :param json_file: file path of json file to import from
     """
     db_objs = json2models(json_file, 'CheckerRule')
@@ -112,6 +140,13 @@ def import_task_from_json_file(json_file):
         raise
 
 def branch_task(current_task_name, modifications, add=True, commit=True):
+    """Create a checker task by using an existing one as a template.
+
+    :param current_task_name: name of task to use as template
+    :param modifications: changes to apply on the `current_tasks` settings
+    :param add: add new reporter to sqlalchemy session
+    :param commit: commit new reporter to sqlalchemy session
+    """
     _task = CheckerRule.query.filter(CheckerRule.name == current_task_name).one()
     clone = _copy_row(_task)
     for key, value in modifications.iteritems():
@@ -127,6 +162,10 @@ def branch_task(current_task_name, modifications, add=True, commit=True):
     return clone
 
 def _copy_row(row, ignored_columns=frozenset()):
+    """Copy a given database row.
+
+    :param ignored_columns: column names to not copy
+    """
     copy = row.__class__()
 
     for col in row.__table__.columns:

@@ -24,10 +24,7 @@
 
 """Registry for checker module."""
 
-from six import reraise
 import os
-import sys
-import inspect
 from flask.ext.registry import (
     PkgResourcesDirDiscoveryRegistry as FlaskPkgResourcesDirDiscoveryRegistry,
     ModuleAutoDiscoveryRegistry,
@@ -35,30 +32,27 @@ from flask.ext.registry import (
     RegistryError,
 )
 
-from invenio.ext.registry import (
-    DictModuleAutoDiscoverySubRegistry,
-)
-from invenio.utils.datastructures import LazyDict
+from invenio_ext.registry import DictModuleAutoDiscoverySubRegistry
+from invenio_utils.datastructures import LazyDict
 
-def _valuegetter(class_or_module, registry_name):
-    plugin_name = class_or_module.__name__.split('.')[-1]
+def _valuegetter(module):
+    plugin_name = module.__name__.split('.')[-1]
     if plugin_name == '__init__':
-        # Ignore __init__ modules.
         return None
-    return class_or_module
+    return module
 
 
 class CheckerPluginRegistry(DictModuleAutoDiscoverySubRegistry):
     def keygetter(self, key, orig_value, class_):
         return orig_value.__name__
 
-    def valuegetter(self, class_or_module):
-        return _valuegetter(class_or_module, "plugin")
+    def valuegetter(self, module):
+        return _valuegetter(module)
 
 
 class CheckerReporterRegistry(CheckerPluginRegistry):
-    def valuegetter(self, class_or_module):
-        return _valuegetter(class_or_module, "reporter")
+    def valuegetter(self, module):
+        return _valuegetter(module)
 
 
 class PkgResourcesDirDiscoveryRegistry(FlaskPkgResourcesDirDiscoveryRegistry):

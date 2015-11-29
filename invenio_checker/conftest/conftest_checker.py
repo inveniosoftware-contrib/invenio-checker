@@ -543,6 +543,10 @@ def _pytest_exception_interact(node, call, report):
 ################################################################################
 
 def load_reporters(invenio_rule, execution):
+    """
+    ..note::
+        Calling `get_reporter` on the module also runs any initialization code.
+    """
     from invenio_checker.models import get_reporter_db
     all_reporters = []
     for reporter in invenio_rule.reporters:
@@ -554,8 +558,17 @@ def load_reporters(invenio_rule, execution):
 
 @eliotify
 def report_log(reporters, user_readable_msg, location_tuple):
+    """Dispatch a log to the reporters.
+
+    :param reporters: reporter classes to call
+    :param user_readable_msg: message to log
+    :param location_tuple: object that contains the like that made the call
+
+    :type location_tuple: LocationTuple
+    """
     # Log to eliot
-    Message.log(message_type="check log", msg=user_readable_msg, location=location_tuple)
+    Message.log(message_type="check log", msg=user_readable_msg,
+                location=location_tuple)
     # Log to reporters
     if Session.config.option.invenio_execution.should_report_logs:
         for reporter in reporters:
@@ -563,11 +576,25 @@ def report_log(reporters, user_readable_msg, location_tuple):
 
 def report_exception(reporters, when, outrep_summary,
                      location_tuple, formatted_exception, patches=None):
+    """Dispatch an exception to the reporters
+
+    :param reporters: reporter classes to call
+    :param when: one of ('collect', 'setup', 'call', 'teardown')
+    :param outrep_summary: summary of the exception
+    :param formatted_exception: string-formatted exception
+    :param location_tuple: object that contains the like that made the call
+
+    :type location_tuple: LocationTuple
+    """
     if Session.config.option.invenio_execution.should_report_exceptions:
         for reporter in reporters:
             reporter.report_exception(when, outrep_summary, location_tuple,
                                       formatted_exception, patches=patches)
 
 def finalize_reporters(reporters):
+    """Call the finalization method on all reporters.
+
+    :param reporters: reporter classes to call
+    """
     for reporter in reporters:
         reporter.finalize()

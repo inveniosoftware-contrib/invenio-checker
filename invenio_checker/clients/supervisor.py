@@ -33,6 +33,7 @@ from celery import chord, uuid
 from invenio_celery import celery
 from invenio_base.helpers import with_app_context
 from functools import partial
+from intbitset import intbitset  # pylint: disable=no-name-in-module
 
 from .master import RedisMaster, StatusMaster
 from .worker import RedisWorker, StatusWorker
@@ -75,21 +76,10 @@ CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 CheckerRuleExecution = lazy_import('invenio_checker.models.CheckerRuleExecution')
 
 this_file_dir = os.path.dirname(os.path.realpath(__file__))
-conftest_ini = os.path.join(this_file_dir, '..', 'conftest', 'conftest2.ini')
-
-# from sqlalchemy.orm import sessionmaker
-# import sqlalchemy
-# from celery.signals import worker_init
-# @worker_init.connect
-# def initialize_session(sender, signal):
-#     """Use a different session when in a worker."""
-#     session = sqlalchemy.orm.scoped_session(sessionmaker())
-#     session.configure(bind=db.engine)
-#     db.session = session
-# initialize_session(1, 2)
+conftest_ini = os.path.join(this_file_dir, '..', 'conftest', 'conftest_checker.ini')
 
 def _chunks(list_, size):
-    """Yield successive size-sized chunks from list_."""
+    """Yield successive `size`-sized chunks from `list_`."""
     list_ = list(list_)
     if size == 0:
         yield []
@@ -100,8 +90,9 @@ def _chunks(list_, size):
 def chunk_recids(recids, max_chunks=10, max_chunk_size=1000000):
     """Put given items into chunks that meet given conditions.
 
+    :type recids: set
     :type max_chunks: int
-    :type requested_recids: set
+    :type max_chunk_size: int
     """
     if not recids:
         return []
@@ -119,16 +110,35 @@ def chunk_recids(recids, max_chunks=10, max_chunk_size=1000000):
     return _chunks(recids, chunk_size)
 
 def run_task(task_name, owner=None, dry_run=False):
-    # Fail as early as possible if it's missing
+    """Run a single task.
+
+    This acts as a fail-early safeguard before control is handed over to celery
+    and initializes the CheckerRuleExecution that will be used.
+
+    :attr owner: Assign an owner to this task over the one in the database.
+    :type owner: `invenio_accounts.models.User`
+
+    :attr dry_run: Whether to enable `dry_run` for this execution.
+    """
+    # Fail as early as possible if the rule is missing.
     try:
-        CheckerRule.query.filter(CheckerRule.name == task_name).one()
+        rule = CheckerRule.query.filter(CheckerRule.name == task_name).one()
     except NoResultFound as e:
         e.args = ('Requested task `{}` not found in the database'
                   .format(task_name),)
         raise
 
+    # Ensure test file is present. If we don't check now and pytest returns
+    # EXIT_NOTESTSCOLLECTED then it will be ambiguous whether no tests were
+    # collected because of the file is missing, or because no function was
+    # found inside it.
+    if not rule.filepath:
+        raise Exception('Check file is missing for {}'.format(rule.plugin))
+
     master_id = uuid()
-    # Try to use the currently logged in user as the owner.
+    # Try to use the currently logged in user as the owner if none specified,
+    # otherwise assign this to admin (no user logged in, ie running form
+    # terminal)
     if owner is None:
         cur_user_id = current_user.get_id()
         owner = User.query.get(cur_user_id)
@@ -150,80 +160,80 @@ def run_task(task_name, owner=None, dry_run=False):
         db.session.rollback()
         raise
 
-    _run_task.apply_async(args=(task_name, master_id),
-                          task_id=master_id)
+    # Don't try to pass non-serializable objects here.
+    _run_task.apply_async(args=(task_name, master_id), task_id=master_id)
     return master_id
 
 @celery.task()
 def _run_task(rule_name, master_id):
-    # cleanup_failed_runs()
 
+    # # If you find yourself debugging celery crashes:
     # redis_master = None
     # def cleanup_session():
-    #     # FIXME
     #     if redis_master is not None:
     #         redis_master.zap()
-
     # def sigint_hook(rcv_signal, frame):
     #     cleanup_session()
-
     # def except_hook(type_, value, tback):
     #     cleanup_session()
     #     reraise(type_, value, tback)
-
     # signal.signal(signal.SIGINT, sigint_hook)
     # signal.signal(signal.SIGTERM, sigint_hook)
     # sys.excepthook = except_hook
 
-    from eliot import Logger
     clear_logger_destinations(Logger)
     to_file(get_eliot_log_file(master_id=master_id))
     with start_task(action_type="invenio_checker:supervisor:_run_task",
                     master_id=master_id) as eliot_task:
         eliot_task_id = eliot_task.serialize_task_id()
 
-        # Create master
+        # Have the master initialize its presence in redis.
         Message.log(message_type='creating master')
         redis_master = RedisMaster.create(master_id, eliot_task_id, rule_name)
 
-        # Load rule
-        rule = CheckerRule.from_ids((rule_name,)).pop()
+        # Load the rule from its name. `run_task` has already checked that it's
+        # there.
+        rule = CheckerRule.query.filter(CheckerRule.name == rule_name).one()
         Message.log(message_type='loaded rule', rule_name=rule.name)
 
-        # Ensure test file is present
-        if not rule.filepath:
-            redis_master.status = StatusMaster.failed
-            raise Exception('check file is missing for {}'.format(rule.plugin))
-
-        # Create workers
+        # Create workers to attach to this master. `record_centric` means that
+        # the task uses the `record` fixture, which causes pytest to loop over
+        # it len(chunk_recids) times. This is important to know now so that we
+        # will spawn multiple workers.
         subtasks = []
         record_centric = _get_record_fixture_presence(rule.filepath)
 
         if record_centric:
-            if rule.allow_chunking:  # XXX unclear name (run_in_parallel)
+            # We wish to spawn multiple workers to split the load.
+            if rule.allow_chunking:
                 recid_chunks = tuple(chunk_recids(rule.modified_requested_recids))
             else:
                 recid_chunks = (rule.modified_requested_recids,)
             Message.log(message_type='creating subtasks', count=len(recid_chunks),
                         mode='record_centric', recid_count=len(rule.modified_requested_recids))
         else:
+            # We wish to spawn just one worker than will run the check function
+            # once.
             recid_chunks = (set(),)
             Message.log(message_type='creating subtasks', count=1,
                         mode='not_record_centric')
 
+        # Create the subtasks based on the decisions taken above and inform the
+        # master of its associations with these new workers/tasks.
         for chunk in recid_chunks:
             task_id = uuid()
-            # Must tell the master first so that the worker can detect it
             redis_master.workers_append(task_id)
             subtasks.append(create_celery_task(task_id, redis_master.master_id,
                                                rule, chunk, eliot_task))
 
         if not subtasks:
-            # In record-centric, there's the chance that no records matched
+            # Note that if `record-centric` is True, there's the chance that no
+            # records matched our query. This does not imply a problem.
             redis_master.status = StatusMaster.completed
         else:
             redis_master.status = StatusMaster.running
-            # FIXME: handle_all_completion should be called after the CALLBACKS!
+            # FIXME: handle_all_completion should be called after the callbacks
+            # of all workers have completed.
             callback = handle_all_completion.subtask()
             chord(subtasks)(callback)
 
@@ -237,6 +247,21 @@ def create_celery_task(task_id, master_id, rule, chunk, eliot_task):
         link=[handle_worker_completion.s()],
         link_error=[handle_worker_error.s()],
     )
+
+def _get_record_fixture_presence(check_file):
+    """Use a specialized conftest file to figure out whether the `record`
+    fixture is used in this check file.
+
+    ..note::
+        The only output from pytest will ever be its return value. We abuse
+        that for our purposes.
+    """
+    retval = pytest.main(
+        args=['-s',
+              '-p','invenio_checker.conftest.conftest_record_fixture_presence',
+              '-c', conftest_ini,
+              check_file])
+    return not retval == EXIT_INTERNALERROR
 
 def elioterize(action_type, master_id=None, worker_id=None):
     """Eliot action continuer that can log to either worker or master."""
@@ -253,7 +278,13 @@ def elioterize(action_type, master_id=None, worker_id=None):
 
 @celery.task
 def handle_worker_completion(task_id):
-    """Commit patches.
+    """Commit patches at the completion of a single worker.
+
+    If `rule.confirm_hash_on_commit` is enabled then only records whose hash
+    has not changed in the meantime are committed.
+
+    ..note::
+        currently `CheckerRuleExecution.should_commit` depends on `dry_run`.
 
     :type task_id: str
     :param task_id: task_id as returned by `run_test`
@@ -264,39 +295,40 @@ def handle_worker_completion(task_id):
         should_commit = worker.master.get_execution().should_commit
         Message.log(message_type='commit decision', commit=should_commit)
 
+        recids_we_comitted_changes_to = intbitset()
         if should_commit:
-            patches_count = 0
-            # with db.session.begin_nested():
             for recid, patches in worker.all_patches.items():
+                # recid: record ID
+                # patches: patches for this record ID
                 record = get_record_orig(recid)
 
                 first_patch = True
-                hash_changed = False
                 for patch in patches:
 
-                    if hash_changed:
-                        Message.log(message_type='skipping record',
-                                    recid=record['id'], worker_id=task_id)
-                        break
-
+                    # The record hash is bound to change once we've applied the
+                    # first hash, not to mention there is no reason to check
+                    # twice.
                     if first_patch:
                         first_patch = False
                         if worker.master.rule.confirm_hash_on_commit:
                             if hash(record) != patch['hash']:
-                                hash_changed = True
+                                Message.log(message_type='skipping record',
+                                            recid=record['id'],
+                                            worker_id=task_id)
+                                break  # No commits for this record, kthx.
 
+                    recids_we_comitted_changes_to += recid
                     jsonpatch.apply_patch(record, patch, in_place=True)
                     record.commit()
-                    patches_count += 1
-            Message.log(message_type='committing complete', patches_count=patches_count)
-            # FIXME only mark the ones we committed
-            worker.master.rule.mark_recids_as_checked(worker.bundle_requested_recids)
+            Message.log(message_type='committing complete',
+                        patches_count=len(recids_we_comitted_changes_to))
+            worker.master.rule.mark_recids_as_checked(recids_we_comitted_changes_to)
             db.session.commit()
         worker.status = StatusWorker.committed
 
 @celery.task
 def handle_all_completion(worker_ids):
-    # pytest.set_trace()
+    """Mark execution as completed once all workers have reporter success."""
     master = RedisWorker(worker_ids[0]).master
     with elioterize("handle_task_completion", master_id=master.uuid):
         master.status = StatusMaster.completed
@@ -311,7 +343,6 @@ def handle_worker_error(failed_task_id):
     :param failed_task_id: The UUID of the task that failed.
     :type failed_task_id: str
     """
-    # pytest.set_trace()
     with elioterize("handle_worker_error", worker_id=failed_task_id):
         redis_worker = RedisWorker(failed_task_id)
         redis_worker.status = StatusWorker.failed
@@ -319,47 +350,44 @@ def handle_worker_error(failed_task_id):
 
 
 class CustomRetry(Exception):
-    times_retried = 0
 
-    def __init__(self, reason, last_run_still_valid, countdown=None):
+    """Exception for getting `run_test` to retry after some time.
+
+    This exists because of celery/celery#2560 which demands that there is an
+    exception passed to `.retry()`.
+    """
+
+    times_retried = 0  # Mostly here for simpler testing
+
+    def __init__(self, reason, countdown=None):
         """
         :param countdown: retry countdown in seconds, if needs overriding
         :type countdown: int
         """
         super(CustomRetry, self).__init__(reason)
         self.countdown = countdown
-        self.last_run_still_valid = last_run_still_valid
         CustomRetry.times_retried += 1
-
-
-def _get_record_fixture_presence(check_file):
-    retval = pytest.main(
-        args=['-s',
-              '-p', 'invenio_checker.conftest.conftest_record_fixture_presence',
-              '-c', conftest_ini,
-              check_file])
-    return not retval == EXIT_INTERNALERROR
 
 
 @celery.task(bind=True, max_retries=None, default_retry_delay=5)
 @with_app_context()
-def run_test(self, check_file, master_id, retval=None):
+def run_test(self, check_file, master_id):
+    """Run a test. Main function of a worker."""
     task_id = self.request.id
     redis_worker = RedisWorker(task_id)
 
-    if retval is None:
-        redis_worker.status = StatusWorker.booting
-        # We set `-c` so that our environment does not affect the test run.
-        retval = pytest.main(
-            args=[
-                '--capture=no',
-                '--verbose',
-                '--tb=long',
-                '-p', 'invenio_checker.conftest.conftest2',  # early-load our plugin
-                '-c', conftest_ini,                          # config file
-                '--invenio-task-id', task_id,                # custom argument
-                check_file]
-        )
+    redis_worker.status = StatusWorker.booting
+    # We set `-c` so that our environment does not affect the test run.
+    retval = pytest.main(
+        args=[
+            '--capture=no',
+            '--verbose',
+            '--tb=long',
+            '-p', 'invenio_checker.conftest.conftest_checker',  # early-load our plugin
+            '-c', conftest_ini,                                 # config file
+            '--invenio-task-id', task_id,                       # custom argument
+            check_file]
+    )
 
     # If pytest exited for reason different than a failed check, then something
     # really did break
@@ -372,33 +400,27 @@ def run_test(self, check_file, master_id, retval=None):
 
     if retval in exit_test_failure:
         raise Exception("Some tests failed. Not committing to the database.")
-
-    if retval in exit_failure:
+    elif retval in exit_failure:
         raise Exception("Worker failed with {}.".format(retval))
 
     # Note that what we do to gracefully terminate pytest when there are
     # blockers is to clear all the collected items. This makes pytest return
     # EXIT_NOTESTSCOLLECTED.
+    # `retry_after_ids` holds the worker IDs that the worker found it to be
+    # blocking it from running in parallel with them.
     retry_after_ids = redis_worker.retry_after_ids
     if retval in exit_no_tests_collected:
         if not retry_after_ids:
             raise Exception("No tests collected. Does the specified check exist?")
 
-    # Q: What's with the exception madness here? There's no point.
-    # A: Always pass `exc != None` to `self.retry`, because `None` breaks
-    # cleanup of workers that are in retry queue (celery/celery#2560)
     try:
         if retry_after_ids:
             raise CustomRetry(
-                'Waiting for conflicting checks to finish before running: {}'.\
-                format(retry_after_ids), False)
+                'Waiting for conflicting workers to end before running: {}'.\
+                format(retry_after_ids))
     except CustomRetry as exc:
         if exc.countdown is not None:
             self.retry = partial(self.retry, countdown=exc.countdown)
-        if exc.last_run_still_valid:
-            self.request.kwargs['retval'] = retval
-        else:
-            self.request.kwargs['retval'] = self.request.kwargs.pop('retval', None)
         self.retry(exc=exc, kwargs=self.request.kwargs)
 
     redis_worker.status = StatusWorker.ran
@@ -407,10 +429,14 @@ def run_test(self, check_file, master_id, retval=None):
 
 @celery.task
 def beat():
+    """Run scheduled tasks.
+
+    This function is meant to be called by celery beat.
+    """
     CR = CheckerRule
     with get_lock_partial("invenio_checker:beat_lock", get_redis_conn())():
         scheduled_rules = CR.query.filter(CR.schedule_enabled == True,
-                                          CR.schedule != None).all()
+                                          CR.schedule != None)
         for rule in scheduled_rules:
             iterator = croniter(rule.schedule, rule.last_run)
             next_run = iterator.get_next(datetime)
@@ -418,7 +444,7 @@ def beat():
             if next_run <= now:
                 # Nobody is logged in, so we'll use the owner of the task
                 run_task(rule.name, owner=rule.owner)
-                rule.last_run = now
+                rule.last_scheduled_run = now
                 try:
                     db.session.add(rule)
                     db.session.commit()

@@ -32,6 +32,7 @@ from collections import defaultdict
 from functools import partial
 from itertools import chain
 from traceback import format_exc
+from datetime import datetime
 
 import six
 from croniter import croniter
@@ -63,7 +64,7 @@ CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 CheckerRuleExecution = \
     lazy_import('invenio_checker.models.CheckerRuleExecution')
 CheckerReporter = lazy_import('invenio_checker.models.CheckerReporter')
-default_date = lazy_import('invenio_checker.models.default_date')
+default_date = lazy_import('invenio_checker.models._default_date')
 ranges_str = lazy_import('invenio_checker.models.ranges_str')
 
 blueprint = Blueprint(
@@ -91,6 +92,7 @@ def get_NewTaskForm(*args, **kwargs):
             'Reporters',
             choices=[(reporter, reporter) for reporter in reporters_files],
         )
+        # XXX See nodes in models.py
         # consider_deleted_records = fields.BooleanField(
         #     'Consider deleted records',
         # )
@@ -122,7 +124,10 @@ def get_NewTaskForm(*args, **kwargs):
             'Allow chunking this task to multiple workers',
             default=True,
         )
-        # Hidden
+        # The ones below this line are hidden by javascript later. Using
+        # HiddenField here would make us lose validation in them. Perhaps a
+        # better way to do this is to use a custom field, but I do not wish to
+        # potentially compromise validation right now.
         schedule_enabled = fields.BooleanField(
             'Run this rule periodically',
         )
@@ -163,17 +168,6 @@ def index():
     """Redirect to the tasks view."""
     return redirect(url_for('.view', page_name='tasks'))
 
-@blueprint.route('/api/records/get')
-@login_required
-@permission_required(viewchecker.name)
-def record_brief():
-    """XXX Temporary function to showcase live search."""
-    from invenio_search.api import Query
-    records = Query(request.args['query']).search().records()[:5]
-    return ''.join(
-        render_template('format/record/Default_HTML_brief.tpl', record=i)
-        for i in records)
-
 @blueprint.route('/view/<page_name>')
 @login_required
 @permission_required(viewchecker.name)
@@ -212,21 +206,27 @@ def get_all_tasks_data():
 @permission_required(viewchecker.name)
 def get_single_task(task_name):
     """Return the data for a single task."""
-    return jsonify(get_task_data(CheckerRule.query.filter(CheckerRule.name==task_name).one()))
+    return jsonify(get_task_data(CheckerRule.query.filter(
+        CheckerRule.name == task_name).one()))
 
 def get_task_data(rule):
-    """Extract a serializable dict for a rule."""
+    """Extract a serializable dict for a rule.
+
+    The format is meant to be compatible with the watable javascript library.
+    """
     # Extract all the fields
     rule_d = rule.__dict__  # Work around inveniosoftware/invenio-ext#16
+    # Filter out underscored keys
     rule_d = {key: val for key, val in rule_d.items()
               if not key.startswith('_')}
     # Watable expects integers instead of booleans
     for key, val in rule_d.items():
         if isinstance(val, bool):
             rule_d[key] = int(val)
-    # Filter out underscored keys
-    rule_d = {key: val for key, val in rule_d.items()
-              if not key.startswith('_')}
+    # Watable expects UNIX time
+    for key, val in rule_d.items():
+        if isinstance(val, datetime):
+            rule_d[key] = int(val.strftime("%s"))
     # Serialize unserializable things
     rule_d['arguments'] = json.dumps(rule_d['arguments'], default=default_date)
     rule_d['filter_records'] = ranges_str(rule_d['filter_records'])
@@ -418,7 +418,7 @@ def get_ArgForm(plugin_name, *args, **kwargs):
 
 @blueprint.route('/api/task_create/submit', methods=['POST'])
 @login_required
-@permission_required(viewchecker.name)
+@permission_required(modifychecker.name)
 def submit_task():
     """Insert or modify an existing task and its reporters."""
     from invenio_checker.clients.supervisor import run_task

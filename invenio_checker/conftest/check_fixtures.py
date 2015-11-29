@@ -140,7 +140,7 @@ def log(request):
     :type request: :py:class:_pytest.python.SubRequest
     """
     def _log(user_readable_msg):
-        from .conftest2 import report_log
+        from .conftest_checker import report_log
         location_tuple = LocationTuple.from_report_location(request.node.reportinfo())
         report_log(request.config.option.invenio_reporters, user_readable_msg, location_tuple)
     return _log

@@ -24,17 +24,12 @@
 
 """Manage checker module."""
 
-import sys
-from functools import partial
+from functools import partial, wraps
 
-from functools import wraps, update_wrapper
-
-from .common import ALL
 from .recids import ids_from_input
-from .registry import plugin_files
-from .models import CheckerRule, CheckerRecord
+from .models import CheckerRule
 from invenio_base.factory import create_app
-from invenio.ext.script import Manager, change_command_name
+from invenio_ext.script import Manager, change_command_name
 from flask.ext.script import (  # pylint: disable=no-name-in-module,import-error
     Command,
     Option,
@@ -51,28 +46,7 @@ from .api import (
 
 manager = Manager(usage=__doc__)
 
-def interpret_dry_run(func):
-    """Resolve `dry_run` to variables understood by `run()`."""
-    @wraps(func)
-    def _dry_run(*args, **kwargs):
-        if 'dry_run' in kwargs:
-            if kwargs['dry_run']:
-                kwargs['upload'] = False
-                kwargs['tickets'] = False
-            del kwargs['dry_run']
-        return func(*args, **kwargs)
-    return _dry_run
-
-# def resolve_rules(func):
-#     """Resolve `rules` to list of Rules."""
-#     @wraps(func)
-#     def _resolve_rules(*args, **kwargs):
-#         kwargs['rules'] = CheckerRule.from_input(kwargs['rules'])
-#         return func(*args, **kwargs)
-#     return _resolve_rules
-
 # TODO: --force check regardless of timestamp
-# TODO: reporters
 
 Option = partial(Option, default=None)
 
@@ -92,15 +66,6 @@ opt_task_name = Option(
     '--task-name', '-n', dest='task_name',
     help='The task name'
 )
-
-# opt_no_reporters = Option(
-#     '--no-reporters', '-R', dest='reporters_enabled', action='store_true',
-#     help='Disable reporters'
-# )
-# opt_reports = Option(
-#     '--reports', '-r', dest='reports_disabled', action='store_false',
-#     help='Enable reporters'
-# )
 
 opt_dry_run = Option(
     '--dry-run', '-d', dest='dry_run', action='store_true',
@@ -162,11 +127,6 @@ opt_schedule_disable = Option(
     '--schedule-disable', '-s0', dest='schedule_enabled', action='store_false',
     help='Disable the schedule',
 )
-
-# opt_dry_run = Option( # TODO
-#     '--dry-run', '-d', action='store_true',
-#     help='Same as --no-reports --no-commit'
-# )
 
 
 class CreateTask(Command):
@@ -265,7 +225,6 @@ manager.add_command('delete-task', DeleteTask())
 
 class RunTask(Command):
 
-    # TODO: Dry run
     option_list = (
         opt_task_name_pos_multi,
         opt_dry_run,
@@ -286,9 +245,7 @@ class ShowTask(Command):
     )
 
     def run(self, task_name_pos_multi_maybe):
-        """
-        Displays (?) a rule.
-        """
+        """Displays one or all rules."""
         if not task_name_pos_multi_maybe:
             for rule in CheckerRule.query.all():
                 print rule
@@ -318,10 +275,3 @@ class ImportTask(Command):
 
 
 manager.add_command('import-task', ImportTask())
-
-
-# @change_command_name
-# def list_plugins():
-#     """List all rules (and any associated plug-ins) and exit."""
-#     # TODO (grouped by plugin, because they can be considered supersets)
-#     pass
