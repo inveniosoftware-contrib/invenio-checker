@@ -390,8 +390,9 @@ class RedisWorker(RedisClient, HasPatches, HasAllowedRecids, HasRetryAfterIds,
         """Zap this worker.
 
         This method is meant to be called from the master.
+
+        XXX Not in use
         """
-        # XXX This is silly. Should be done _on_own_failure
         self.status = StatusWorker.failed
         if self.result is not None:
             if not self.result.ready():

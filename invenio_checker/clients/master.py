@@ -200,6 +200,8 @@ class RedisMaster(RedisClient, HasRule, HasWorkers, HasAllRecids, HasStatusMaste
 
         This method is meant to be called by a SIGINT or exception handler from
         within the master process itself.
+
+        XXX Not in use
         """
         signal.signal(signal.SIGINT, lambda rcv_signal, frame: None)
         # Kill workers

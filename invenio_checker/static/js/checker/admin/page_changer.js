@@ -20,11 +20,13 @@
 define(
   [
     "jquery",
-    'flight/lib/component'
+    'flight/lib/component',
+    'hgn!js/checker/admin/templates/scheduler_disabled_warning'
   ],
   function(
     $,
-  defineComponent) {
+  defineComponent,
+  schedulerDisabledWarning) {
 
     "use strict";
 
@@ -48,6 +50,21 @@ define(
 
         // Data
       });
+
+      this.warnIfSchedulerDisabled = function() {
+      /*
+       * Call this only once.
+       */
+        $.ajax({
+          type: "GET",
+          url: "/admin/checker/scheduler_is_enabled",
+          success: function(data) {
+            if (data.enabled === false) {
+              $("#header-warnings").append(schedulerDisabledWarning());
+            }
+          }
+        });
+      };
 
       this.switchTo = function (ev, data) {
         /**
@@ -105,6 +122,7 @@ define(
 
       this.after('initialize', function() {
         this.on(document, "switchTo", this.switchTo);
+        this.warnIfSchedulerDisabled();
         console.log("js/checker/admin/page_changer loaded");
       });
 

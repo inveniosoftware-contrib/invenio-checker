@@ -102,5 +102,6 @@
     display: none;
 }
 
-.btn-toolbar {
+#header-warnings {
+    float: right;
 }

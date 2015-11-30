@@ -64,13 +64,6 @@ CheckerRule = lazy_import('invenio_checker.models.CheckerRule')
 CheckerRuleExecution = lazy_import('invenio_checker.models.CheckerRuleExecution')
 CheckerReporter = lazy_import('invenio_checker.models.CheckerReporter')
 
-# TODO: test mid-check changing of record hash
-# TODO: check beat runs only when it should
-# TODO: non-conflicting tests are allowed to run in parallel (non-integration)
-# TODO: test stale redis data
-# TODO: check performance hints that return bad values
-# TODO: def load_task_loads_from_json(self):
-
 conflict_check_count = 0
 CLEANUP_AT_END = False
 celery.conf['CELERY_ALWAYS_EAGER'] = True

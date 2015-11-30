@@ -502,6 +502,19 @@ def translate():
     from invenio_base.i18n import _
     return str(_(request.args['english']))
 
+@blueprint.route('/scheduler_is_enabled', methods=['GET'])
+@login_required
+@permission_required(viewchecker.name)
+def is_scheduler_enabled():
+    """Return whether the scheduler is enabled."""
+    from invenio_base.globals import cfg
+    try:
+        cfg['CELERYBEAT_SCHEDULE']['checker-beat']
+    except KeyError:
+        return jsonify({'enabled': False})
+    else:
+        return jsonify({'enabled': True})
+
 @blueprint.route('/api/task_run', methods=['GET'])
 @login_required
 @permission_required(modifychecker.name)

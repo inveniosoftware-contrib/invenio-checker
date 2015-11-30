@@ -31,10 +31,6 @@ sudo: true
 services:
     - redis-server
     - mysql
-    - elasticsearch
-
-before_script:
-  - sleep 10  # travis docs recommend this for elasticsearch
 
 language: python
 
@@ -48,9 +44,9 @@ env:
 
 python:
   - "2.7"
-    #- "3.3"
-    #- "3.4"
-    #- "3.5"
+  - "3.3"
+  - "3.4"
+  - "3.5"
 
 before_install:
   - "travis_retry pip install --upgrade pip setuptools py"
@@ -65,10 +61,6 @@ before_install:
 install:
   - "travis_retry pip install -r .travis-${REQUIREMENTS}-requirements.txt"
   - "travis_retry pip install -e .[all]"
-
-  - "inveniomanage database init --user=root --yes-i-know"
-  - "inveniomanage database create"
-  - "inveniomanage demosite populate --packages=invenio_demosite.base --yes-i-know"
 
 script:
   - "./run-tests.sh"
