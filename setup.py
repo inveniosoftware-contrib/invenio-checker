@@ -48,6 +48,7 @@ tests_require = [
 extras_require = {
     'docs': [
         "Sphinx>=1.3",
+        "Flask-BabelEx>=0.9.2",
     ],
     'tests': tests_require,
 }

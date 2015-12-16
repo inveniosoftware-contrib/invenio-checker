@@ -25,6 +25,5 @@
 API Docs
 ========
 
-invenio_checker
----------------
-
+.. automodule:: invenio_checker.api
+    :members:

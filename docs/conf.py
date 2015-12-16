@@ -25,6 +25,7 @@
 from __future__ import print_function
 
 import os
+import sys
 
 import sphinx.environment
 from docutils.utils import get_source_line
@@ -37,6 +38,8 @@ def _warn_node(self, msg, node):
 
 sphinx.environment.BuildEnvironment.warn_node = _warn_node
 
+print(os.path.abspath("../"))
+sys.path.insert(0, os.path.abspath("../"))
 
 # -- General configuration ------------------------------------------------
 
