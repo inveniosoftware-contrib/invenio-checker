@@ -1,0 +1,122 @@
+{#
+# This file is part of Invenio.
+# Copyright (C) 2015 CERN.
+#
+# Invenio is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# Invenio is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Invenio; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#}
+
+{% extends "page.html" %}
+
+{% block header %}
+    {{ super() }}
+    {% bundles "checker.css", "checker_task_view.js" %}
+{% endblock header %}
+
+{% block javascript %}
+ {{ super() }}
+ <script type="text/javascript">
+     require([
+         "js/checker/admin/flight_controls",
+         ], function(
+             initialize
+         ) {
+             initialize();
+             $(document).trigger("switchTo", {page_name: "{{page_name}}" });
+         });
+ </script>
+{% endblock javascript %}
+
+{% set title = _("Checker Admin") %}
+{% block title %}
+    <div class="page-header">
+        <div id="header-warnings"></div>
+        <h1>{{ title }} <small id='subtitle'></small></h1>
+    </div>
+{% endblock title %}
+
+{% block body %}
+
+{# Header #}
+<nav id="checker-navbar" class="navbar navbar-default">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+        <a class="navbar-brand" href="#">
+            <img alt="Checker" src="/admin/checker/static/img/logo.svg">
+        </a>
+    </div>
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+        <ul class="nav navbar-nav">
+        </ul>
+        <ul class="nav navbar-nav navbar-left">
+            <li><a href="{{url_for('.view', page_name='checks')}}" id='load_checks'>{{ _("Checks") }}</a></li>
+            <li><a href="{{url_for('.view', page_name='tasks')}}" id='load_tasks'>{{ _("Tasks") }}</a></li>
+            <li><a href="{{url_for('.view', page_name='executions')}}" id='load_logs'>{{ _("Executions") }}</a></li>
+        </ul>
+        <ul class="nav navbar-nav navbar-right">
+            <a href="{{url_for('.view', page_name='task_create')}}" type="button" class="btn btn-default navbar-btn" id="task_create">
+                {{ _("Create task") }}
+            </a>
+        </ul>
+
+    </div><!-- /.navbar-collapse -->
+</div><!-- /.container-fluid -->
+</nav>
+
+{# Tables #}
+<div class="switchable" id="table-container-checks"> </div>
+<div class="switchable" id="table-container-tasks"> </div>
+<div class="switchable" id="table-container-executions"> </div>
+
+{# Creation #}
+<div class="switchable" id="creation" class="panel panel-default">
+    {#
+    <div class="panel-heading">
+        <h3 class="panel-title">{{ _('Please enter the new task details') }}</h3>
+    </div>
+    #}
+    <div class="panel-body">
+
+        <div id="new-task-form"></div>
+
+        <div class="clearfix"></div>
+        <div id='matching-records'></div>
+
+    </div>
+</div>
+
+<div id="alerts"></div>
+
+{# Modal #}
+<div class="modal fade" id="dialogModal" tabindex="-1" role="dialog" aria-labelledby="dialogModalLabel">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title" id="myModalLabel">Executions</h4>
+            </div>
+            <div class="modal-body monospace">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">{{ _("Dismiss") }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock body %}

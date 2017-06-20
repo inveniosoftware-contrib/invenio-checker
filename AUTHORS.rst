@@ -21,29 +21,12 @@
     waive the privileges and immunities granted to it by virtue of its status
     as an Intergovernmental Organization or submit itself to any jurisdiction.
 
-=================
- Invenio-Checker
-=================
 
-.. image:: https://img.shields.io/travis/inveniosoftware/invenio-checker.svg
-        :target: https://travis-ci.org/inveniosoftware/invenio-checker
-
-.. image:: https://img.shields.io/coveralls/inveniosoftware/invenio-checker.svg
-        :target: https://coveralls.io/r/inveniosoftware/invenio-checker
-
-.. image:: https://img.shields.io/github/tag/inveniosoftware/invenio-checker.svg
-        :target: https://github.com/inveniosoftware/invenio-checker/releases
-
-.. image:: https://img.shields.io/pypi/dm/invenio-checker.svg
-        :target: https://pypi.python.org/pypi/invenio-checker
-
-.. image:: https://img.shields.io/github/license/inveniosoftware/invenio-checker.svg
-        :target: https://github.com/inveniosoftware/invenio-checker/blob/master/LICENSE
-
+Authors
+=======
 
 (Mostly) record-centric task runner with scheduling capabilities.
 
-*This is an experimental developer preview release.*
-
-* Free software: GPLv2 license
-* Documentation: https://pythonhosted.org/invenio-checker/
+- Dimitrios Semitsoglou-Tsiapos <dsemitso@cern.ch>
+- Wojciech Ziółek <wojciech.ziolek@cern.ch>
+- Ergys Dona <errikosd@gmail.com>

@@ -1,0 +1,107 @@
+/*
+ * This file is part of Invenio.
+ * Copyright (C) 2014 CERN.
+ *
+ * Invenio is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of the
+ * License, or (at your option) any later version.
+ *
+ * Invenio is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Invenio; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#header-row {
+    float: left;
+    width: 100%;
+    padding: 0 0 10px 0;
+}
+
+#table-container {
+    float: left;
+    width: 100%;
+}
+
+.watable.table * {
+    white-space: normal;
+}
+
+.watable.table {
+    width: 100%;
+}
+
+.monospace {
+    font-family: Monospace;
+    font-size: 10px;
+    white-space: pre;
+}
+
+.switchable {
+    display: none;
+}
+
+.validation-error {
+    display: none;
+}
+
+.submit-button-right {
+    float: right;
+    margin-left: 3px;
+    margin-right: 3px;
+}
+
+#cronexp {
+    padding-left: 15px;
+}
+
+#creation {
+    width:80%;
+    margin:auto;
+}
+
+.floater {
+    float: right;
+    opacity: 0.90;
+}
+
+.list-group-item .badge {
+    margin-left: 3px;
+    margin-top: -0.5px;
+    margin-bottom: -1px;
+    color: #777 !important;
+    background-color: #DDD !important;
+}
+
+.list-group-horizontal .list-group-item {
+	margin-bottom: 0;
+	margin-left: -4px;
+	margin-right: 0;
+	display: inline-block;
+    white-space: normal !important;
+    padding: 5px 8px 5px 8px !important;
+}
+
+.list-group-horizontal .list-group-item:first-child {
+	border-top-right-radius: 0;
+	border-bottom-left-radius: 4px;
+}
+
+.list-group-horizontal .list-group-item:last-child {
+	border-top-right-radius: 4px;
+	border-bottom-left-radius: 0;
+}
+
+/* Check/uncheck all items in watable. We don't support this right now. */
+.checkToggle {
+    display: none;
+}
+
+#header-warnings {
+    float: right;
+}
